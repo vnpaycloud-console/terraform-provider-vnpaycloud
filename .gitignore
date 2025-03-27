@@ -1,0 +1,4 @@
+.vscode
+token_input.txt
+terraform.tfstate
+terraform.tfstate.backup
