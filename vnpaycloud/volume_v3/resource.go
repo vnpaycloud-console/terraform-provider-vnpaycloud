@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"terraform-provider-vnpaycloud/common"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack"
-	"github.com/gophercloud/gophercloud/openstack/blockstorage/extensions/volumeactions"
-	"github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/vnpaycloud-console/gophercloud/v2"
+	"github.com/vnpaycloud-console/gophercloud/v2/openstack"
+	// "github.com/vnpaycloud-console/gophercloud/v2/openstack/blockstorage/extensions/volumeactions"
+	"github.com/vnpaycloud-console/gophercloud/v2/openstack/blockstorage/v3/volumes"
 )
 
 var (
@@ -287,44 +287,44 @@ func (r *volumeV3Resource) Update(ctx context.Context, req resource.UpdateReques
 		}
 	}
 
-	if !state.Size.Equal(plan.Size) {
-		if err := volumeactions.ExtendSize(
-			r.serviceClient,
-			state.Id.ValueString(),
-			volumeactions.ExtendSizeOpts{NewSize: int(plan.Size.ValueInt32())},
-		).ExtractErr(); err != nil {
-			resp.Diagnostics.AddError(
-				"Failed to Extend Volume Size",
-				fmt.Sprintf(
-					"An error occurred while trying to extend the volume size for ID '%s'. Current size: %d GB, Requested size: %d GB. Error: %v",
-					state.Id.ValueString(),
-					state.Size.ValueInt32(),
-					plan.Size.ValueInt32(),
-					err,
-				),
-			)
-			return
-		}
-	}
+	// if !state.Size.Equal(plan.Size) {
+	// 	if err := volumeactions.ExtendSize(
+	// 		r.serviceClient,
+	// 		state.Id.ValueString(),
+	// 		volumeactions.ExtendSizeOpts{NewSize: int(plan.Size.ValueInt32())},
+	// 	).ExtractErr(); err != nil {
+	// 		resp.Diagnostics.AddError(
+	// 			"Failed to Extend Volume Size",
+	// 			fmt.Sprintf(
+	// 				"An error occurred while trying to extend the volume size for ID '%s'. Current size: %d GB, Requested size: %d GB. Error: %v",
+	// 				state.Id.ValueString(),
+	// 				state.Size.ValueInt32(),
+	// 				plan.Size.ValueInt32(),
+	// 				err,
+	// 			),
+	// 		)
+	// 		return
+	// 	}
+	// }
 
-	if !state.VolumeType.Equal(plan.VolumeType) {
-		if err := volumeactions.ChangeType(
-			r.serviceClient,
-			state.Id.ValueString(),
-			volumeactions.ChangeTypeOpts{NewType: plan.VolumeType.ValueString()},
-		).ExtractErr(); err != nil {
-			resp.Diagnostics.AddError(
-				"Failed to Change Volume Type",
-				fmt.Sprintf(
-					"An error occurred while trying to change the volume type for ID '%s'. Current type: '%s', Requested type: '%s'. Error: %v",
-					state.Id.ValueString(),
-					state.VolumeType.ValueString(),
-					plan.VolumeType.ValueString(),
-					err,
-				),
-			)
-			return
-		}
-	}
+	// if !state.VolumeType.Equal(plan.VolumeType) {
+	// 	if err := volumeactions.ChangeType(
+	// 		r.serviceClient,
+	// 		state.Id.ValueString(),
+	// 		volumeactions.ChangeTypeOpts{NewType: plan.VolumeType.ValueString()},
+	// 	).ExtractErr(); err != nil {
+	// 		resp.Diagnostics.AddError(
+	// 			"Failed to Change Volume Type",
+	// 			fmt.Sprintf(
+	// 				"An error occurred while trying to change the volume type for ID '%s'. Current type: '%s', Requested type: '%s'. Error: %v",
+	// 				state.Id.ValueString(),
+	// 				state.VolumeType.ValueString(),
+	// 				plan.VolumeType.ValueString(),
+	// 				err,
+	// 			),
+	// 		)
+	// 		return
+	// 	}
+	// }
 
 }
