@@ -1,33 +1,23 @@
 package main
 
 import (
-	"context"
 	"flag"
-	"log"
+	"terraform-provider-vnpaycloud/vnpaycloud"
 
-	"terraform-provider-vnpaycloud/vnpaycloud/provider"
-
-	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 )
 
-var (
-	version string = "1.0.0"
-)
+const providerAddr = "registry.terraform.io/terraform-provider-vnpaycloud/vnpaycloud"
 
 func main() {
-	var debug bool
-
-	flag.BoolVar(&debug, "debug", false, "set to true to run the provider with support for debuggers like delve")
+	// added debugMode to enable debugging for provider per https://www.terraform.io/plugin/sdkv2/debugging
+	var debugMode bool
+	flag.BoolVar(&debugMode, "debug", false, "set to true to run the provider with support for debuggers like delve")
 	flag.Parse()
 
-	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/vnpaycloud/vnpaycloud",
-		Debug:   debug,
-	}
-
-	err := providerserver.Serve(context.Background(), provider.New(version), opts)
-
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+	plugin.Serve(&plugin.ServeOpts{
+		Debug:        debugMode,
+		ProviderAddr: providerAddr,
+		ProviderFunc: vnpaycloud.Provider,
+	})
 }
