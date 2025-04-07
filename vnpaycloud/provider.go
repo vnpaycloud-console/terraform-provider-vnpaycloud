@@ -5,15 +5,19 @@ import (
 	"os"
 	"runtime/debug"
 	applicationcredentials "terraform-provider-vnpaycloud/vnpaycloud/application-credential"
-	"terraform-provider-vnpaycloud/vnpaycloud/flavor"
 	"terraform-provider-vnpaycloud/vnpaycloud/floatingip"
+	"terraform-provider-vnpaycloud/vnpaycloud/flavor"
 	"terraform-provider-vnpaycloud/vnpaycloud/keypair"
+	"terraform-provider-vnpaycloud/vnpaycloud/port"
+	"terraform-provider-vnpaycloud/vnpaycloud/server"
 	lbListener "terraform-provider-vnpaycloud/vnpaycloud/octavia/listener"
 	lb "terraform-provider-vnpaycloud/vnpaycloud/octavia/loadbalancer"
 	lbMember "terraform-provider-vnpaycloud/vnpaycloud/octavia/member"
 	lbMembers "terraform-provider-vnpaycloud/vnpaycloud/octavia/members"
 	lbMonitor "terraform-provider-vnpaycloud/vnpaycloud/octavia/monitor"
 	lbPool "terraform-provider-vnpaycloud/vnpaycloud/octavia/pool"
+	"terraform-provider-vnpaycloud/vnpaycloud/secgroupv2"
+
 	serverGroup "terraform-provider-vnpaycloud/vnpaycloud/server-group"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
@@ -278,7 +282,7 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_blockstorage_quotaset_v3":                 dataSourceBlockStorageQuotasetV3(),
 			// "vnpaycloud_compute_aggregate_v2":                     dataSourceComputeAggregateV2(),
 			// "vnpaycloud_compute_availability_zones_v2":            dataSourceComputeAvailabilityZonesV2(),
-			// "vnpaycloud_compute_instance_v2":                      dataSourceComputeInstanceV2(),
+			"vnpaycloud_server": server.DataSourceComputeInstanceV2(),
 			"vnpaycloud_flavor": flavor.DataSourceComputeFlavorV2(),
 			// "vnpaycloud_compute_hypervisor_v2":                    dataSourceComputeHypervisorV2(),
 			"vnpaycloud_keypair": keypair.DataSourceComputeKeypairV2(),
@@ -310,7 +314,7 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_networking_quota_v2":                      dataSourceNetworkingQuotaV2(),
 			// "vnpaycloud_networking_subnet_v2":                     dataSourceNetworkingSubnetV2(),
 			// "vnpaycloud_networking_subnet_ids_v2":                 dataSourceNetworkingSubnetIDsV2(),
-			// "vnpaycloud_networking_secgroup_v2":                   dataSourceNetworkingSecGroupV2(),
+			"vnpaycloud_networking_secgroup_v2": secgroupv2.DataSourceNetworkingSecGroupV2(),
 			// "vnpaycloud_networking_subnetpool_v2":                 dataSourceNetworkingSubnetPoolV2(),
 			"vnpaycloud_networking_floatingip_v2": floatingip.DataSourceNetworkingFloatingIPV2(),
 			// "vnpaycloud_networking_router_v2":                     dataSourceNetworkingRouterV2(),
@@ -338,7 +342,7 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_compute_aggregate_v2":                     resourceComputeAggregateV2(),
 			// "vnpaycloud_compute_flavor_v2":                        resourceComputeFlavorV2(),
 			// "vnpaycloud_compute_flavor_access_v2":                 resourceComputeFlavorAccessV2(),
-			// "vnpaycloud_compute_instance_v2":                      resourceComputeInstanceV2(),
+			"vnpaycloud_server": server.ResourceComputeInstanceV2(),
 			// "vnpaycloud_compute_interface_attach_v2":              resourceComputeInterfaceAttachV2(),
 			"vnpaycloud_keypair":      keypair.ResourceComputeKeypairV2(),
 			"vnpaycloud_server_group": serverGroup.ResourceComputeServerGroupV2(),
@@ -385,7 +389,7 @@ func Provider() *schema.Provider {
 			"vnpaycloud_networking_floatingip_v2":           floatingip.ResourceNetworkingFloatingIPV2(),
 			"vnpaycloud_networking_floatingip_associate_v2": floatingip.ResourceNetworkingFloatingIPAssociateV2(),
 			// "vnpaycloud_networking_network_v2":                    resourceNetworkingNetworkV2(),
-			// "vnpaycloud_networking_port_v2":                       resourceNetworkingPortV2(),
+			"vnpaycloud_port": port.ResourceNetworkingPortV2(),
 			// "vnpaycloud_networking_rbac_policy_v2":                resourceNetworkingRBACPolicyV2(),
 			// "vnpaycloud_networking_port_secgroup_associate_v2":    resourceNetworkingPortSecGroupAssociateV2(),
 			// "vnpaycloud_networking_qos_bandwidth_limit_rule_v2":   resourceNetworkingQoSBandwidthLimitRuleV2(),
@@ -396,7 +400,7 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_networking_router_v2":                     resourceNetworkingRouterV2(),
 			// "vnpaycloud_networking_router_interface_v2":           resourceNetworkingRouterInterfaceV2(),
 			// "vnpaycloud_networking_router_route_v2":               resourceNetworkingRouterRouteV2(),
-			// "vnpaycloud_networking_secgroup_v2":                   resourceNetworkingSecGroupV2(),
+			"vnpaycloud_networking_secgroup_v2": secgroupv2.ResourceNetworkingSecGroupV2(),
 			// "vnpaycloud_networking_secgroup_rule_v2":              resourceNetworkingSecGroupRuleV2(),
 			// "vnpaycloud_networking_subnet_v2":                     resourceNetworkingSubnetV2(),
 			// "vnpaycloud_networking_subnet_route_v2":               resourceNetworkingSubnetRouteV2(),

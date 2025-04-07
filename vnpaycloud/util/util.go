@@ -100,7 +100,7 @@ func CheckForRetryableError(err error) *retry.RetryError {
 	return retry.NonRetryableError(err)
 }
 
-func suppressEquivalentTimeDiffs(k, old, new string, d *schema.ResourceData) bool {
+func SuppressEquivalentTimeDiffs(k, old, new string, d *schema.ResourceData) bool {
 	oldTime, err := time.Parse(time.RFC3339, old)
 	if err != nil {
 		return false
@@ -114,7 +114,7 @@ func suppressEquivalentTimeDiffs(k, old, new string, d *schema.ResourceData) boo
 	return oldTime.Equal(newTime)
 }
 
-func resourceNetworkingAvailabilityZoneHintsV2(d *schema.ResourceData) []string {
+func ResourceNetworkingAvailabilityZoneHintsV2(d *schema.ResourceData) []string {
 	rawAZH := d.Get("availability_zone_hints").([]interface{})
 	azh := make([]string, len(rawAZH))
 	for i, raw := range rawAZH {
@@ -123,7 +123,7 @@ func resourceNetworkingAvailabilityZoneHintsV2(d *schema.ResourceData) []string 
 	return azh
 }
 
-func expandVendorOptions(vendOptsRaw []interface{}) map[string]interface{} {
+func ExpandVendorOptions(vendOptsRaw []interface{}) map[string]interface{} {
 	vendorOptions := make(map[string]interface{})
 
 	for _, option := range vendOptsRaw {
@@ -200,7 +200,7 @@ func StrSliceContains(haystack []string, needle string) bool {
 	return false
 }
 
-func sliceUnion(a, b []string) []string {
+func SliceUnion(a, b []string) []string {
 	var res []string
 	for _, i := range a {
 		if !StrSliceContains(res, i) {
@@ -217,7 +217,7 @@ func sliceUnion(a, b []string) []string {
 
 // compatibleMicroversion will determine if an obtained microversion is
 // compatible with a given microversion.
-func compatibleMicroversion(direction, required, given string) (bool, error) {
+func CompatibleMicroversion(direction, required, given string) (bool, error) {
 	if direction != "min" && direction != "max" {
 		return false, fmt.Errorf("Invalid microversion direction %s. Must be min or max", direction)
 	}
@@ -277,7 +277,7 @@ func compatibleMicroversion(direction, required, given string) (bool, error) {
 	return false, nil
 }
 
-func validateJSONObject(v interface{}, k string) ([]string, []error) {
+func ValidateJSONObject(v interface{}, k string) ([]string, []error) {
 	if v == nil || v.(string) == "" {
 		return nil, []error{fmt.Errorf("%q value must not be empty", k)}
 	}
@@ -293,7 +293,7 @@ func validateJSONObject(v interface{}, k string) ([]string, []error) {
 	return nil, nil
 }
 
-func diffSuppressJSONObject(k, old, new string, d *schema.ResourceData) bool {
+func DiffSuppressJSONObject(k, old, new string, d *schema.ResourceData) bool {
 	if StrSliceContains([]string{"{}", ""}, old) &&
 		StrSliceContains([]string{"{}", ""}, new) {
 		return true
@@ -304,7 +304,7 @@ func diffSuppressJSONObject(k, old, new string, d *schema.ResourceData) bool {
 // Metadata in vnpaycloud are not fully replaced with a "set"
 // operation, instead, it's only additive, and the existing
 // metadata are only removed when set to `null` value in json.
-func mapDiffWithNilValues(oldMap, newMap map[string]interface{}) (output map[string]interface{}) {
+func MapDiffWithNilValues(oldMap, newMap map[string]interface{}) (output map[string]interface{}) {
 	output = make(map[string]interface{})
 
 	for k, v := range newMap {
@@ -324,7 +324,7 @@ func mapDiffWithNilValues(oldMap, newMap map[string]interface{}) (output map[str
 // parsePairedIDs is a helper function that parses a raw ID into two
 // separate IDs. This is useful for resources that have a parent/child
 // relationship.
-func parsePairedIDs(id string, res string) (string, string, error) {
+func ParsePairedIDs(id string, res string) (string, string, error) {
 	parts := strings.SplitN(id, "/", 2)
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("Unable to determine %s ID from raw ID: %s", res, id)
