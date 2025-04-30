@@ -240,7 +240,7 @@ func resourceNetworkFloatingIPV2Create(ctx context.Context, d *schema.ResourceDa
 		d.Set("subnet_id", createOpts.SubnetID)
 	}
 
-	tags := shared.NetworkingV2AttributesTags(d)
+	tags := shared.NetworkingAttributesTags(d)
 	if len(tags) > 0 {
 		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
 		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "floatingips", fip.ID, tagOpts).Extract()
@@ -279,7 +279,7 @@ func resourceNetworkFloatingIPV2Read(ctx context.Context, d *schema.ResourceData
 	d.Set("dns_domain", fip.DNSDomain)
 	d.Set("region", util.GetRegion(d, configMeta))
 
-	shared.NetworkingV2ReadAttributesTags(d, fip.Tags)
+	shared.NetworkingReadAttributesTags(d, fip.Tags)
 
 	poolName, err := shared.NetworkingNetworkV2Name(ctx, d, meta, fip.FloatingNetworkID)
 	if err != nil {
@@ -328,7 +328,7 @@ func resourceNetworkFloatingIPV2Update(ctx context.Context, d *schema.ResourceDa
 	}
 
 	if d.HasChange("tags") {
-		tags := shared.NetworkingV2UpdateAttributesTags(d)
+		tags := shared.NetworkingUpdateAttributesTags(d)
 		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
 		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "floatingips", d.Id(), tagOpts).Extract()
 		if err != nil {

@@ -1,4 +1,4 @@
-package volumev3
+package volume
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 const blockstorageV3VolumeFromBackupMicroversion = "3.47"
 const blockstorageV3ResizeOnlineInUse = "3.42"
 
-func flattenBlockStorageVolumeV3Attachments(v []volumes.Attachment) []map[string]interface{} {
+func flattenBlockStorageVolumeAttachments(v []volumes.Attachment) []map[string]interface{} {
 	attachments := make([]map[string]interface{}, len(v))
 	for i, attachment := range v {
 		attachments[i] = make(map[string]interface{})
@@ -28,7 +28,7 @@ func flattenBlockStorageVolumeV3Attachments(v []volumes.Attachment) []map[string
 	return attachments
 }
 
-func blockStorageVolumeV3StateRefreshFunc(ctx context.Context, client *gophercloud.ServiceClient, volumeID string) retry.StateRefreshFunc {
+func blockStorageVolumeStateRefreshFunc(ctx context.Context, client *gophercloud.ServiceClient, volumeID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
 		v, err := volumes.Get(ctx, client, volumeID).Extract()
 		if err != nil {
@@ -49,7 +49,7 @@ func blockStorageVolumeV3StateRefreshFunc(ctx context.Context, client *gopherclo
 	}
 }
 
-func blockStorageVolumeV3AttachmentHash(v interface{}) int {
+func blockStorageVolumeAttachmentHash(v interface{}) int {
 	var buf bytes.Buffer
 	m := v.(map[string]interface{})
 	if m["instance_id"] != nil {
@@ -58,7 +58,7 @@ func blockStorageVolumeV3AttachmentHash(v interface{}) int {
 	return hashcode.String(buf.String())
 }
 
-func expandBlockStorageVolumeV3SchedulerHints(v volumes.SchedulerHintOpts) map[string]interface{} {
+func expandBlockStorageVolumeSchedulerHints(v volumes.SchedulerHintOpts) map[string]interface{} {
 	schedulerHints := make(map[string]interface{})
 
 	differentHost := make([]interface{}, len(v.DifferentHost))
@@ -79,7 +79,7 @@ func expandBlockStorageVolumeV3SchedulerHints(v volumes.SchedulerHintOpts) map[s
 	return schedulerHints
 }
 
-func blockStorageVolumeV3SchedulerHintsHash(v interface{}) int {
+func blockStorageVolumeSchedulerHintsHash(v interface{}) int {
 	var buf bytes.Buffer
 	m := v.(map[string]interface{})
 
@@ -103,7 +103,7 @@ func blockStorageVolumeV3SchedulerHintsHash(v interface{}) int {
 	return hashcode.String(buf.String())
 }
 
-func resourceBlockStorageVolumeV3SchedulerHints(schedulerHintsRaw map[string]interface{}) volumes.SchedulerHintOpts {
+func resourceBlockStorageVolumeSchedulerHints(schedulerHintsRaw map[string]interface{}) volumes.SchedulerHintOpts {
 	schedulerHints := volumes.SchedulerHintOpts{
 		Query:                schedulerHintsRaw["query"].(string),
 		LocalToInstance:      schedulerHintsRaw["local_to_instance"].(string),

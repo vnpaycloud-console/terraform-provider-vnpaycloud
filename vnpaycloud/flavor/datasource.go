@@ -2,11 +2,12 @@ package flavor
 
 import (
 	"context"
-	"github.com/vnpaycloud-console/gophercloud/v2"
 	"log"
 	"net/http"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
+
+	"github.com/vnpaycloud-console/gophercloud/v2"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"

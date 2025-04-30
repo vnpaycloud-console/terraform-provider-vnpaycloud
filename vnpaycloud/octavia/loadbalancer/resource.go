@@ -2,12 +2,13 @@ package loadbalancer
 
 import (
 	"context"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/loadbalancer/v2/loadbalancers"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/octavia/common"
+	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
+
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/vnpaycloud-console/gophercloud/v2/openstack/loadbalancer/v2/loadbalancers"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -195,7 +196,7 @@ func resourceLoadBalancerV2Create(ctx context.Context, d *schema.ResourceData, m
 
 	// Wait for load-balancer to become active before continuing.
 	timeout := d.Timeout(schema.TimeoutCreate)
-	err = common.WaitForLBV2LoadBalancer(ctx, lbClient, lbID, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2LoadBalancer(ctx, lbClient, lbID, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -206,7 +207,7 @@ func resourceLoadBalancerV2Create(ctx context.Context, d *schema.ResourceData, m
 	if err != nil {
 		return diag.Errorf("Error creating OpenStack networking client: %s", err)
 	}
-	if err := common.ResourceLoadBalancerV2SetSecurityGroups(ctx, networkingClient, vipPortID, d); err != nil {
+	if err := shared.ResourceLoadBalancerV2SetSecurityGroups(ctx, networkingClient, vipPortID, d); err != nil {
 		return diag.Errorf("Error setting vnpaycloud_lb_loadbalancer_v2 security groups: %s", err)
 	}
 
@@ -254,7 +255,7 @@ func resourceLoadBalancerV2Read(ctx context.Context, d *schema.ResourceData, met
 		if err != nil {
 			return diag.Errorf("Error creating OpenStack networking client: %s", err)
 		}
-		if err := common.ResourceLoadBalancerV2GetSecurityGroups(ctx, networkingClient, vipPortID, d); err != nil {
+		if err := shared.ResourceLoadBalancerV2GetSecurityGroups(ctx, networkingClient, vipPortID, d); err != nil {
 			return diag.Errorf("Error getting port security groups for vnpaycloud_lb_loadbalancer_v2: %s", err)
 		}
 	}
@@ -307,7 +308,7 @@ func resourceLoadBalancerV2Update(ctx context.Context, d *schema.ResourceData, m
 	if hasChange {
 		// Wait for load-balancer to become active before continuing.
 		timeout := d.Timeout(schema.TimeoutUpdate)
-		err = common.WaitForLBV2LoadBalancer(ctx, lbClient, d.Id(), "ACTIVE", common.GetLbPendingStatuses(), timeout)
+		err = shared.WaitForLBV2LoadBalancer(ctx, lbClient, d.Id(), "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -328,7 +329,7 @@ func resourceLoadBalancerV2Update(ctx context.Context, d *schema.ResourceData, m
 		}
 
 		// Wait for load-balancer to become active before continuing.
-		err = common.WaitForLBV2LoadBalancer(ctx, lbClient, d.Id(), "ACTIVE", common.GetLbPendingStatuses(), timeout)
+		err = shared.WaitForLBV2LoadBalancer(ctx, lbClient, d.Id(), "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -341,7 +342,7 @@ func resourceLoadBalancerV2Update(ctx context.Context, d *schema.ResourceData, m
 			return diag.Errorf("Error creating OpenStack networking client: %s", err)
 		}
 		vipPortID := d.Get("vip_port_id").(string)
-		if err := common.ResourceLoadBalancerV2SetSecurityGroups(ctx, networkingClient, vipPortID, d); err != nil {
+		if err := shared.ResourceLoadBalancerV2SetSecurityGroups(ctx, networkingClient, vipPortID, d); err != nil {
 			return diag.Errorf("Error setting vnpaycloud_lb_loadbalancer_v2 security groups: %s", err)
 		}
 	}
@@ -372,7 +373,7 @@ func resourceLoadBalancerV2Delete(ctx context.Context, d *schema.ResourceData, m
 	}
 
 	// Wait for load-balancer to become deleted.
-	err = common.WaitForLBV2LoadBalancer(ctx, lbClient, d.Id(), "DELETED", common.GetLbPendingDeleteStatuses(), timeout)
+	err = shared.WaitForLBV2LoadBalancer(ctx, lbClient, d.Id(), "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}

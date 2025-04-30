@@ -1,4 +1,4 @@
-package secretv1
+package secret
 
 import (
 	"context"

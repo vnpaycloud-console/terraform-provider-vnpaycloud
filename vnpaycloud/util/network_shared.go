@@ -2,22 +2,23 @@ package util
 
 import (
 	"encoding/json"
-	"github.com/vnpaycloud-console/gophercloud/v2"
 	"log"
 	"net/http"
+
+	"github.com/vnpaycloud-console/gophercloud/v2"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func NetworkingV2ReadAttributesTags(d *schema.ResourceData, tags []string) {
+func NetworkingReadAttributesTags(d *schema.ResourceData, tags []string) {
 	ExpandObjectReadTags(d, tags)
 }
 
-func NetworkingV2UpdateAttributesTags(d *schema.ResourceData) []string {
+func NetworkingUpdateAttributesTags(d *schema.ResourceData) []string {
 	return ExpandObjectUpdateTags(d)
 }
 
-func NetworkingV2AttributesTags(d *schema.ResourceData) []string {
+func NetworkingAttributesTags(d *schema.ResourceData) []string {
 	return ExpandObjectTags(d)
 }
 

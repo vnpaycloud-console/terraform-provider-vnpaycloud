@@ -1,8 +1,9 @@
 package keypair
 
 import (
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/keypairs"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
+
+	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/keypairs"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/octavia/common"
+	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
@@ -183,7 +183,7 @@ func resourceMemberV2Create(ctx context.Context, d *schema.ResourceData, meta in
 
 	// Wait for parent pool to become active before continuing
 	timeout := d.Timeout(schema.TimeoutCreate)
-	err = common.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -204,7 +204,7 @@ func resourceMemberV2Create(ctx context.Context, d *schema.ResourceData, meta in
 	}
 
 	// Wait for member to become active before continuing
-	err = common.WaitForLBV2Member(ctx, lbClient, parentPool, member, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Member(ctx, lbClient, parentPool, member, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -304,13 +304,13 @@ func resourceMemberV2Update(ctx context.Context, d *schema.ResourceData, meta in
 
 	// Wait for parent pool to become active before continuing.
 	timeout := d.Timeout(schema.TimeoutUpdate)
-	err = common.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Wait for the member to become active before continuing.
-	err = common.WaitForLBV2Member(ctx, lbClient, parentPool, member, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Member(ctx, lbClient, parentPool, member, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -329,7 +329,7 @@ func resourceMemberV2Update(ctx context.Context, d *schema.ResourceData, meta in
 	}
 
 	// Wait for the member to become active before continuing.
-	err = common.WaitForLBV2Member(ctx, lbClient, parentPool, member, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Member(ctx, lbClient, parentPool, member, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -359,7 +359,7 @@ func resourceMemberV2Delete(ctx context.Context, d *schema.ResourceData, meta in
 
 	// Wait for parent pool to become active before continuing.
 	timeout := d.Timeout(schema.TimeoutDelete)
-	err = common.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Error waiting for the members pool status"))
 	}
@@ -378,7 +378,7 @@ func resourceMemberV2Delete(ctx context.Context, d *schema.ResourceData, meta in
 	}
 
 	// Wait for the member to become DELETED.
-	err = common.WaitForLBV2Member(ctx, lbClient, parentPool, member, "DELETED", common.GetLbPendingDeleteStatuses(), timeout)
+	err = shared.WaitForLBV2Member(ctx, lbClient, parentPool, member, "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}

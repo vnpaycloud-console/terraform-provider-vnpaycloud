@@ -2,16 +2,17 @@ package applicationcredentials
 
 import (
 	"context"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"github.com/vnpaycloud-console/gophercloud/v2"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/identity/v3/applicationcredentials"
 	"log"
 	"net/http"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/vnpaycloud-console/gophercloud/v2"
+	"github.com/vnpaycloud-console/gophercloud/v2/openstack/identity/v3/applicationcredentials"
 )
 
 func ResourceIdentityApplicationCredentialV3() *schema.Resource {
@@ -131,12 +132,19 @@ func resourceIdentityApplicationCredentialV3Create(ctx context.Context, d *schem
 		expiresAt = &v
 	}
 
+	var accessRules []applicationcredentials.AccessRule
+	if v, ok := d.GetOk("access_rules"); ok && v.(*schema.Set).Len() > 0 {
+		accessRules = expandIdentityApplicationCredentialAccessRulesV3(v.(*schema.Set).List())
+	} else {
+		accessRules = []applicationcredentials.AccessRule{}
+	}
+
 	createOpts := applicationcredentials.CreateOpts{
 		Name:         d.Get("name").(string),
 		Description:  d.Get("description").(string),
 		Unrestricted: d.Get("unrestricted").(bool),
 		Roles:        expandIdentityApplicationCredentialRolesV3(d.Get("roles").(*schema.Set).List()),
-		AccessRules:  expandIdentityApplicationCredentialAccessRulesV3(d.Get("access_rules").(*schema.Set).List()),
+		AccessRules:  accessRules,
 		ExpiresAt:    expiresAt,
 	}
 

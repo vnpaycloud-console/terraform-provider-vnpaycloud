@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/octavia/common"
+	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
@@ -173,7 +173,7 @@ func resourceMonitorV2Create(ctx context.Context, d *schema.ResourceData, meta i
 
 	// Wait for parent pool to become active before continuing.
 	timeout := d.Timeout(schema.TimeoutCreate)
-	err = common.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -193,7 +193,7 @@ func resourceMonitorV2Create(ctx context.Context, d *schema.ResourceData, meta i
 	}
 
 	// Wait for monitor to become active before continuing
-	err = common.WaitForLBV2Monitor(ctx, lbClient, parentPool, monitor, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Monitor(ctx, lbClient, parentPool, monitor, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -319,13 +319,13 @@ func resourceMonitorV2Update(ctx context.Context, d *schema.ResourceData, meta i
 
 	// Wait for parent pool to become active before continuing.
 	timeout := d.Timeout(schema.TimeoutUpdate)
-	err = common.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Wait for monitor to become active before continuing.
-	err = common.WaitForLBV2Monitor(ctx, lbClient, parentPool, monitor, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Monitor(ctx, lbClient, parentPool, monitor, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -344,7 +344,7 @@ func resourceMonitorV2Update(ctx context.Context, d *schema.ResourceData, meta i
 	}
 
 	// Wait for monitor to become active before continuing
-	err = common.WaitForLBV2Monitor(ctx, lbClient, parentPool, monitor, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Monitor(ctx, lbClient, parentPool, monitor, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -375,7 +375,7 @@ func resourceMonitorV2Delete(ctx context.Context, d *schema.ResourceData, meta i
 
 	// Wait for parent pool to become active before continuing
 	timeout := d.Timeout(schema.TimeoutUpdate)
-	err = common.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -394,7 +394,7 @@ func resourceMonitorV2Delete(ctx context.Context, d *schema.ResourceData, meta i
 	}
 
 	// Wait for monitor to become DELETED
-	err = common.WaitForLBV2Monitor(ctx, lbClient, parentPool, monitor, "DELETED", common.GetLbPendingDeleteStatuses(), timeout)
+	err = shared.WaitForLBV2Monitor(ctx, lbClient, parentPool, monitor, "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}

@@ -1,4 +1,4 @@
-package volumev3
+package volume
 
 import (
 	"context"
@@ -18,12 +18,12 @@ import (
 	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/volumeattach"
 )
 
-func ResourceBlockStorageVolumeV3() *schema.Resource {
+func ResourceBlockStorageVolume() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceBlockStorageVolumeV3Create,
-		ReadContext:   resourceBlockStorageVolumeV3Read,
-		UpdateContext: resourceBlockStorageVolumeV3Update,
-		DeleteContext: resourceBlockStorageVolumeV3Delete,
+		CreateContext: resourceBlockStorageVolumeCreate,
+		ReadContext:   resourceBlockStorageVolumeRead,
+		UpdateContext: resourceBlockStorageVolumeUpdate,
+		DeleteContext: resourceBlockStorageVolumeDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -151,7 +151,7 @@ func ResourceBlockStorageVolumeV3() *schema.Resource {
 						},
 					},
 				},
-				Set: blockStorageVolumeV3AttachmentHash,
+				Set: blockStorageVolumeAttachmentHash,
 			},
 
 			"scheduler_hints": {
@@ -188,13 +188,13 @@ func ResourceBlockStorageVolumeV3() *schema.Resource {
 						},
 					},
 				},
-				Set: blockStorageVolumeV3SchedulerHintsHash,
+				Set: blockStorageVolumeSchedulerHintsHash,
 			},
 		},
 	}
 }
 
-func resourceBlockStorageVolumeV3Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceBlockStorageVolumeCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
 	blockStorageClient, err := config.BlockStorageV3Client(ctx, util.GetRegion(d, config))
 	if err != nil {
@@ -220,8 +220,8 @@ func resourceBlockStorageVolumeV3Create(ctx context.Context, d *schema.ResourceD
 
 	schedulerHintsRaw := d.Get("scheduler_hints").(*schema.Set).List()
 	if len(schedulerHintsRaw) > 0 {
-		tflog.Info(ctx, "vnpaycloud_blockstorage_volume_v3 scheduler hints", map[string]interface{}{"scheduler_hints": schedulerHintsRaw[0]})
-		schedulerHints = resourceBlockStorageVolumeV3SchedulerHints(schedulerHintsRaw[0].(map[string]interface{}))
+		tflog.Debug(ctx, "vnpaycloud_blockstorage_volume_v3 scheduler hints", map[string]interface{}{"scheduler_hints": schedulerHintsRaw[0]})
+		schedulerHints = resourceBlockStorageVolumeSchedulerHints(schedulerHintsRaw[0].(map[string]interface{}))
 	}
 
 	if v := d.Get("backup_id").(string); v != "" {
@@ -229,7 +229,7 @@ func resourceBlockStorageVolumeV3Create(ctx context.Context, d *schema.ResourceD
 		createOpts.BackupID = v
 	}
 
-	tflog.Info(ctx, "vnpaycloud_blockstorage_volume_v3 create options", map[string]interface{}{"create_opts": createOpts})
+	tflog.Debug(ctx, "vnpaycloud_blockstorage_volume_v3 create options", map[string]interface{}{"create_opts": createOpts})
 
 	v, err := volumes.Create(ctx, blockStorageClient, createOpts, schedulerHints).Extract()
 	if err != nil {
@@ -239,7 +239,7 @@ func resourceBlockStorageVolumeV3Create(ctx context.Context, d *schema.ResourceD
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"downloading", "creating"},
 		Target:     []string{"available"},
-		Refresh:    blockStorageVolumeV3StateRefreshFunc(ctx, blockStorageClient, v.ID),
+		Refresh:    blockStorageVolumeStateRefreshFunc(ctx, blockStorageClient, v.ID),
 		Timeout:    d.Timeout(schema.TimeoutCreate),
 		Delay:      10 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -253,10 +253,10 @@ func resourceBlockStorageVolumeV3Create(ctx context.Context, d *schema.ResourceD
 
 	d.SetId(v.ID)
 
-	return resourceBlockStorageVolumeV3Read(ctx, d, meta)
+	return resourceBlockStorageVolumeRead(ctx, d, meta)
 }
 
-func resourceBlockStorageVolumeV3Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceBlockStorageVolumeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
 	blockStorageClient, err := config.BlockStorageV3Client(ctx, util.GetRegion(d, config))
 	if err != nil {
@@ -268,7 +268,7 @@ func resourceBlockStorageVolumeV3Read(ctx context.Context, d *schema.ResourceDat
 		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving vnpaycloud_blockstorage_volume_v3"))
 	}
 
-	tflog.Info(ctx, "Retrieved vnpaycloud_blockstorage_volume_v3 "+d.Id(), map[string]interface{}{"volume": v})
+	tflog.Debug(ctx, "Retrieved vnpaycloud_blockstorage_volume_v3 "+d.Id(), map[string]interface{}{"volume": v})
 
 	d.Set("size", v.Size)
 	d.Set("description", v.Description)
@@ -285,10 +285,10 @@ func resourceBlockStorageVolumeV3Read(ctx context.Context, d *schema.ResourceDat
 		d.Set("volume_retype_policy", "never")
 	}
 
-	attachments := flattenBlockStorageVolumeV3Attachments(v.Attachments)
-	tflog.Info(ctx, "vnpaycloud_blockstorage_volume_v3 "+d.Id()+" with attachments", map[string]interface{}{"attachments": attachments})
+	attachments := flattenBlockStorageVolumeAttachments(v.Attachments)
+	tflog.Debug(ctx, "vnpaycloud_blockstorage_volume_v3 "+d.Id()+" with attachments", map[string]interface{}{"attachments": attachments})
 	if err := d.Set("attachment", attachments); err != nil {
-		tflog.Info(
+		tflog.Error(
 			ctx,
 			"Unable to set vnpaycloud_blockstorage_volume_v3 "+d.Id()+" attachments",
 			map[string]interface{}{
@@ -301,7 +301,7 @@ func resourceBlockStorageVolumeV3Read(ctx context.Context, d *schema.ResourceDat
 	return nil
 }
 
-func resourceBlockStorageVolumeV3Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceBlockStorageVolumeUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
 	blockStorageClient, err := config.BlockStorageV3Client(ctx, util.GetRegion(d, config))
 	if err != nil {
@@ -351,7 +351,7 @@ func resourceBlockStorageVolumeV3Update(ctx context.Context, d *schema.ResourceD
 		stateConf := &retry.StateChangeConf{
 			Pending:    []string{"extending"},
 			Target:     []string{"available", "in-use"},
-			Refresh:    blockStorageVolumeV3StateRefreshFunc(ctx, blockStorageClient, d.Id()),
+			Refresh:    blockStorageVolumeStateRefreshFunc(ctx, blockStorageClient, d.Id()),
 			Timeout:    d.Timeout(schema.TimeoutCreate),
 			Delay:      10 * time.Second,
 			MinTimeout: 3 * time.Second,
@@ -383,7 +383,7 @@ func resourceBlockStorageVolumeV3Update(ctx context.Context, d *schema.ResourceD
 		stateConf := &retry.StateChangeConf{
 			Pending:    []string{"retyping"},
 			Target:     []string{"available", "in-use"},
-			Refresh:    blockStorageVolumeV3StateRefreshFunc(ctx, blockStorageClient, d.Id()),
+			Refresh:    blockStorageVolumeStateRefreshFunc(ctx, blockStorageClient, d.Id()),
 			Timeout:    d.Timeout(schema.TimeoutUpdate),
 			Delay:      10 * time.Second,
 			MinTimeout: 3 * time.Second,
@@ -401,10 +401,10 @@ func resourceBlockStorageVolumeV3Update(ctx context.Context, d *schema.ResourceD
 		return diag.Errorf("Error updating vnpaycloud_blockstorage_volume_v3 %s: %s", d.Id(), err)
 	}
 
-	return resourceBlockStorageVolumeV3Read(ctx, d, meta)
+	return resourceBlockStorageVolumeRead(ctx, d, meta)
 }
 
-func resourceBlockStorageVolumeV3Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceBlockStorageVolumeDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
 	blockStorageClient, err := config.BlockStorageV3Client(ctx, util.GetRegion(d, config))
 	if err != nil {
@@ -424,7 +424,7 @@ func resourceBlockStorageVolumeV3Delete(ctx context.Context, d *schema.ResourceD
 		}
 
 		for _, volumeAttachment := range v.Attachments {
-			tflog.Info(ctx, "vnpaycloud_blockstorage_volume_v3 "+d.Id(), map[string]interface{}{"attachment": volumeAttachment})
+			tflog.Debug(ctx, "vnpaycloud_blockstorage_volume_v3 "+d.Id(), map[string]interface{}{"attachment": volumeAttachment})
 
 			serverID := volumeAttachment.ServerID
 			attachmentID := volumeAttachment.ID
@@ -450,7 +450,7 @@ func resourceBlockStorageVolumeV3Delete(ctx context.Context, d *schema.ResourceD
 		stateConf := &retry.StateChangeConf{
 			Pending:    []string{"in-use", "attaching", "detaching"},
 			Target:     []string{"available", "deleted"},
-			Refresh:    blockStorageVolumeV3StateRefreshFunc(ctx, blockStorageClient, d.Id()),
+			Refresh:    blockStorageVolumeStateRefreshFunc(ctx, blockStorageClient, d.Id()),
 			Timeout:    10 * time.Minute,
 			Delay:      10 * time.Second,
 			MinTimeout: 3 * time.Second,
@@ -475,7 +475,7 @@ func resourceBlockStorageVolumeV3Delete(ctx context.Context, d *schema.ResourceD
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"deleting", "downloading", "available"},
 		Target:     []string{"deleted"},
-		Refresh:    blockStorageVolumeV3StateRefreshFunc(ctx, blockStorageClient, d.Id()),
+		Refresh:    blockStorageVolumeStateRefreshFunc(ctx, blockStorageClient, d.Id()),
 		Timeout:    d.Timeout(schema.TimeoutDelete),
 		Delay:      10 * time.Second,
 		MinTimeout: 3 * time.Second,

@@ -1,9 +1,10 @@
 package serverGroup
 
 import (
+	"terraform-provider-vnpaycloud/vnpaycloud/util"
+
 	"github.com/vnpaycloud-console/gophercloud/v2"
 	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/servergroups"
-	"terraform-provider-vnpaycloud/vnpaycloud/util"
 )
 
 const (

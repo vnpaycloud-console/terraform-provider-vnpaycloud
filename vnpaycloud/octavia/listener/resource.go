@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/octavia/common"
+	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
@@ -232,7 +232,7 @@ func resourceListenerV2Create(ctx context.Context, d *schema.ResourceData, meta 
 	timeout := d.Timeout(schema.TimeoutCreate)
 
 	// Wait for LoadBalancer to become active before continuing.
-	err = common.WaitForLBV2LoadBalancer(ctx, lbClient, d.Get("loadbalancer_id").(string), "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2LoadBalancer(ctx, lbClient, d.Get("loadbalancer_id").(string), "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -264,7 +264,7 @@ func resourceListenerV2Create(ctx context.Context, d *schema.ResourceData, meta 
 	}
 
 	if v, ok := d.GetOk("tls_versions"); ok {
-		createOpts.TLSVersions = common.ExpandLBListenerTLSVersionV2(v.(*schema.Set).List())
+		createOpts.TLSVersions = shared.ExpandLBListenerTLSVersionV2(v.(*schema.Set).List())
 	}
 
 	if v, ok := d.GetOk("connection_limit"); ok {
@@ -307,7 +307,7 @@ func resourceListenerV2Create(ctx context.Context, d *schema.ResourceData, meta 
 	}
 
 	// Wait for the listener to become ACTIVE.
-	err = common.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -385,7 +385,7 @@ func resourceListenerV2Update(ctx context.Context, d *schema.ResourceData, meta 
 
 	// Wait for the listener to become ACTIVE.
 	timeout := d.Timeout(schema.TimeoutUpdate)
-	err = common.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -524,7 +524,7 @@ func resourceListenerV2Update(ctx context.Context, d *schema.ResourceData, meta 
 
 	if d.HasChange("tls_versions") {
 		hasChange = true
-		v := common.ExpandLBListenerTLSVersionV2(d.Get("tls_versions").(*schema.Set).List())
+		v := shared.ExpandLBListenerTLSVersionV2(d.Get("tls_versions").(*schema.Set).List())
 		updateOpts.TLSVersions = &v
 	}
 
@@ -558,7 +558,7 @@ func resourceListenerV2Update(ctx context.Context, d *schema.ResourceData, meta 
 	}
 
 	// Wait for the listener to become ACTIVE.
-	err = common.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -595,7 +595,7 @@ func resourceListenerV2Delete(ctx context.Context, d *schema.ResourceData, meta 
 	}
 
 	// Wait for the listener to become DELETED.
-	err = common.WaitForLBV2Listener(ctx, lbClient, listener, "DELETED", common.GetLbPendingDeleteStatuses(), timeout)
+	err = shared.WaitForLBV2Listener(ctx, lbClient, listener, "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}

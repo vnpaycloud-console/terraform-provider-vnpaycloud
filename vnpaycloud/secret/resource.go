@@ -1,4 +1,4 @@
-package secretv1
+package secret
 
 import (
 	"context"
@@ -7,13 +7,14 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
+	"terraform-provider-vnpaycloud/vnpaycloud/config"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/vnpaycloud-console/gophercloud/v2/openstack/keymanager/v1/acls"
 	"github.com/vnpaycloud-console/gophercloud/v2/openstack/keymanager/v1/secrets"
-	"terraform-provider-vnpaycloud/vnpaycloud/config"
 )
 
 func resourceKeyManagerSecretV1() *schema.Resource {

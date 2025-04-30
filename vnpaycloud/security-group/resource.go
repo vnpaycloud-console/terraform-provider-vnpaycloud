@@ -1,4 +1,4 @@
-package secgroupv2
+package securityGroup
 
 import (
 	"context"
@@ -125,7 +125,7 @@ func resourceNetworkingSecGroupV2Create(ctx context.Context, d *schema.ResourceD
 
 	d.SetId(sg.ID)
 
-	tags := networkingV2AttributesTags(d)
+	tags := NetworkingAttributesTags(d)
 	if len(tags) > 0 {
 		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
 		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "security-groups", sg.ID, tagOpts).Extract()
@@ -160,7 +160,7 @@ func resourceNetworkingSecGroupV2Read(ctx context.Context, d *schema.ResourceDat
 	d.Set("stateful", sg.Stateful)
 	d.Set("region", util.GetRegion(d, config))
 
-	networkingV2ReadAttributesTags(d, sg.Tags)
+	NetworkingReadAttributesTags(d, sg.Tags)
 
 	return nil
 }
@@ -203,7 +203,7 @@ func resourceNetworkingSecGroupV2Update(ctx context.Context, d *schema.ResourceD
 	}
 
 	if d.HasChange("tags") {
-		tags := networkingV2UpdateAttributesTags(d)
+		tags := NetworkingUpdateAttributesTags(d)
 		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
 		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "security-groups", d.Id(), tagOpts).Extract()
 		if err != nil {

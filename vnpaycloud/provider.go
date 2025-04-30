@@ -5,18 +5,22 @@ import (
 	"os"
 	"runtime/debug"
 	applicationcredentials "terraform-provider-vnpaycloud/vnpaycloud/application-credential"
-	"terraform-provider-vnpaycloud/vnpaycloud/floatingip"
 	"terraform-provider-vnpaycloud/vnpaycloud/flavor"
+	"terraform-provider-vnpaycloud/vnpaycloud/floatingip"
 	"terraform-provider-vnpaycloud/vnpaycloud/keypair"
-	"terraform-provider-vnpaycloud/vnpaycloud/port"
-	"terraform-provider-vnpaycloud/vnpaycloud/server"
+	"terraform-provider-vnpaycloud/vnpaycloud/network"
 	lbListener "terraform-provider-vnpaycloud/vnpaycloud/octavia/listener"
 	lb "terraform-provider-vnpaycloud/vnpaycloud/octavia/loadbalancer"
 	lbMember "terraform-provider-vnpaycloud/vnpaycloud/octavia/member"
 	lbMembers "terraform-provider-vnpaycloud/vnpaycloud/octavia/members"
 	lbMonitor "terraform-provider-vnpaycloud/vnpaycloud/octavia/monitor"
 	lbPool "terraform-provider-vnpaycloud/vnpaycloud/octavia/pool"
-	"terraform-provider-vnpaycloud/vnpaycloud/secgroupv2"
+	"terraform-provider-vnpaycloud/vnpaycloud/port"
+	securityGroup "terraform-provider-vnpaycloud/vnpaycloud/security-group"
+	securityGroupRule "terraform-provider-vnpaycloud/vnpaycloud/security-group-rule"
+	"terraform-provider-vnpaycloud/vnpaycloud/server"
+	"terraform-provider-vnpaycloud/vnpaycloud/subnet"
+	"terraform-provider-vnpaycloud/vnpaycloud/vpc"
 
 	serverGroup "terraform-provider-vnpaycloud/vnpaycloud/server-group"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
@@ -26,7 +30,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/volumev3"
+	"terraform-provider-vnpaycloud/vnpaycloud/volume"
 
 	"github.com/vnpaycloud-console/gophercloud-utils/v2/terraform/auth"
 	"github.com/vnpaycloud-console/gophercloud-utils/v2/terraform/mutexkv"
@@ -46,13 +50,13 @@ func Provider() *schema.Provider {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_AUTH_URL", ""),
-				Description: descriptions["auth_url"],
+				Description: Descriptions["auth_url"],
 			},
 
 			"region": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: descriptions["region"],
+				Description: Descriptions["region"],
 				DefaultFunc: schema.EnvDefaultFunc("OS_REGION_NAME", ""),
 			},
 
@@ -60,35 +64,35 @@ func Provider() *schema.Provider {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_USERNAME", ""),
-				Description: descriptions["user_name"],
+				Description: Descriptions["user_name"],
 			},
 
 			"user_id": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_USER_ID", ""),
-				Description: descriptions["user_id"],
+				Description: Descriptions["user_id"],
 			},
 
 			"application_credential_id": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_APPLICATION_CREDENTIAL_ID", ""),
-				Description: descriptions["application_credential_id"],
+				Description: Descriptions["application_credential_id"],
 			},
 
 			"application_credential_name": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_APPLICATION_CREDENTIAL_NAME", ""),
-				Description: descriptions["application_credential_name"],
+				Description: Descriptions["application_credential_name"],
 			},
 
 			"application_credential_secret": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_APPLICATION_CREDENTIAL_SECRET", ""),
-				Description: descriptions["application_credential_secret"],
+				Description: Descriptions["application_credential_secret"],
 			},
 
 			"tenant_id": {
@@ -98,7 +102,7 @@ func Provider() *schema.Provider {
 					"OS_TENANT_ID",
 					"OS_PROJECT_ID",
 				}, ""),
-				Description: descriptions["tenant_id"],
+				Description: Descriptions["tenant_id"],
 			},
 
 			"tenant_name": {
@@ -108,7 +112,7 @@ func Provider() *schema.Provider {
 					"OS_TENANT_NAME",
 					"OS_PROJECT_NAME",
 				}, ""),
-				Description: descriptions["tenant_name"],
+				Description: Descriptions["tenant_name"],
 			},
 
 			"password": {
@@ -116,7 +120,7 @@ func Provider() *schema.Provider {
 				Optional:    true,
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_PASSWORD", ""),
-				Description: descriptions["password"],
+				Description: Descriptions["password"],
 			},
 
 			"token": {
@@ -126,70 +130,70 @@ func Provider() *schema.Provider {
 					"OS_TOKEN",
 					"OS_AUTH_TOKEN",
 				}, ""),
-				Description: descriptions["token"],
+				Description: Descriptions["token"],
 			},
 
 			"user_domain_name": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_USER_DOMAIN_NAME", ""),
-				Description: descriptions["user_domain_name"],
+				Description: Descriptions["user_domain_name"],
 			},
 
 			"user_domain_id": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_USER_DOMAIN_ID", ""),
-				Description: descriptions["user_domain_id"],
+				Description: Descriptions["user_domain_id"],
 			},
 
 			"project_domain_name": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_PROJECT_DOMAIN_NAME", ""),
-				Description: descriptions["project_domain_name"],
+				Description: Descriptions["project_domain_name"],
 			},
 
 			"project_domain_id": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_PROJECT_DOMAIN_ID", ""),
-				Description: descriptions["project_domain_id"],
+				Description: Descriptions["project_domain_id"],
 			},
 
 			"domain_id": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_DOMAIN_ID", ""),
-				Description: descriptions["domain_id"],
+				Description: Descriptions["domain_id"],
 			},
 
 			"domain_name": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_DOMAIN_NAME", ""),
-				Description: descriptions["domain_name"],
+				Description: Descriptions["domain_name"],
 			},
 
 			"default_domain": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_DEFAULT_DOMAIN", "default"),
-				Description: descriptions["default_domain"],
+				Description: Descriptions["default_domain"],
 			},
 
 			"system_scope": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_SYSTEM_SCOPE", false),
-				Description: descriptions["system_scope"],
+				Description: Descriptions["system_scope"],
 			},
 
 			"insecure": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_INSECURE", nil),
-				Description: descriptions["insecure"],
+				Description: Descriptions["insecure"],
 			},
 
 			"endpoint_type": {
@@ -202,83 +206,84 @@ func Provider() *schema.Provider {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_CACERT", ""),
-				Description: descriptions["cacert_file"],
+				Description: Descriptions["cacert_file"],
 			},
 
 			"cert": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_CERT", ""),
-				Description: descriptions["cert"],
+				Description: Descriptions["cert"],
 			},
 
 			"key": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_KEY", ""),
-				Description: descriptions["key"],
+				Description: Descriptions["key"],
 			},
 
 			"swauth": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_SWAUTH", false),
-				Description: descriptions["swauth"],
+				Description: Descriptions["swauth"],
 			},
 
 			"delayed_auth": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_DELAYED_AUTH", true),
-				Description: descriptions["delayed_auth"],
+				Description: Descriptions["delayed_auth"],
 			},
 
 			"allow_reauth": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_ALLOW_REAUTH", true),
-				Description: descriptions["allow_reauth"],
+				Description: Descriptions["allow_reauth"],
 			},
 
 			"cloud": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_CLOUD", ""),
-				Description: descriptions["cloud"],
+				Description: Descriptions["cloud"],
 			},
 
 			"max_retries": {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Default:     0,
-				Description: descriptions["max_retries"],
+				Description: Descriptions["max_retries"],
 			},
 
 			"endpoint_overrides": {
 				Type:        schema.TypeMap,
 				Optional:    true,
-				Description: descriptions["endpoint_overrides"],
+				Description: Descriptions["endpoint_overrides"],
 			},
 
 			"disable_no_cache_header": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
-				Description: descriptions["disable_no_cache_header"],
+				Description: Descriptions["disable_no_cache_header"],
 			},
 
 			"enable_logging": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
-				Description: descriptions["enable_logging"],
+				Description: Descriptions["enable_logging"],
 			},
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{
 			// "vnpaycloud_blockstorage_availability_zones_v3":       dataSourceBlockStorageAvailabilityZonesV3(),
 			// "vnpaycloud_blockstorage_snapshot_v3":                 dataSourceBlockStorageSnapshotV3(),
-			"vnpaycloud_blockstorage_volume_v3": volumev3.DataSourceBlockStorageVolumeV3(),
+			"vnpaycloud_blockstorage_volume": volume.DataSourceBlockStorageVolume(),
+			"vnpaycloud_vpc":                 vpc.DataSourceVpc(),
 			// "vnpaycloud_blockstorage_quotaset_v3":                 dataSourceBlockStorageQuotasetV3(),
 			// "vnpaycloud_compute_aggregate_v2":                     dataSourceComputeAggregateV2(),
 			// "vnpaycloud_compute_availability_zones_v2":            dataSourceComputeAvailabilityZonesV2(),
@@ -312,11 +317,11 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_networking_qos_minimum_bandwidth_rule_v2": dataSourceNetworkingQoSMinimumBandwidthRuleV2(),
 			// "vnpaycloud_networking_qos_policy_v2":                 dataSourceNetworkingQoSPolicyV2(),
 			// "vnpaycloud_networking_quota_v2":                      dataSourceNetworkingQuotaV2(),
-			// "vnpaycloud_networking_subnet_v2":                     dataSourceNetworkingSubnetV2(),
+			"vnpaycloud_networking_subnet_v2": subnet.DataSourceNetworkingSubnetV2(),
 			// "vnpaycloud_networking_subnet_ids_v2":                 dataSourceNetworkingSubnetIDsV2(),
-			"vnpaycloud_networking_secgroup_v2": secgroupv2.DataSourceNetworkingSecGroupV2(),
+			"vnpaycloud_networking_secgroup": securityGroup.DataSourceNetworkingSecGroupV2(),
 			// "vnpaycloud_networking_subnetpool_v2":                 dataSourceNetworkingSubnetPoolV2(),
-			"vnpaycloud_networking_floatingip_v2": floatingip.DataSourceNetworkingFloatingIPV2(),
+			"vnpaycloud_networking_floatingip": floatingip.DataSourceNetworkingFloatingIPV2(),
 			// "vnpaycloud_networking_router_v2":                     dataSourceNetworkingRouterV2(),
 			// "vnpaycloud_networking_port_v2":                       dataSourceNetworkingPortV2(),
 			// "vnpaycloud_networking_port_ids_v2":                   dataSourceNetworkingPortIDsV2(),
@@ -335,7 +340,8 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_blockstorage_qos_association_v3":          resourceBlockStorageQosAssociationV3(),
 			// "vnpaycloud_blockstorage_qos_v3":                      resourceBlockStorageQosV3(),
 			// "vnpaycloud_blockstorage_quotaset_v3":                 resourceBlockStorageQuotasetV3(),
-			"vnpaycloud_volume": volumev3.ResourceBlockStorageVolumeV3(),
+			"vnpaycloud_blockstorage_volume": volume.ResourceBlockStorageVolume(),
+			"vnpaycloud_vpc":                 vpc.ResourceVpc(),
 			// "vnpaycloud_blockstorage_volume_attach_v3":            resourceBlockStorageVolumeAttachV3(),
 			// "vnpaycloud_blockstorage_volume_type_access_v3":       resourceBlockstorageVolumeTypeAccessV3(),
 			// "vnpaycloud_blockstorage_volume_type_v3":              resourceBlockStorageVolumeTypeV3(),
@@ -371,7 +377,7 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_identity_user_v3":                         resourceIdentityUserV3(),
 			// "vnpaycloud_identity_user_membership_v3":              resourceIdentityUserMembershipV3(),
 			// "vnpaycloud_identity_group_v3":                        resourceIdentityGroupV3(),
-			"vnpaycloud_identity_application_credential_v3": applicationcredentials.ResourceIdentityApplicationCredentialV3(),
+			"vnpaycloud_identity_application_credential": applicationcredentials.ResourceIdentityApplicationCredentialV3(),
 			// "vnpaycloud_identity_ec2_credential_v3":               resourceIdentityEc2CredentialV3(),
 			// "vnpaycloud_images_image_v2":                          resourceImagesImageV2(),
 			// "vnpaycloud_images_image_access_v2":                   resourceImagesImageAccessV2(),
@@ -386,10 +392,10 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_lb_l7policy_v2":                           resourceL7PolicyV2(),
 			// "vnpaycloud_lb_l7rule_v2":                             resourceL7RuleV2(),
 			// "vnpaycloud_lb_quota_v2":                              resourceLoadBalancerQuotaV2(),
-			"vnpaycloud_networking_floatingip_v2":           floatingip.ResourceNetworkingFloatingIPV2(),
-			"vnpaycloud_networking_floatingip_associate_v2": floatingip.ResourceNetworkingFloatingIPAssociateV2(),
-			// "vnpaycloud_networking_network_v2":                    resourceNetworkingNetworkV2(),
-			"vnpaycloud_port": port.ResourceNetworkingPortV2(),
+			"vnpaycloud_networking_floatingip":           floatingip.ResourceNetworkingFloatingIPV2(),
+			"vnpaycloud_networking_floatingip_associate": floatingip.ResourceNetworkingFloatingIPAssociateV2(),
+			"vnpaycloud_networking_network":              network.ResourceNetworkingNetwork(),
+			"vnpaycloud_port":                            port.ResourceNetworkingPortV2(),
 			// "vnpaycloud_networking_rbac_policy_v2":                resourceNetworkingRBACPolicyV2(),
 			// "vnpaycloud_networking_port_secgroup_associate_v2":    resourceNetworkingPortSecGroupAssociateV2(),
 			// "vnpaycloud_networking_qos_bandwidth_limit_rule_v2":   resourceNetworkingQoSBandwidthLimitRuleV2(),
@@ -400,9 +406,9 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_networking_router_v2":                     resourceNetworkingRouterV2(),
 			// "vnpaycloud_networking_router_interface_v2":           resourceNetworkingRouterInterfaceV2(),
 			// "vnpaycloud_networking_router_route_v2":               resourceNetworkingRouterRouteV2(),
-			"vnpaycloud_networking_secgroup_v2": secgroupv2.ResourceNetworkingSecGroupV2(),
-			// "vnpaycloud_networking_secgroup_rule_v2":              resourceNetworkingSecGroupRuleV2(),
-			// "vnpaycloud_networking_subnet_v2":                     resourceNetworkingSubnetV2(),
+			"vnpaycloud_networking_secgroup":      securityGroup.ResourceNetworkingSecGroupV2(),
+			"vnpaycloud_networking_secgroup_rule": securityGroupRule.ResourceNetworkingSecGroupRuleV2(),
+			"vnpaycloud_networking_subnet_v2":     subnet.ResourceNetworkingSubnetV2(),
 			// "vnpaycloud_networking_subnet_route_v2":               resourceNetworkingSubnetRouteV2(),
 			// "vnpaycloud_networking_subnetpool_v2":                 resourceNetworkingSubnetPoolV2(),
 			// "vnpaycloud_networking_addressscope_v2":               resourceNetworkingAddressScopeV2(),
@@ -445,10 +451,10 @@ func Provider() *schema.Provider {
 	return provider
 }
 
-var descriptions map[string]string
+var Descriptions map[string]string
 
 func init() {
-	descriptions = map[string]string{
+	Descriptions = map[string]string{
 		"auth_url": "The Identity authentication URL.",
 
 		"cloud": "An entry in a `clouds.yaml` file to use.",

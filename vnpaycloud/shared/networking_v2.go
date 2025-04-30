@@ -8,22 +8,23 @@ import (
 	"net/http"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 
+	"terraform-provider-vnpaycloud/vnpaycloud/util"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/vnpaycloud-console/gophercloud/v2"
 	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/networks"
 	"github.com/vnpaycloud-console/gophercloud/v2/pagination"
-	"terraform-provider-vnpaycloud/vnpaycloud/util"
 )
 
-func NetworkingV2ReadAttributesTags(d *schema.ResourceData, tags []string) {
+func NetworkingReadAttributesTags(d *schema.ResourceData, tags []string) {
 	util.ExpandObjectReadTags(d, tags)
 }
 
-func NetworkingV2UpdateAttributesTags(d *schema.ResourceData) []string {
+func NetworkingUpdateAttributesTags(d *schema.ResourceData) []string {
 	return util.ExpandObjectUpdateTags(d)
 }
 
-func NetworkingV2AttributesTags(d *schema.ResourceData) []string {
+func NetworkingAttributesTags(d *schema.ResourceData) []string {
 	return util.ExpandObjectTags(d)
 }
 

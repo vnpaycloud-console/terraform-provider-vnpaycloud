@@ -121,7 +121,7 @@ func dataSourceNetworkingFloatingIPV2Read(ctx context.Context, d *schema.Resourc
 		listOpts.Status = v.(string)
 	}
 
-	tags := shared.NetworkingV2AttributesTags(d)
+	tags := shared.NetworkingAttributesTags(d)
 	if len(tags) > 0 {
 		listOpts.Tags = strings.Join(tags, ",")
 	}

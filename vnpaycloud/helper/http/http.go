@@ -7,12 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"google.golang.org/genproto/googleapis/api/httpbody"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/protobuf/types/known/anypb"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -20,6 +14,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/golang/glog"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"google.golang.org/genproto/googleapis/api/httpbody"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func BuildURL(endpoint, path string, requestStruct interface{}) (string, error) {

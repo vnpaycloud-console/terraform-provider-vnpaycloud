@@ -1,20 +1,20 @@
-package volumev3
+package volume
 
 import (
 	"context"
-	"log"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
 	"github.com/vnpaycloud-console/gophercloud/v2/openstack/blockstorage/v3/volumes"
 )
 
-func DataSourceBlockStorageVolumeV3() *schema.Resource {
+func DataSourceBlockStorageVolume() *schema.Resource {
 	return &schema.Resource{
-		ReadContext: dataSourceBlockStorageVolumeV3Read,
+		ReadContext: dataSourceBlockStorageVolumeRead,
 
 		Schema: map[string]*schema.Schema{
 			"region": {
@@ -89,13 +89,13 @@ func DataSourceBlockStorageVolumeV3() *schema.Resource {
 						},
 					},
 				},
-				Set: blockStorageVolumeV3AttachmentHash,
+				Set: blockStorageVolumeAttachmentHash,
 			},
 		},
 	}
 }
 
-func dataSourceBlockStorageVolumeV3Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func dataSourceBlockStorageVolumeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
 	client, err := config.BlockStorageV3Client(ctx, util.GetRegion(d, config))
 	if err != nil {
@@ -110,29 +110,29 @@ func dataSourceBlockStorageVolumeV3Read(ctx context.Context, d *schema.ResourceD
 
 	allPages, err := volumes.List(client, listOpts).AllPages(ctx)
 	if err != nil {
-		return diag.Errorf("Unable to query vnpaycloud_blockstorage_volume_v3: %s", err)
+		return diag.Errorf("Unable to query vnpaycloud_blockstorage_volume: %s", err)
 	}
 
 	var allVolumes []volumes.Volume
 	err = volumes.ExtractVolumesInto(allPages, &allVolumes)
 	if err != nil {
-		return diag.Errorf("Unable to retrieve vnpaycloud_blockstorage_volume_v3: %s", err)
+		return diag.Errorf("Unable to retrieve vnpaycloud_blockstorage_volume: %s", err)
 	}
 
 	if len(allVolumes) > 1 {
-		return diag.Errorf("Your vnpaycloud_blockstorage_volume_v3 query returned multiple results")
+		return diag.Errorf("Your vnpaycloud_blockstorage_volume query returned multiple results")
 	}
 
 	if len(allVolumes) < 1 {
-		return diag.Errorf("Your vnpaycloud_blockstorage_volume_v3 query returned no results")
+		return diag.Errorf("Your vnpaycloud_blockstorage_volume query returned no results")
 	}
 
-	dataSourceBlockStorageVolumeV3Attributes(d, allVolumes[0])
+	dataSourceBlockStorageVolumeAttributes(ctx, d, allVolumes[0])
 
 	return nil
 }
 
-func dataSourceBlockStorageVolumeV3Attributes(d *schema.ResourceData, volume volumes.Volume) {
+func dataSourceBlockStorageVolumeAttributes(ctx context.Context, d *schema.ResourceData, volume volumes.Volume) {
 	d.SetId(volume.ID)
 	d.Set("name", volume.Name)
 	d.Set("status", volume.Status)
@@ -143,13 +143,16 @@ func dataSourceBlockStorageVolumeV3Attributes(d *schema.ResourceData, volume vol
 	d.Set("host", volume.Host)
 
 	if err := d.Set("metadata", volume.Metadata); err != nil {
-		log.Printf("[DEBUG] Unable to set metadata for vnpaycloud_blockstorage_volume_v3 %s: %s", volume.ID, err)
+		tflog.Error(ctx, "Unable to set metadata for vnpaycloud_blockstorage_volume "+volume.ID, map[string]interface{}{"error": err})
 	}
 
-	attachments := flattenBlockStorageVolumeV3Attachments(volume.Attachments)
-	log.Printf("[DEBUG] vnpaycloud_blockstorage_volume_v3 %s attachments: %#v", d.Id(), attachments)
+	attachments := flattenBlockStorageVolumeAttachments(volume.Attachments)
+	tflog.Debug(ctx, "vnpaycloud_blockstorage_volume %"+d.Id()+" attachments", map[string]interface{}{"attachments": attachments})
 	if err := d.Set("attachment", attachments); err != nil {
-		log.Printf(
-			"[DEBUG] unable to set vnpaycloud_blockstorage_volume_v3 %s attachments: %s", d.Id(), err)
+		tflog.Error(
+			ctx,
+			"unable to set vnpaycloud_blockstorage_volume "+d.Id()+" attachments",
+			map[string]interface{}{"error": err},
+		)
 	}
 }

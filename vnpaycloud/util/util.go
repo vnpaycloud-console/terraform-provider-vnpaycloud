@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/identity/v2/tenants"
-	tokens2 "github.com/vnpaycloud-console/gophercloud/v2/openstack/identity/v2/tokens"
-	tokens3 "github.com/vnpaycloud-console/gophercloud/v2/openstack/identity/v3/tokens"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/vnpaycloud-console/gophercloud/v2/openstack/identity/v2/tenants"
+	tokens2 "github.com/vnpaycloud-console/gophercloud/v2/openstack/identity/v2/tokens"
+	tokens3 "github.com/vnpaycloud-console/gophercloud/v2/openstack/identity/v3/tokens"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"

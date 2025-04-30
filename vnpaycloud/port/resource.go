@@ -416,7 +416,7 @@ func resourceNetworkingPortV2Create(ctx context.Context, d *schema.ResourceData,
 
 	d.SetId(port.ID)
 
-	tags := util.NetworkingV2AttributesTags(d)
+	tags := util.NetworkingAttributesTags(d)
 	if len(tags) > 0 {
 		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
 		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "ports", port.ID, tagOpts).Extract()
@@ -454,7 +454,7 @@ func resourceNetworkingPortV2Read(ctx context.Context, d *schema.ResourceData, m
 	d.Set("device_owner", port.DeviceOwner)
 	d.Set("device_id", port.DeviceID)
 
-	util.NetworkingV2ReadAttributesTags(d, port.Tags)
+	util.NetworkingReadAttributesTags(d, port.Tags)
 
 	// Set a slice of all returned Fixed IPs.
 	// This will be in the order returned by the API,
@@ -661,7 +661,7 @@ func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData,
 
 	// Next, perform any required updates to the tags.
 	if d.HasChange("tags") {
-		tags := util.NetworkingV2UpdateAttributesTags(d)
+		tags := util.NetworkingUpdateAttributesTags(d)
 		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
 		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "ports", d.Id(), tagOpts).Extract()
 		if err != nil {

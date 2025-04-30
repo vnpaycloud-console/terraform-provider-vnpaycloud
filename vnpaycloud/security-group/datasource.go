@@ -1,4 +1,4 @@
-package secgroupv2
+package securityGroup
 
 import (
 	"context"
@@ -78,7 +78,7 @@ func dataSourceNetworkingSecGroupV2Read(ctx context.Context, d *schema.ResourceD
 		listOpts.Stateful = &v
 	}
 
-	tags := networkingV2AttributesTags(d)
+	tags := NetworkingAttributesTags(d)
 	if len(tags) > 0 {
 		listOpts.Tags = strings.Join(tags, ",")
 	}

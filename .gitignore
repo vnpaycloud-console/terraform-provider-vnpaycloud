@@ -3,4 +3,6 @@ token_input.txt
 terraform.tfstate
 terraform.tfstate.backup
 terraform-provider-vnpaycloud
-**.tf
+**.terraform**
+main.tf
+docs

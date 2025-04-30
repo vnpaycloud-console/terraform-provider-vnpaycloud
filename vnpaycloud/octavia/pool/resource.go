@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/octavia/common"
+	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
@@ -209,11 +209,11 @@ func resourcePoolV2Create(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	if v, ok := d.GetOk("tls_versions"); ok {
-		createOpts.TLSVersions = common.ExpandLBPoolTLSVersionV2(v.(*schema.Set).List())
+		createOpts.TLSVersions = shared.ExpandLBPoolTLSVersionV2(v.(*schema.Set).List())
 	}
 
 	if v, ok := d.GetOk("persistence"); ok {
-		createOpts.Persistence, err = common.ExpandLBPoolPersistanceV2(v.([]interface{}))
+		createOpts.Persistence, err = shared.ExpandLBPoolPersistanceV2(v.([]interface{}))
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -235,13 +235,13 @@ func resourcePoolV2Create(ctx context.Context, d *schema.ResourceData, meta inte
 			return diag.Errorf("Unable to get openstack_lb_listener_v2 %s: %s", listenerID, err)
 		}
 
-		waitErr := common.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+		waitErr := shared.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 		if waitErr != nil {
 			return diag.Errorf(
 				"Error waiting for openstack_lb_listener_v2 %s to become active: %s", listenerID, err)
 		}
 	} else {
-		waitErr := common.WaitForLBV2LoadBalancer(ctx, lbClient, lbID, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+		waitErr := shared.WaitForLBV2LoadBalancer(ctx, lbClient, lbID, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 		if waitErr != nil {
 			return diag.Errorf(
 				"Error waiting for openstack_lb_loadbalancer_v2 %s to become active: %s", lbID, err)
@@ -264,7 +264,7 @@ func resourcePoolV2Create(ctx context.Context, d *schema.ResourceData, meta inte
 
 	// Pool was successfully created
 	// Wait for pool to become active before continuing
-	err = common.WaitForLBV2Pool(ctx, lbClient, pool, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Pool(ctx, lbClient, pool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -294,7 +294,7 @@ func resourcePoolV2Read(ctx context.Context, d *schema.ResourceData, meta interf
 	d.Set("tenant_id", pool.ProjectID)
 	d.Set("admin_state_up", pool.AdminStateUp)
 	d.Set("name", pool.Name)
-	d.Set("persistence", common.FlattenLBPoolPersistenceV2(pool.Persistence))
+	d.Set("persistence", shared.FlattenLBPoolPersistenceV2(pool.Persistence))
 	d.Set("alpn_protocols", pool.ALPNProtocols)
 	d.Set("ca_tls_container_ref", pool.CATLSContainerRef)
 	d.Set("crl_container_ref", pool.CRLContainerRef)
@@ -332,7 +332,7 @@ func resourcePoolV2Update(ctx context.Context, d *schema.ResourceData, meta inte
 		updateOpts.AdminStateUp = &asu
 	}
 	if d.HasChange("persistence") {
-		updateOpts.Persistence, err = common.ExpandLBPoolPersistanceV2(d.Get("persistence").([]interface{}))
+		updateOpts.Persistence, err = shared.ExpandLBPoolPersistanceV2(d.Get("persistence").([]interface{}))
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -362,7 +362,7 @@ func resourcePoolV2Update(ctx context.Context, d *schema.ResourceData, meta inte
 		updateOpts.TLSContainerRef = &v
 	}
 	if d.HasChange("tls_versions") {
-		v := common.ExpandLBPoolTLSVersionV2(d.Get("tls_versions").(*schema.Set).List())
+		v := shared.ExpandLBPoolTLSVersionV2(d.Get("tls_versions").(*schema.Set).List())
 		updateOpts.TLSVersions = &v
 	}
 
@@ -385,7 +385,7 @@ func resourcePoolV2Update(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	// Wait for pool to become active before continuing
-	err = common.WaitForLBV2Pool(ctx, lbClient, pool, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Pool(ctx, lbClient, pool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -404,7 +404,7 @@ func resourcePoolV2Update(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	// Wait for pool to become active before continuing
-	err = common.WaitForLBV2Pool(ctx, lbClient, pool, "ACTIVE", common.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBV2Pool(ctx, lbClient, pool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -441,7 +441,7 @@ func resourcePoolV2Delete(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	// Wait for Pool to delete
-	err = common.WaitForLBV2Pool(ctx, lbClient, pool, "DELETED", common.GetLbPendingDeleteStatuses(), timeout)
+	err = shared.WaitForLBV2Pool(ctx, lbClient, pool, "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}

@@ -6,8 +6,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"github.com/vnpaycloud-console/gophercloud-utils/v2/terraform/hashcode"
-	"github.com/vnpaycloud-console/gophercloud/v2"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +14,9 @@ import (
 	serverInterfaceAttach "terraform-provider-vnpaycloud/vnpaycloud/server-interface-attach"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
+
+	"github.com/vnpaycloud-console/gophercloud-utils/v2/terraform/hashcode"
+	"github.com/vnpaycloud-console/gophercloud/v2"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"

@@ -3,8 +3,9 @@ package floatingip
 import (
 	"context"
 	"fmt"
-	"github.com/vnpaycloud-console/gophercloud/v2"
 	"net/http"
+
+	"github.com/vnpaycloud-console/gophercloud/v2"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
