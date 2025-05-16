@@ -1,16 +1,23 @@
 module terraform-provider-vnpaycloud
 
-go 1.24
+go 1.23.0
+
+toolchain go1.23.7
+
+//replace (
+//	github.com/vnpaycloud-console/gophercloud-utils/v2 v2.0.0-20250328040429-1594d96ba7fa => ../../third-party/gophercloud-utils
+//	github.com/vnpaycloud-console/gophercloud/v2 v2.0.2 => ../../third-party/vnpaycloud_gophercloud
+//)
 
 require (
-	github.com/golang/glog v1.2.2
+	github.com/golang/glog v1.2.4
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.36.1
 	github.com/vnpaycloud-console/gophercloud-utils/v2 v2.0.0-20250328040429-1594d96ba7fa
-	github.com/vnpaycloud-console/gophercloud/v2 v2.0.3
-	google.golang.org/genproto/googleapis/api v0.0.0-20241015192408-796eee8c2d53
-	google.golang.org/grpc v1.69.4
-	google.golang.org/protobuf v1.36.3
+	github.com/vnpaycloud-console/gophercloud/v2 v2.0.4
+	google.golang.org/genproto/googleapis/api v0.0.0-20250414145226-207652e42e2e
+	google.golang.org/grpc v1.71.1
+	google.golang.org/protobuf v1.36.6
 )
 
 require (
@@ -19,8 +26,8 @@ require (
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/gofrs/uuid/v5 v5.3.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/hashicorp/go-cty v1.5.0 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-plugin v1.6.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
@@ -44,12 +51,12 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/zclconf/go-cty v1.16.2 // indirect
 	golang.org/x/mod v0.22.0 // indirect
-	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250409194420-de1ac958c67a // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

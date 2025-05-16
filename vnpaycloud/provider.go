@@ -15,6 +15,7 @@ import (
 	lbMembers "terraform-provider-vnpaycloud/vnpaycloud/octavia/members"
 	lbMonitor "terraform-provider-vnpaycloud/vnpaycloud/octavia/monitor"
 	lbPool "terraform-provider-vnpaycloud/vnpaycloud/octavia/pool"
+	peeringconnection "terraform-provider-vnpaycloud/vnpaycloud/peering_connection"
 	"terraform-provider-vnpaycloud/vnpaycloud/port"
 	securityGroup "terraform-provider-vnpaycloud/vnpaycloud/security-group"
 	securityGroupRule "terraform-provider-vnpaycloud/vnpaycloud/security-group-rule"
@@ -317,7 +318,7 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_networking_qos_minimum_bandwidth_rule_v2": dataSourceNetworkingQoSMinimumBandwidthRuleV2(),
 			// "vnpaycloud_networking_qos_policy_v2":                 dataSourceNetworkingQoSPolicyV2(),
 			// "vnpaycloud_networking_quota_v2":                      dataSourceNetworkingQuotaV2(),
-			"vnpaycloud_networking_subnet_v2": subnet.DataSourceNetworkingSubnetV2(),
+			"vnpaycloud_networking_subnet": subnet.DataSourceNetworkingSubnetV2(),
 			// "vnpaycloud_networking_subnet_ids_v2":                 dataSourceNetworkingSubnetIDsV2(),
 			"vnpaycloud_networking_secgroup": securityGroup.DataSourceNetworkingSecGroupV2(),
 			// "vnpaycloud_networking_subnetpool_v2":                 dataSourceNetworkingSubnetPoolV2(),
@@ -342,6 +343,7 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_blockstorage_quotaset_v3":                 resourceBlockStorageQuotasetV3(),
 			"vnpaycloud_blockstorage_volume": volume.ResourceBlockStorageVolume(),
 			"vnpaycloud_vpc":                 vpc.ResourceVpc(),
+			"vnpaycloud_peering_connection":  peeringconnection.ResourcePeeringConnection(),
 			// "vnpaycloud_blockstorage_volume_attach_v3":            resourceBlockStorageVolumeAttachV3(),
 			// "vnpaycloud_blockstorage_volume_type_access_v3":       resourceBlockstorageVolumeTypeAccessV3(),
 			// "vnpaycloud_blockstorage_volume_type_v3":              resourceBlockStorageVolumeTypeV3(),
@@ -383,12 +385,12 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_images_image_access_v2":                   resourceImagesImageAccessV2(),
 			// "vnpaycloud_images_image_access_accept_v2":            resourceImagesImageAccessAcceptV2(),
 			// "vnpaycloud_lb_flavorprofile_v2":                      resourceLoadBalancerFlavorProfileV2(),
-			"vnpaycloud_lb_loadbalancer_v2": lb.ResourceLoadBalancerV2(),
-			"vnpaycloud_lb_listener_v2":     lbListener.ResourceListenerV2(),
-			"vnpaycloud_lb_pool_v2":         lbPool.ResourcePoolV2(),
-			"vnpaycloud_lb_member_v2":       lbMember.ResourceMemberV2(),
-			"vnpaycloud_lb_members_v2":      lbMembers.ResourceMembersV2(),
-			"vnpaycloud_lb_monitor_v2":      lbMonitor.ResourceMonitorV2(),
+			"vnpaycloud_lb_loadbalancer": lb.ResourceLoadBalancerV2(),
+			"vnpaycloud_lb_listener":     lbListener.ResourceListenerV2(),
+			"vnpaycloud_lb_pool":         lbPool.ResourcePoolV2(),
+			"vnpaycloud_lb_member":       lbMember.ResourceMemberV2(),
+			"vnpaycloud_lb_members":      lbMembers.ResourceMembersV2(),
+			"vnpaycloud_lb_monitor":      lbMonitor.ResourceMonitorV2(),
 			// "vnpaycloud_lb_l7policy_v2":                           resourceL7PolicyV2(),
 			// "vnpaycloud_lb_l7rule_v2":                             resourceL7RuleV2(),
 			// "vnpaycloud_lb_quota_v2":                              resourceLoadBalancerQuotaV2(),
@@ -408,7 +410,7 @@ func Provider() *schema.Provider {
 			// "vnpaycloud_networking_router_route_v2":               resourceNetworkingRouterRouteV2(),
 			"vnpaycloud_networking_secgroup":      securityGroup.ResourceNetworkingSecGroupV2(),
 			"vnpaycloud_networking_secgroup_rule": securityGroupRule.ResourceNetworkingSecGroupRuleV2(),
-			"vnpaycloud_networking_subnet_v2":     subnet.ResourceNetworkingSubnetV2(),
+			"vnpaycloud_networking_subnet":        subnet.ResourceNetworkingSubnetV2(),
 			// "vnpaycloud_networking_subnet_route_v2":               resourceNetworkingSubnetRouteV2(),
 			// "vnpaycloud_networking_subnetpool_v2":                 resourceNetworkingSubnetPoolV2(),
 			// "vnpaycloud_networking_addressscope_v2":               resourceNetworkingAddressScopeV2(),
