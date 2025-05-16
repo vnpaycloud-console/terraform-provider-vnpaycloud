@@ -4,11 +4,6 @@ go 1.23.0
 
 toolchain go1.23.7
 
-//replace (
-//	github.com/vnpaycloud-console/gophercloud-utils/v2 v2.0.0-20250328040429-1594d96ba7fa => ../../third-party/gophercloud-utils
-//	github.com/vnpaycloud-console/gophercloud/v2 v2.0.2 => ../../third-party/vnpaycloud_gophercloud
-//)
-
 require (
 	github.com/golang/glog v1.2.4
 	github.com/hashicorp/terraform-plugin-log v0.9.0
