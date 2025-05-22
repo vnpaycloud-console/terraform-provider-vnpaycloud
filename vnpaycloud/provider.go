@@ -7,6 +7,7 @@ import (
 	applicationcredentials "terraform-provider-vnpaycloud/vnpaycloud/application-credential"
 	"terraform-provider-vnpaycloud/vnpaycloud/flavor"
 	"terraform-provider-vnpaycloud/vnpaycloud/floatingip"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/keypair"
 	"terraform-provider-vnpaycloud/vnpaycloud/network"
 	lbListener "terraform-provider-vnpaycloud/vnpaycloud/octavia/listener"
@@ -17,6 +18,7 @@ import (
 	lbPool "terraform-provider-vnpaycloud/vnpaycloud/octavia/pool"
 	peeringconnection "terraform-provider-vnpaycloud/vnpaycloud/peering_connection"
 	"terraform-provider-vnpaycloud/vnpaycloud/port"
+	routetable "terraform-provider-vnpaycloud/vnpaycloud/route_table"
 	securityGroup "terraform-provider-vnpaycloud/vnpaycloud/security-group"
 	securityGroupRule "terraform-provider-vnpaycloud/vnpaycloud/security-group-rule"
 	"terraform-provider-vnpaycloud/vnpaycloud/server"
@@ -52,6 +54,13 @@ func Provider() *schema.Provider {
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("OS_AUTH_URL", ""),
 				Description: Descriptions["auth_url"],
+			},
+
+			"base_url": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("OS_BASE_URL", ""),
+				Description: Descriptions["base_url"],
 			},
 
 			"region": {
@@ -344,6 +353,7 @@ func Provider() *schema.Provider {
 			"vnpaycloud_blockstorage_volume": volume.ResourceBlockStorageVolume(),
 			"vnpaycloud_vpc":                 vpc.ResourceVpc(),
 			"vnpaycloud_peering_connection":  peeringconnection.ResourcePeeringConnection(),
+			"vnpaycloud_route_table":         routetable.ResourceRouteTable(),
 			// "vnpaycloud_blockstorage_volume_attach_v3":            resourceBlockStorageVolumeAttachV3(),
 			// "vnpaycloud_blockstorage_volume_type_access_v3":       resourceBlockstorageVolumeTypeAccessV3(),
 			// "vnpaycloud_blockstorage_volume_type_v3":              resourceBlockStorageVolumeTypeV3(),
@@ -459,6 +469,8 @@ func init() {
 	Descriptions = map[string]string{
 		"auth_url": "The Identity authentication URL.",
 
+		"base_url": "The base URL.",
+
 		"cloud": "An entry in a `clouds.yaml` file to use.",
 
 		"region": "The VNPAY Cloud region to connect to.",
@@ -560,7 +572,7 @@ func configureProvider(ctx context.Context, d *schema.ResourceData, terraformVer
 	}
 
 	config := config.Config{
-		auth.Config{
+		Config: auth.Config{
 			CACertFile:                  d.Get("cacert_file").(string),
 			ClientCertFile:              d.Get("cert").(string),
 			ClientKeyFile:               d.Get("key").(string),
@@ -596,6 +608,11 @@ func configureProvider(ctx context.Context, d *schema.ResourceData, terraformVer
 			SDKVersion:                  getSDKVersion() + " Terraform Provider VNPAY Cloud/" + version,
 			MutexKV:                     mutexkv.NewMutexKV(),
 			EnableLogger:                enableLogging,
+		},
+		ConsoleClientConfig: &client.ClientConfig{
+			AppCredID:     d.Get("application_credential_id").(string),
+			AppCredSecret: d.Get("application_credential_secret").(string),
+			BaseURL:       d.Get("base_url").(string),
 		},
 	}
 
