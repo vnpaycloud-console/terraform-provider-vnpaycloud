@@ -4,54 +4,54 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
-	"github.com/vnpaycloud-console/gophercloud/v2"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/peeringconnectionrequests"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/peeringconnections"
 )
 
-func peeringConnectionRequestStateRefreshFunc(ctx context.Context, client *gophercloud.ServiceClient, requestId string) retry.StateRefreshFunc {
+func peeringConnectionRequestStateRefreshFunc(ctx context.Context, consoleClient *client.Client, id string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		peeringConnectionRequest, err := peeringconnectionrequests.Get(ctx, client, requestId).Extract()
-		fmt.Println("peeringConnectionRequest: ", peeringConnectionRequest)
+		getResp := &GetPeeringConnectionRequestResponse{}
+		_, err := consoleClient.Get(ctx, client.ApiPath.PeeringConnectionRequestWithId(id), getResp, nil)
 
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				return peeringConnectionRequest, "OS_DELETED", nil
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				return getResp.PeeringConnectionRequest, "OS_DELETED", nil
 			}
 
 			return nil, "", err
 		}
 
-		if peeringConnectionRequest.Status == "OS_FAILED" {
-			return peeringConnectionRequest, peeringConnectionRequest.Status, fmt.Errorf("The Peering Connection Request is in error status. " +
+		if getResp.PeeringConnectionRequest.Status == "OS_FAILED" {
+			return getResp.PeeringConnectionRequest, getResp.PeeringConnectionRequest.Status, fmt.Errorf("The Peering Connection Request is in error status. " +
 				"Please check with your cloud admin or check the Peering Connection Request " +
 				"API logs to see why this error occurred.")
 		}
 
-		return peeringConnectionRequest, peeringConnectionRequest.Status, nil
+		return getResp.PeeringConnectionRequest, getResp.PeeringConnectionRequest.Status, nil
 	}
 }
 
-func peeringConnectionStateRefreshFunc(ctx context.Context, client *gophercloud.ServiceClient, id string) retry.StateRefreshFunc {
+func peeringConnectionStateRefreshFunc(ctx context.Context, consoleClient *client.Client, id string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		peeringConnection, err := peeringconnections.Get(ctx, client, id).Extract()
+		resp := &GetPeeringConnectionResponse{}
+		_, err := consoleClient.Get(ctx, client.ApiPath.PeeringConnectionWithId(id), resp, nil)
 
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				return peeringConnection, "OS_DELETED", nil
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				return resp.PeeringConnection, "OS_DELETED", nil
 			}
 
 			return nil, "", err
 		}
 
-		if peeringConnection.Status == "OS_FAILED" {
-			return peeringConnection, peeringConnection.Status, fmt.Errorf("The Peering Connection is in error status. " +
+		if resp.PeeringConnection.Status == "OS_FAILED" {
+			return resp.PeeringConnection, resp.PeeringConnection.Status, fmt.Errorf("The Peering Connection is in error status. " +
 				"Please check with your cloud admin or check the Peering Connection " +
 				"API logs to see why this error occurred.")
 		}
 
-		return peeringConnection, peeringConnection.Status, nil
+		return resp.PeeringConnection, resp.PeeringConnection.Status, nil
 	}
 }

@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 
 	"github.com/vnpaycloud-console/gophercloud/v2"
 )
@@ -38,6 +40,16 @@ func BuildRequest(opts interface{}, parent string) (map[string]interface{}, erro
 // sets the resource ID to the empty string instead of throwing an error.
 func CheckDeleted(d *schema.ResourceData, err error, msg string) error {
 	if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
+		d.SetId("")
+		return nil
+	}
+
+	return fmt.Errorf("%s %s: %s", msg, d.Id(), err)
+}
+
+func CheckNotFound(d *schema.ResourceData, err error, msg string) error {
+	var codeError client.ErrUnexpectedResponseCode
+	if errors.As(err, &codeError) && codeError.Actual == http.StatusNotFound {
 		d.SetId("")
 		return nil
 	}
@@ -423,4 +435,12 @@ func GetTokenInfoV2(t tokens2.CreateResult) (AuthScopeTokenInfo, error) {
 	info.UserID = s.Access.User.ID
 	info.tokenID = s.Access.Token.ID
 	return info, nil
+}
+
+func ResponseCodeIs(err error, status int) bool {
+	var codeError client.ErrUnexpectedResponseCode
+	if errors.As(err, &codeError) {
+		return codeError.Actual == status
+	}
+	return false
 }
