@@ -3,6 +3,7 @@ package vpc
 import (
 	"context"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
@@ -53,21 +54,28 @@ func ResourceVpc() *schema.Resource {
 
 func resourceVpcCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	vpcClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	vpcClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud VPC client: %s", err)
 	}
 
-	createOpts := vpcs.CreateOpts{
-		Name:        d.Get("name").(string),
-		Description: d.Get("description").(string),
-		CIDR:        d.Get("cidr_block").(string),
+	createOpts := CreateVpcDto{
+		VPC: struct {
+			Name        string "json:\"name,omitempty\""
+			Description string "json:\"description,omitempty\""
+			CIDR        string "json:\"cidr,omitempty\""
+		}{
+			Name:        d.Get("name").(string),
+			Description: d.Get("description").(string),
+			CIDR:        d.Get("cidr_block").(string),
+		},
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_vpc create options", map[string]interface{}{"create_opts": createOpts})
 
-	vpc, err := vpcs.Create(ctx, vpcClient, createOpts).Extract()
+	createVpcResp := &CreateVpcDtoResponse{}
+	_, err = vpcClient.Post(ctx, client.ApiPath.VPC, createOpts, createVpcResp, nil)
 
 	if err != nil {
 		return diag.Errorf("Error creating vnpaycloud_vpc: %s", err)
@@ -76,7 +84,7 @@ func resourceVpcCreate(ctx context.Context, d *schema.ResourceData, meta interfa
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"OS_INITIATING"},
 		Target:     []string{"OS_ACTIVE", "OS_CREATED"},
-		Refresh:    vpcStateRefreshFunc(ctx, vpcClient, vpc.ID),
+		Refresh:    vpcStateRefreshFunc(ctx, vpcClient, createVpcResp.VPC.ID),
 		Timeout:    d.Timeout(schema.TimeoutCreate),
 		Delay:      10 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -86,34 +94,36 @@ func resourceVpcCreate(ctx context.Context, d *schema.ResourceData, meta interfa
 
 	if err != nil {
 		return diag.Errorf(
-			"Error waiting for vnpaycloud_vpc %s to become ready: %s", vpc.ID, err)
+			"Error waiting for vnpaycloud_vpc %s to become ready: %s", createVpcResp.VPC.ID, err)
 	}
 
-	d.SetId(vpc.ID)
+	d.SetId(createVpcResp.VPC.ID)
 
 	return resourceVpcRead(ctx, d, meta)
 }
 
 func resourceVpcRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	vpcClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	vpcClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud VPC client: %s", err)
 	}
 
-	vpc, err := vpcs.Get(ctx, vpcClient, d.Id()).Extract()
+	vpcResp := &GetVpcDtoResponse{}
+	otps := &client.RequestOpts{}
+	_, err = vpcClient.Get(ctx, client.ApiPath.VPCWithId(d.Id()), vpcResp, otps)
 
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving vnpaycloud_vpc"))
+		return diag.FromErr(util.CheckNotFound(d, err, "Error retrieving vnpaycloud_vpc"))
 	}
 
-	tflog.Debug(ctx, "Retrieved vnpaycloud_vpc "+d.Id(), map[string]interface{}{"vpc": vpc})
+	tflog.Debug(ctx, "Retrieved vnpaycloud_vpc "+d.Id(), map[string]interface{}{"vpc": vpcResp.VPC})
 
-	d.Set("name", vpc.Name)
-	d.Set("description", vpc.Description)
-	d.Set("cidr_block", vpc.CIDR)
-	d.Set("enable_snat", vpc.EnableSNAT)
+	d.Set("name", vpcResp.VPC.Name)
+	d.Set("description", vpcResp.VPC.Description)
+	d.Set("cidr_block", vpcResp.VPC.CIDR)
+	d.Set("enable_snat", vpcResp.VPC.EnableSNAT)
 
 	return nil
 }
@@ -144,20 +154,23 @@ func resourceVpcUpdate(ctx context.Context, d *schema.ResourceData, meta interfa
 
 func resourceVpcDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	vpcClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	vpcClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud VPC client: %s", err)
 	}
 
-	vpc, err := vpcs.Get(ctx, vpcClient, d.Id()).Extract()
+	vpcResp := &GetVpcDtoResponse{}
+	_, err = vpcClient.Get(ctx, client.ApiPath.VPCWithId(d.Id()), vpcResp, nil)
 
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving vnpaycloud_vpc"))
 	}
 
+	vpc := vpcResp.VPC
+
 	if vpc.Status != "OS_DELETING" {
-		if err := vpcs.Delete(ctx, vpcClient, d.Id()).ExtractErr(); err != nil {
+		if _, err := vpcClient.Delete(ctx, client.ApiPath.VPCWithId(d.Id()), nil); err != nil {
 			return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_vpc"))
 		}
 	}

@@ -3,6 +3,7 @@ package peeringconnection
 import (
 	"context"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
@@ -11,10 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/peeringconnectionapprovals"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/peeringconnectionrequests"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/peeringconnections"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/vpcs"
 )
 
 func ResourcePeeringConnection() *schema.Resource {
@@ -69,6 +66,10 @@ func ResourcePeeringConnection() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"port_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 	}
 }
@@ -86,26 +87,30 @@ func resourcePeeringConnectionCreate(ctx context.Context, d *schema.ResourceData
 
 func createPeeringConnectionRequest(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	client, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	c, err := client.NewClient(ctx, config.ConsoleClientConfig)
 
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud Peering Connection client: %s", err)
 	}
 
-	createOpts := peeringconnectionrequests.CreateOpts{
-		PeerVPCId:   d.Get("peer_vpc_id").(string),
-		PeerOrgId:   d.Get("peer_org_id").(string),
-		VPCId:       d.Get("vpc_id").(string),
-		Description: d.Get("description").(string),
+	createOpts := CreatePeeringConnectionRequest{
+		PeeringConnectionRequest: CreatePeeringConnectionRequestOpts{
+			PeerVPCId:   d.Get("peer_vpc_id").(string),
+			PeerOrgId:   d.Get("peer_org_id").(string),
+			VPCId:       d.Get("vpc_id").(string),
+			Description: d.Get("description").(string),
+		},
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_peering_connection request options", map[string]interface{}{"create_opts": createOpts})
-
-	peeringConnectionRequest, err := peeringconnectionrequests.Create(ctx, client, createOpts).Extract()
+	createResp := &CreatePeeringConnectionRequestResponse{}
+	_, err = c.Post(ctx, client.ApiPath.PeeringConnectionRequest, createOpts, createResp, nil)
 
 	if err != nil {
 		return diag.Errorf("Error creating vnpaycloud_peering_connection request: %s", err)
 	}
+
+	peeringConnectionRequest := createResp.PeeringConnectionRequest
 
 	d.SetId(peeringConnectionRequest.PeerId)
 	d.Set("request_id", peeringConnectionRequest.ID)
@@ -113,7 +118,7 @@ func createPeeringConnectionRequest(ctx context.Context, d *schema.ResourceData,
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"OS_INITIATING"},
 		Target:     []string{"OS_ACTIVE", "OS_CREATED"},
-		Refresh:    peeringConnectionRequestStateRefreshFunc(ctx, client, peeringConnectionRequest.ID),
+		Refresh:    peeringConnectionRequestStateRefreshFunc(ctx, c, peeringConnectionRequest.ID),
 		Timeout:    d.Timeout(schema.TimeoutCreate),
 		Delay:      10 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -131,13 +136,13 @@ func createPeeringConnectionRequest(ctx context.Context, d *schema.ResourceData,
 
 func approvePeeringConnectionRequest(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	client, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	c, err := client.NewClient(ctx, config.ConsoleClientConfig)
 
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud Peering Connection client: %s", err)
 	}
 
-	listOtps := peeringconnectionapprovals.ListOpts{
+	listOtps := ListPeeringConnectApprovalRequest{
 		VPCId:     d.Get("vpc_id").(string),
 		PeerVPCId: d.Get("peer_vpc_id").(string),
 		PeerOrgId: d.Get("peer_org_id").(string),
@@ -145,43 +150,45 @@ func approvePeeringConnectionRequest(ctx context.Context, d *schema.ResourceData
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_peering_connection list approvals options", map[string]interface{}{"list_otps": listOtps})
-
-	allPages, err := peeringconnectionapprovals.List(client, listOtps).AllPages(ctx)
+	listResp := &ListPeeringConnectApprovalResponse{}
+	_, err = c.Get(ctx, client.ApiPath.ListPeeringConnectionApproval(listOtps), listResp, nil)
 
 	if err != nil {
 		return diag.Errorf("Unable to query vnpaycloud_peering_connection: %s", err)
 	}
 
-	var allApprovals []peeringconnectionapprovals.PeeringConnectApproval
-	err = peeringconnectionapprovals.ExtractPeeringConnectApprovalsInto(allPages, &allApprovals)
-
-	if err != nil {
-		return diag.Errorf("Unable to retrieve vnpaycloud_peering_connection approvals: %s", err)
-	}
-
-	if len(allApprovals) > 1 {
+	if len(listResp.PeeringConnectApprovals) > 1 {
 		return diag.Errorf("Your vnpaycloud_peering_connection query returns multiple approvals")
 
 	}
 
-	if len(allApprovals) == 0 {
+	if len(listResp.PeeringConnectApprovals) == 0 {
 		return diag.Errorf("Your vnpaycloud_peering_connection query did not return approval results.")
 	}
 
-	updateOtps := peeringconnectionapprovals.UpdateOpts{
-		Accept: true,
+	updateOtps := UpdatePeeringConnectApprovalRequest{
+		PeeringConnectApproval: PeeringConnectApprovalOpts{
+			Accept: true,
+		},
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_peering_connection approval options", map[string]interface{}{"update_otps": updateOtps})
+	updateResp := &UpdatePeeringConnectApprovalResponse{}
+	_, err = c.Put(ctx, client.ApiPath.PeeringConnectionApprovalWithId(listResp.PeeringConnectApprovals[0].ID), updateOtps, updateResp, nil)
 
-	peeringConnectionApproval, err := peeringconnectionapprovals.Update(ctx, client, allApprovals[0].ID, updateOtps).Extract()
+	if err != nil {
+		tflog.Error(ctx, "Error updating VNPAY Cloud Peering Connection Approval", map[string]interface{}{"err": err})
+	}
+
+	peeringConnectionApproval := updateResp.PeeringConnectApproval
 
 	d.SetId(peeringConnectionApproval.PeerId)
 	tflog.Debug(ctx, "vnpaycloud_peering_connection approval id", map[string]interface{}{"id": peeringConnectionApproval.ID})
+
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"OS_INITIATING"},
 		Target:     []string{"OS_ACTIVE", "OS_CREATED"},
-		Refresh:    peeringConnectionStateRefreshFunc(ctx, client, peeringConnectionApproval.PeerId),
+		Refresh:    peeringConnectionStateRefreshFunc(ctx, c, peeringConnectionApproval.PeerId),
 		Timeout:    d.Timeout(schema.TimeoutCreate),
 		Delay:      15 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -210,17 +217,20 @@ func resourcePeeringConnectionRead(ctx context.Context, d *schema.ResourceData, 
 
 func resourcePeeringConnectionRequestRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	client, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	c, err := client.NewClient(ctx, config.ConsoleClientConfig)
 
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud Peering Connection client: %s", err)
 	}
 
-	peeringConnectionRequest, err := peeringconnectionrequests.Get(ctx, client, d.Get("request_id").(string)).Extract()
+	getPeeringConnectionRequestResp := &GetPeeringConnectionRequestResponse{}
+	_, err = c.Get(ctx, client.ApiPath.PeeringConnectionRequestWithId(d.Get("request_id").(string)), getPeeringConnectionRequestResp, nil)
 
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving peering connection request"))
+		return diag.FromErr(util.CheckNotFound(d, err, "Error retrieving peering connection request"))
 	}
+
+	peeringConnectionRequest := getPeeringConnectionRequestResp.PeeringConnectionRequest
 
 	tflog.Debug(ctx, "Retrieved peering connection request "+d.Id(), map[string]interface{}{"request": peeringConnectionRequest})
 
@@ -235,31 +245,40 @@ func resourcePeeringConnectionRequestRead(ctx context.Context, d *schema.Resourc
 		return nil
 	}
 
-	peeringConnection, err := peeringconnections.Get(ctx, client, d.Id()).Extract()
+	getPeeringConnectionResp := &GetPeeringConnectionResponse{}
+
+	_, err = c.Get(ctx, client.ApiPath.PeeringConnectionWithId(d.Id()), getPeeringConnectionResp, nil)
 
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving peering connection"))
+		return diag.FromErr(util.CheckNotFound(d, err, "Error retrieving peering connection"))
 	}
+
+	peeringConnection := getPeeringConnectionResp.PeeringConnection
 
 	d.Set("peer_status", peeringConnection.PeerStatus)
 	d.Set("status", peeringConnection.Status)
+	d.Set("port_id", peeringConnection.PortId)
 
 	return nil
 }
 
 func resourcePeeringConnectionApprovalRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	client, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	c, err := client.NewClient(ctx, config.ConsoleClientConfig)
 
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud Peering Connection client: %s", err)
 	}
 
-	peeringConnection, err := peeringconnections.Get(ctx, client, d.Id()).Extract()
+	getPeeringConnectionResp := &GetPeeringConnectionResponse{}
+	_, err = c.Get(ctx, client.ApiPath.PeeringConnectionWithId(d.Id()), getPeeringConnectionResp, nil)
 
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving peering connection"))
+		return diag.FromErr(util.CheckNotFound(d, err, "Error retrieving peering connection"))
 	}
+
+	peeringConnection := getPeeringConnectionResp.PeeringConnection
+
 	tflog.Debug(ctx, "Retrieved vnpaycloud_peering_connection "+d.Id(), map[string]interface{}{"peering_connection": peeringConnection})
 
 	d.Set("vpc_id", peeringConnection.VpcId)
@@ -268,58 +287,40 @@ func resourcePeeringConnectionApprovalRead(ctx context.Context, d *schema.Resour
 	d.Set("description", peeringConnection.Description)
 	d.Set("peer_status", peeringConnection.PeerStatus)
 	d.Set("status", peeringConnection.Status)
+	d.Set("port_id", peeringConnection.PortId)
 
 	return nil
 }
 
 func resourcePeeringConnectionUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	config := meta.(*config.Config)
-	client, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
-
-	if err != nil {
-		return diag.Errorf("Error creating VNPAY Cloud Peering Connection client: %s", err)
-	}
-
-	name := d.Get("name").(string)
-	description := d.Get("description").(string)
-	updateOpts := vpcs.UpdateOpts{
-		Name:        name,
-		Description: description,
-	}
-
-	_, err = vpcs.Update(ctx, client, d.Id(), updateOpts).Extract()
-
-	if err != nil {
-		return diag.Errorf("Error updating vnpaycloud_peering_connection %s: %s", d.Id(), err)
-	}
-
 	return resourcePeeringConnectionRead(ctx, d, meta)
 }
 
 func resourcePeeringConnectionDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	client, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	c, err := client.NewClient(ctx, config.ConsoleClientConfig)
 
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud Peering Connection client: %s", err)
 	}
 
-	peeringConnection, err := peeringconnections.Get(ctx, client, d.Id()).Extract()
+	resp := &GetPeeringConnectionResponse{}
+	_, err = c.Get(ctx, client.ApiPath.PeeringConnectionWithId(d.Id()), resp, nil)
 
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving vnpaycloud_peering_connection"))
+		return diag.FromErr(util.CheckNotFound(d, err, "Error retrieving vnpaycloud_peering_connection"))
 	}
 
-	if peeringConnection.Status != "OS_DELETING" {
-		if err := peeringconnections.Delete(ctx, client, d.Id()).ExtractErr(); err != nil {
-			return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_peering_connection"))
+	if resp.PeeringConnection.Status != "OS_DELETING" {
+		if _, err := c.Delete(ctx, client.ApiPath.PeeringConnectionWithId(d.Id()), nil); err != nil {
+			return diag.FromErr(util.CheckNotFound(d, err, "Error deleting vnpaycloud_peering_connection"))
 		}
 	}
 
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"OS_DELETING", "OS_ACTIVE", "OS_CREATED"},
 		Target:     []string{"OS_DELETED"},
-		Refresh:    peeringConnectionStateRefreshFunc(ctx, client, peeringConnection.ID),
+		Refresh:    peeringConnectionStateRefreshFunc(ctx, c, resp.PeeringConnection.ID),
 		Timeout:    d.Timeout(schema.TimeoutDelete),
 		Delay:      10 * time.Second,
 		MinTimeout: 3 * time.Second,
