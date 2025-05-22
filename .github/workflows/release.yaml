@@ -1,0 +1,61 @@
+---
+  name: Release Terraform
+  
+  # This GitHub action creates a release when a tag that matches the pattern
+  # "v*" (e.g. v0.1.0) is created.
+  on:
+    push:
+      tags:
+        - 'v[0-9]+.[0-9]+.[0-9]+*'
+  
+  permissions:
+    contents: write
+  
+  jobs:  
+    terraform-provider-release:
+      name: 'Terraform Provider Release'
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+          with:
+            # Allow goreleaser to access older tag information.
+            fetch-depth: 0
+      
+        - name: Set up Go
+          uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+          with:
+            go-version-file: 'go.mod'
+            cache: true
+  
+        - name: Import GPG key
+          uses: crazy-max/ghaction-import-gpg@cb9bde2e2525e640591a934b1fd28eef1dcaf5e5 # v6.2.0
+          id: import_gpg
+          with:
+            gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+            passphrase: ${{ secrets.PASSPHRASE }}
+  
+        - name: Run GoReleaser
+          uses: goreleaser/goreleaser-action@90a3faa9d0182683851fbfa97ca1a2cb983bfca3 # v6.2.1
+          with:
+            args: release --clean --skip=validate
+          env:
+            # GitHub sets the GITHUB_TOKEN secret automatically.
+            GITHUB_TOKEN: ${{ secrets.TRF_ACTION_TOKEN }}
+            GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+
+        - name: Send success alert to Telegram
+          if: success() 
+          run: |
+            curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode=Markdown \
+            -d "text=✅ GitHub Action succeeded. The release *DRAFT* successfully created for tag *${{ github.ref_name }}."
+
+        - name: Send failure alert to Telegram
+          if: failure() 
+          run: |
+            curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d "text=❌ GitHub Action failed for Release Terraform Provider on tag ${{ github.ref_name }}. Check the logs for details."
+  
