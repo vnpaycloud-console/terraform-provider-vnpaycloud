@@ -44,18 +44,21 @@
             GITHUB_TOKEN: ${{ secrets.TRF_ACTION_TOKEN }}
             GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
 
-        - name: Send success alert to Telegram
-          if: success() 
+        - name: Send success alert to Google Chat
+          if: success()
           run: |
-            curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d parse_mode=Markdown \
-            -d "text=✅ GitHub Action succeeded. The release *DRAFT* successfully created for tag ${{ github.ref_name }}."
-
-        - name: Send failure alert to Telegram
-          if: failure() 
+            curl -X POST "${{ secrets.GCHAT_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "✅ GitHub Action succeeded.\nThe release *DRAFT* successfully created for tag `${{ github.ref_name }}`."
+            }'
+          
+        - name: Send failure alert to Google Chat
+          if: failure()
           run: |
-            curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d "text=❌ GitHub Action failed for Release Terraform Provider on tag ${{ github.ref_name }}. Check the logs for details. CC @Khangtna"
-  
+            curl -X POST "${{ secrets.GCHAT_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "❌ GitHub Action failed for Release Terraform Provider on tag `${{ github.ref_name }}`.\nCheck the logs for details."
+            }'
+        
