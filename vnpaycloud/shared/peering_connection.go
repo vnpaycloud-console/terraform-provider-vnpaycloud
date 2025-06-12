@@ -38,7 +38,7 @@ func PeeringConnectionId2PortId(ctx context.Context, d *schema.ResourceData, met
 	_, err = c.Get(ctx, client.ApiPath.PeeringConnectionWithId(id), getPeeringConnectionResp, nil)
 
 	if err != nil {
-		return "", fmt.Errorf("Error retrieving peering connection: %s", err)
+		return "", err
 	}
 
 	return getPeeringConnectionResp.PeeringConnection.PortId, nil

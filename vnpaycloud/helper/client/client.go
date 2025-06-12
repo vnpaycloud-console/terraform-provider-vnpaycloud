@@ -213,6 +213,8 @@ func (client *Client) doRequest(ctx context.Context, method, url string, options
 			Body:           body,
 			ResponseHeader: resp.Header,
 		}
+		err.Info = string(err.Body)
+
 		tflog.Error(ctx, "An error occurred while executing a request.", map[string]interface{}{
 			"status":          err.Actual,
 			"url":             err.URL,

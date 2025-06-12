@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
-	"github.com/vnpaycloud-console/gophercloud/v2"
 )
 
 func vpcStateRefreshFunc(ctx context.Context, vpcClient *client.Client, vpcId string) retry.StateRefreshFunc {
@@ -16,7 +16,7 @@ func vpcStateRefreshFunc(ctx context.Context, vpcClient *client.Client, vpcId st
 		_, err := vpcClient.Get(ctx, client.ApiPath.VPCWithId(vpcId), vpcResp, nil)
 
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
 				return vpcResp.VPC, "OS_DELETED", nil
 			}
 

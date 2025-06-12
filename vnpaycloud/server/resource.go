@@ -252,12 +252,12 @@ func ResourceComputeInstanceV2() *schema.Resource {
 							Optional: true,
 							ForceNew: true,
 						},
-						"delete_on_termination": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  false,
-							ForceNew: true,
-						},
+						//"delete_on_termination": {
+						//	Type:     schema.TypeBool,
+						//	Optional: true,
+						//	Default:  false,
+						//	ForceNew: true,
+						//},
 						"guest_format": {
 							Type:     schema.TypeString,
 							Optional: true,
@@ -1258,15 +1258,15 @@ func resourceOpenStackComputeInstanceV2ImportState(ctx context.Context, d *schem
 
 				log.Printf("[DEBUG] retrieved volume%+v", volMetaData)
 				v := map[string]interface{}{
-					"delete_on_termination": true,
-					"uuid":                  volMetaData.VolumeImageMetadata["image_id"],
-					"boot_index":            i,
-					"destination_type":      "volume",
-					"source_type":           "image",
-					"volume_size":           volMetaData.Size,
-					"disk_bus":              "",
-					"volume_type":           "",
-					"device_type":           "",
+					//"delete_on_termination": true,
+					"uuid":             volMetaData.VolumeImageMetadata["image_id"],
+					"boot_index":       i,
+					"destination_type": "volume",
+					"source_type":      "image",
+					"volume_size":      volMetaData.Size,
+					"disk_bus":         "",
+					"volume_type":      "",
+					"device_type":      "",
 				}
 
 				if volMetaData.Bootable == "true" {
@@ -1293,15 +1293,15 @@ func resourceOpenStackComputeInstanceV2ImportState(ctx context.Context, d *schem
 
 				log.Printf("[DEBUG] retrieved volume%+v", volMetaData)
 				v := map[string]interface{}{
-					"delete_on_termination": true,
-					"uuid":                  volMetaData.VolumeImageMetadata["image_id"],
-					"boot_index":            i,
-					"destination_type":      "volume",
-					"source_type":           "image",
-					"volume_size":           volMetaData.Size,
-					"disk_bus":              "",
-					"volume_type":           "",
-					"device_type":           "",
+					//"delete_on_termination": true,
+					"uuid":             volMetaData.VolumeImageMetadata["image_id"],
+					"boot_index":       i,
+					"destination_type": "volume",
+					"source_type":      "image",
+					"volume_size":      volMetaData.Size,
+					"disk_bus":         "",
+					"volume_type":      "",
+					"device_type":      "",
 				}
 
 				if volMetaData.Bootable == "true" {
@@ -1363,14 +1363,14 @@ func resourceInstanceBlockDevicesV2(_ *schema.ResourceData, bds []interface{}) (
 	for i, bd := range bds {
 		bdM := bd.(map[string]interface{})
 		blockDeviceOpts[i] = servers.BlockDevice{
-			UUID:                bdM["uuid"].(string),
-			VolumeSize:          bdM["volume_size"].(int),
-			BootIndex:           bdM["boot_index"].(int),
-			DeleteOnTermination: bdM["delete_on_termination"].(bool),
-			GuestFormat:         bdM["guest_format"].(string),
-			VolumeType:          bdM["volume_type"].(string),
-			DeviceType:          bdM["device_type"].(string),
-			DiskBus:             bdM["disk_bus"].(string),
+			UUID:       bdM["uuid"].(string),
+			VolumeSize: bdM["volume_size"].(int),
+			BootIndex:  bdM["boot_index"].(int),
+			//DeleteOnTermination: bdM["delete_on_termination"].(bool),
+			GuestFormat: bdM["guest_format"].(string),
+			VolumeType:  bdM["volume_type"].(string),
+			DeviceType:  bdM["device_type"].(string),
+			DiskBus:     bdM["disk_bus"].(string),
 		}
 
 		sourceType := bdM["source_type"].(string)
