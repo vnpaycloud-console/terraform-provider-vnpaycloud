@@ -42,6 +42,7 @@ description: |-
 - `tenant_id` (String)
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 - `value_specs` (Map of String)
+- `virtual_ip` (Boolean)
 
 ### Read-Only
 

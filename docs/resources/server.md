@@ -67,7 +67,6 @@ Required:
 Optional:
 
 - `boot_index` (Number)
-- `delete_on_termination` (Boolean)
 - `destination_type` (String)
 - `device_type` (String)
 - `disk_bus` (String)

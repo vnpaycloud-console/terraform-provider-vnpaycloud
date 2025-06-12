@@ -278,6 +278,12 @@ func ResourceNetworkingPortV2() *schema.Resource {
 				ForceNew: false,
 				Computed: true,
 			},
+
+			"virtual_ip": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				ForceNew: false,
+			},
 		},
 	}
 }
@@ -316,6 +322,11 @@ func resourceNetworkingPortV2Create(ctx context.Context, d *schema.ResourceData,
 	if v, ok := util.GetOkExists(d, "admin_state_up"); ok {
 		asu := v.(bool)
 		createOpts.AdminStateUp = &asu
+	}
+
+	if v, ok := util.GetOkExists(d, "virtual_ip"); ok {
+		asu := v.(bool)
+		createOpts.VirtualIp = &asu
 	}
 
 	if noSecurityGroups {
@@ -533,6 +544,12 @@ func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData,
 		hasChange = true
 		asu := d.Get("admin_state_up").(bool)
 		updateOpts.AdminStateUp = &asu
+	}
+
+	if d.HasChange("virtual_ip") {
+		hasChange = true
+		asu := d.Get("virtual_ip").(bool)
+		updateOpts.VirtualIp = &asu
 	}
 
 	if d.HasChange("device_owner") {
