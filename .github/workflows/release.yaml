@@ -47,7 +47,7 @@
         - name: Send success alert to Google Chat
           if: success()
           run: |
-            curl -X POST "${{ secrets.GCHAT_URL }}" \
+            curl -X POST "${{ secrets.GGCHAT_URL }}" \
             -H "Content-Type: application/json" \
             -d '{
               "text": "✅ GitHub Action succeeded.\nThe release *DRAFT* successfully created for tag `${{ github.ref_name }}`."
@@ -56,7 +56,7 @@
         - name: Send failure alert to Google Chat
           if: failure()
           run: |
-            curl -X POST "${{ secrets.GCHAT_URL }}" \
+            curl -X POST "${{ secrets.GGCHAT_URL }}" \
             -H "Content-Type: application/json" \
             -d '{
               "text": "❌ GitHub Action failed for Release Terraform Provider on tag `${{ github.ref_name }}`.\nCheck the logs for details."
