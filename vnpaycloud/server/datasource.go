@@ -139,11 +139,11 @@ func dataSourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData
 	log.Print("[DEBUG] Creating compute client")
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 	imageClient, err := config.ImageV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack image client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD image client: %s", err)
 	}
 
 	id := d.Get("id").(string)
@@ -171,7 +171,7 @@ func dataSourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData
 	// Determine the best IPv4 and IPv6 addresses to access the instance with
 	hostv4, hostv6 := getInstanceAccessAddresses(d, networks)
 
-	// AccessIPv4/v6 isn't standard in OpenStack, but there have been reports
+	// AccessIPv4/v6 isn't standard in VNPAYCLOUD, but there have been reports
 	// of them being used in some environments.
 	if server.AccessIPv4 != "" && hostv4 == "" {
 		hostv4 = server.AccessIPv4
@@ -200,7 +200,7 @@ func dataSourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData
 
 	flavorID, ok := server.Flavor["id"].(string)
 	if !ok {
-		return diag.Errorf("Error setting OpenStack server's flavor: %v", server.Flavor)
+		return diag.Errorf("Error setting VNPAYCLOUD server's flavor: %v", server.Flavor)
 	}
 	d.Set("flavor_id", flavorID)
 
@@ -235,7 +235,7 @@ func dataSourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData
 	computeClient.Microversion = computeV2TagsExtensionMicroversion
 	instanceTags, err := tags.List(ctx, computeClient, server.ID).Extract()
 	if err != nil {
-		log.Printf("[DEBUG] Unable to get tags for openstack_compute_instance_v2: %s", err)
+		log.Printf("[DEBUG] Unable to get tags for vnpaycloud_compute_server: %s", err)
 	} else {
 		d.Set("tags", instanceTags)
 	}

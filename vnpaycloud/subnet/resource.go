@@ -194,12 +194,12 @@ func resourceNetworkingSubnetV2Create(ctx context.Context, d *schema.ResourceDat
 	config := meta.(*config.Config)
 	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	// Check nameservers.
 	if err := networkingSubnetV2DNSNameserverAreUnique(d.Get("dns_nameservers").([]interface{})); err != nil {
-		return diag.Errorf("openstack_networking_subnet_v2 dns_nameservers argument is invalid: %s", err)
+		return diag.Errorf("vnpaycloud_networking_subnet dns_nameservers argument is invalid: %s", err)
 	}
 
 	// Get raw allocation pool value.
@@ -237,7 +237,7 @@ func resourceNetworkingSubnetV2Create(ctx context.Context, d *schema.ResourceDat
 			return diag.Errorf("Invalid CIDR %s: %s", cidr, err)
 		}
 		if netAddr.String() != cidr {
-			return diag.Errorf("cidr %s doesn't match subnet address %s for openstack_networking_subnet_v2", cidr, netAddr.String())
+			return diag.Errorf("cidr %s doesn't match subnet address %s for vnpaycloud_networking_subnet", cidr, netAddr.String())
 		}
 		createOpts.CIDR = cidr
 	}
@@ -257,7 +257,7 @@ func resourceNetworkingSubnetV2Create(ctx context.Context, d *schema.ResourceDat
 	// Validate and set prefix options.
 	if v, ok := d.GetOk("prefix_length"); ok {
 		if d.Get("subnetpool_id").(string) == "" {
-			return diag.Errorf("'prefix_length' is only valid if 'subnetpool_id' is set for openstack_networking_subnet_v2")
+			return diag.Errorf("'prefix_length' is only valid if 'subnetpool_id' is set for vnpaycloud_networking_subnet")
 		}
 		prefixLength := v.(int)
 		createOpts.Prefixlen = prefixLength
@@ -267,13 +267,13 @@ func resourceNetworkingSubnetV2Create(ctx context.Context, d *schema.ResourceDat
 	enableDHCP := d.Get("enable_dhcp").(bool)
 	createOpts.EnableDHCP = &enableDHCP
 
-	log.Printf("[DEBUG] openstack_networking_subnet_v2 create options: %#v", createOpts)
+	log.Printf("[DEBUG] vnpaycloud_networking_subnet create options: %#v", createOpts)
 	s, err := subnets.Create(ctx, networkingClient, createOpts).Extract()
 	if err != nil {
-		return diag.Errorf("Error creating openstack_networking_subnet_v2: %s", err)
+		return diag.Errorf("Error creating vnpaycloud_networking_subnet: %s", err)
 	}
 
-	log.Printf("[DEBUG] Waiting for openstack_networking_subnet_v2 %s to become available", s.ID)
+	log.Printf("[DEBUG] Waiting for vnpaycloud_networking_subnet %s to become available", s.ID)
 	stateConf := &retry.StateChangeConf{
 		Target:     []string{"ACTIVE"},
 		Refresh:    networkingSubnetV2StateRefreshFunc(ctx, networkingClient, s.ID),
@@ -284,7 +284,7 @@ func resourceNetworkingSubnetV2Create(ctx context.Context, d *schema.ResourceDat
 
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
-		return diag.Errorf("Error waiting for openstack_networking_subnet_v2 %s to become available: %s", s.ID, err)
+		return diag.Errorf("Error waiting for vnpaycloud_networking_subnet %s to become available: %s", s.ID, err)
 	}
 
 	d.SetId(s.ID)
@@ -294,12 +294,12 @@ func resourceNetworkingSubnetV2Create(ctx context.Context, d *schema.ResourceDat
 		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
 		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "subnets", s.ID, tagOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error creating tags on openstack_networking_subnet_v2 %s: %s", s.ID, err)
+			return diag.Errorf("Error creating tags on vnpaycloud_networking_subnet %s: %s", s.ID, err)
 		}
-		log.Printf("[DEBUG] Set tags %s on openstack_networking_subnet_v2 %s", tags, s.ID)
+		log.Printf("[DEBUG] Set tags %s on vnpaycloud_networking_subnet %s", tags, s.ID)
 	}
 
-	log.Printf("[DEBUG] Created openstack_networking_subnet_v2 %s: %#v", s.ID, s)
+	log.Printf("[DEBUG] Created vnpaycloud_networking_subnet %s: %#v", s.ID, s)
 	return resourceNetworkingSubnetV2Read(ctx, d, meta)
 }
 
@@ -307,15 +307,15 @@ func resourceNetworkingSubnetV2Read(ctx context.Context, d *schema.ResourceData,
 	config := meta.(*config.Config)
 	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	s, err := subnets.Get(ctx, networkingClient, d.Id()).Extract()
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error getting openstack_networking_subnet_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error getting vnpaycloud_networking_subnet"))
 	}
 
-	log.Printf("[DEBUG] Retrieved openstack_networking_subnet_v2 %s: %#v", d.Id(), s)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_networking_subnet %s: %#v", d.Id(), s)
 
 	d.Set("network_id", s.NetworkID)
 	d.Set("cidr", s.CIDR)
@@ -338,7 +338,7 @@ func resourceNetworkingSubnetV2Read(ctx context.Context, d *schema.ResourceData,
 	// Set the allocation_pool attribute
 	allocationPools := flattenNetworkingSubnetV2AllocationPools(s.AllocationPools)
 	if err := d.Set("allocation_pool", allocationPools); err != nil {
-		log.Printf("[DEBUG] Unable to set openstack_networking_subnet_v2 allocation_pool: %s", err)
+		log.Printf("[DEBUG] Unable to set vnpaycloud_networking_subnet allocation_pool: %s", err)
 	}
 
 	// Set the subnet's "gateway_ip" and "no_gateway" attributes.
@@ -359,7 +359,7 @@ func resourceNetworkingSubnetV2Update(ctx context.Context, d *schema.ResourceDat
 	config := meta.(*config.Config)
 	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	var hasChange bool
@@ -396,7 +396,7 @@ func resourceNetworkingSubnetV2Update(ctx context.Context, d *schema.ResourceDat
 
 	if d.HasChange("dns_nameservers") {
 		if err := networkingSubnetV2DNSNameserverAreUnique(d.Get("dns_nameservers").([]interface{})); err != nil {
-			return diag.Errorf("openstack_networking_subnet_v2 dns_nameservers argument is invalid: %s", err)
+			return diag.Errorf("vnpaycloud_networking_subnet dns_nameservers argument is invalid: %s", err)
 		}
 		hasChange = true
 		nameservers := util.ExpandToStringSlice(d.Get("dns_nameservers").([]interface{}))
@@ -427,10 +427,10 @@ func resourceNetworkingSubnetV2Update(ctx context.Context, d *schema.ResourceDat
 	}
 
 	if hasChange {
-		log.Printf("[DEBUG] Updating openstack_networking_subnet_v2 %s with options: %#v", d.Id(), updateOpts)
+		log.Printf("[DEBUG] Updating vnpaycloud_networking_subnet %s with options: %#v", d.Id(), updateOpts)
 		_, err = subnets.Update(ctx, networkingClient, d.Id(), updateOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error updating OpenStack Neutron openstack_networking_subnet_v2 %s: %s", d.Id(), err)
+			return diag.Errorf("Error updating VNPAYCLOUD Neutron vnpaycloud_networking_subnet %s: %s", d.Id(), err)
 		}
 	}
 
@@ -439,9 +439,9 @@ func resourceNetworkingSubnetV2Update(ctx context.Context, d *schema.ResourceDat
 		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
 		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "subnets", d.Id(), tagOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error updating tags on openstack_networking_subnet_v2 %s: %s", d.Id(), err)
+			return diag.Errorf("Error updating tags on vnpaycloud_networking_subnet %s: %s", d.Id(), err)
 		}
-		log.Printf("[DEBUG] Updated tags %s on openstack_networking_subnet_v2 %s", tags, d.Id())
+		log.Printf("[DEBUG] Updated tags %s on vnpaycloud_networking_subnet %s", tags, d.Id())
 	}
 
 	return resourceNetworkingSubnetV2Read(ctx, d, meta)
@@ -451,7 +451,7 @@ func resourceNetworkingSubnetV2Delete(ctx context.Context, d *schema.ResourceDat
 	config := meta.(*config.Config)
 	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	stateConf := &retry.StateChangeConf{
@@ -465,7 +465,7 @@ func resourceNetworkingSubnetV2Delete(ctx context.Context, d *schema.ResourceDat
 
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
-		return diag.Errorf("Error waiting for openstack_networking_subnet_v2 %s to become deleted: %s", d.Id(), err)
+		return diag.Errorf("Error waiting for vnpaycloud_networking_subnet %s to become deleted: %s", d.Id(), err)
 	}
 
 	return nil

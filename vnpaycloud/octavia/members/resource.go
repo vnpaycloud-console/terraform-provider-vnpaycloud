@@ -117,7 +117,7 @@ func resourceMembersV2Create(ctx context.Context, d *schema.ResourceData, meta i
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	createOpts := shared.ExpandLBMembersV2(d.Get("member").(*schema.Set), lbClient)
@@ -165,17 +165,17 @@ func resourceMembersV2Read(ctx context.Context, d *schema.ResourceData, meta int
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	allPages, err := pools.ListMembers(lbClient, d.Id(), pools.ListMembersOpts{}).AllPages(ctx)
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error getting openstack_lb_members_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error getting vnpaycloud_lb_members"))
 	}
 
 	members, err := pools.ExtractMembers(allPages)
 	if err != nil {
-		return diag.Errorf("Unable to retrieve openstack_lb_members_v2: %s", err)
+		return diag.Errorf("Unable to retrieve vnpaycloud_lb_members: %s", err)
 	}
 
 	log.Printf("[DEBUG] Retrieved members for the %s pool: %#v", d.Id(), members)
@@ -191,7 +191,7 @@ func resourceMembersV2Update(ctx context.Context, d *schema.ResourceData, meta i
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	if d.HasChange("member") {
@@ -237,7 +237,7 @@ func resourceMembersV2Delete(ctx context.Context, d *schema.ResourceData, meta i
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	// Get a clean copy of the parent pool.

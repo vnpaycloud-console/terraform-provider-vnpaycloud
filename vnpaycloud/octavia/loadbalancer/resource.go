@@ -143,7 +143,7 @@ func resourceLoadBalancerV2Create(ctx context.Context, d *schema.ResourceData, m
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
 	}
 
 	var (
@@ -205,7 +205,7 @@ func resourceLoadBalancerV2Create(ctx context.Context, d *schema.ResourceData, m
 	// to the port that was created behind the scenes.
 	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 	if err := shared.ResourceLoadBalancerV2SetSecurityGroups(ctx, networkingClient, vipPortID, d); err != nil {
 		return diag.Errorf("Error setting vnpaycloud_lb_loadbalancer_v2 security groups: %s", err)
@@ -218,7 +218,7 @@ func resourceLoadBalancerV2Read(ctx context.Context, d *schema.ResourceData, met
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
 	}
 
 	var vipPortID string
@@ -253,7 +253,7 @@ func resourceLoadBalancerV2Read(ctx context.Context, d *schema.ResourceData, met
 	if vipPortID != "" {
 		networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 		if err != nil {
-			return diag.Errorf("Error creating OpenStack networking client: %s", err)
+			return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 		}
 		if err := shared.ResourceLoadBalancerV2GetSecurityGroups(ctx, networkingClient, vipPortID, d); err != nil {
 			return diag.Errorf("Error getting port security groups for vnpaycloud_lb_loadbalancer_v2: %s", err)
@@ -268,7 +268,7 @@ func resourceLoadBalancerV2Update(ctx context.Context, d *schema.ResourceData, m
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	var hasChange bool
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	var updateOpts loadbalancers.UpdateOpts
@@ -339,7 +339,7 @@ func resourceLoadBalancerV2Update(ctx context.Context, d *schema.ResourceData, m
 	if d.HasChange("security_group_ids") {
 		networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 		if err != nil {
-			return diag.Errorf("Error creating OpenStack networking client: %s", err)
+			return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 		}
 		vipPortID := d.Get("vip_port_id").(string)
 		if err := shared.ResourceLoadBalancerV2SetSecurityGroups(ctx, networkingClient, vipPortID, d); err != nil {
@@ -354,7 +354,7 @@ func resourceLoadBalancerV2Delete(ctx context.Context, d *schema.ResourceData, m
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	tflog.Info(ctx, "Deleting vnpaycloud_lb_loadbalancer_v2 %s",

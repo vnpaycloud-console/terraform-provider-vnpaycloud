@@ -126,7 +126,7 @@ func resourceMemberV2Create(ctx context.Context, d *schema.ResourceData, meta in
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	adminStateUp := d.Get("admin_state_up").(bool)
@@ -218,7 +218,7 @@ func resourceMemberV2Read(ctx context.Context, d *schema.ResourceData, meta inte
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	poolID := d.Get("pool_id").(string)
@@ -250,7 +250,7 @@ func resourceMemberV2Update(ctx context.Context, d *schema.ResourceData, meta in
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	var updateOpts pools.UpdateMemberOpts
@@ -341,7 +341,7 @@ func resourceMemberV2Delete(ctx context.Context, d *schema.ResourceData, meta in
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	// Get a clean copy of the parent pool.

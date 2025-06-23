@@ -85,7 +85,7 @@ func resourceComputeServerGroupV2Create(ctx context.Context, d *schema.ResourceD
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	name := d.Get("name").(string)
@@ -113,12 +113,12 @@ func resourceComputeServerGroupV2Create(ctx context.Context, d *schema.ResourceD
 		}
 	}
 
-	log.Printf("[DEBUG] openstack_compute_servergroup_v2 create options: %#v", createOpts)
+	log.Printf("[DEBUG] vnpaycloud_compute_servergroup create options: %#v", createOpts)
 	newSG, err := servergroups.Create(ctx, computeClient, createOpts).Extract()
 	if err != nil {
 		// return an error right away
 		if createOpts.CreateOpts.Rules != nil {
-			return diag.Errorf("Error creating openstack_compute_servergroup_v2 %s: %s", name, err)
+			return diag.Errorf("Error creating vnpaycloud_compute_servergroup %s: %s", name, err)
 		}
 
 		log.Printf("[DEBUG] Falling back to legacy API call due to: %#v", err)
@@ -130,10 +130,10 @@ func resourceComputeServerGroupV2Create(ctx context.Context, d *schema.ResourceD
 			},
 			util.MapValueSpecs(d),
 		}
-		log.Printf("[DEBUG] openstack_compute_servergroup_v2 create options: %#v", createOpts)
+		log.Printf("[DEBUG] vnpaycloud_compute_servergroup create options: %#v", createOpts)
 		newSG, err = servergroups.Create(ctx, computeClient, createOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error creating openstack_compute_servergroup_v2 %s: %s", name, err)
+			return diag.Errorf("Error creating vnpaycloud_compute_servergroup %s: %s", name, err)
 		}
 	}
 
@@ -146,7 +146,7 @@ func resourceComputeServerGroupV2Read(ctx context.Context, d *schema.ResourceDat
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	// Attempt to read with microversion 2.64
@@ -159,11 +159,11 @@ func resourceComputeServerGroupV2Read(ctx context.Context, d *schema.ResourceDat
 
 		sg, err = servergroups.Get(ctx, computeClient, d.Id()).Extract()
 		if err != nil {
-			return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving openstack_compute_servergroup_v2"))
+			return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving vnpaycloud_compute_servergroup"))
 		}
 	}
 
-	log.Printf("[DEBUG] Retrieved openstack_compute_servergroup_v2 %s: %#v", d.Id(), sg)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_compute_servergroup %s: %#v", d.Id(), sg)
 
 	d.Set("name", sg.Name)
 	d.Set("members", sg.Members)
@@ -186,11 +186,11 @@ func resourceComputeServerGroupV2Delete(ctx context.Context, d *schema.ResourceD
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	if err := servergroups.Delete(ctx, computeClient, d.Id()).ExtractErr(); err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting openstack_compute_servergroup_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_compute_servergroup"))
 	}
 
 	return nil

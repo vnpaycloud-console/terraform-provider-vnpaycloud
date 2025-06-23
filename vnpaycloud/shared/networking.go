@@ -92,7 +92,7 @@ func NetworkingNetworkV2ID(ctx context.Context, d *schema.ResourceData, meta int
 	config := meta.(*config.Config)
 	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return "", fmt.Errorf("Error creating OpenStack network client: %s", err)
+		return "", fmt.Errorf("Error creating VNPAYCLOUD network client: %s", err)
 	}
 
 	opts := networks.ListOpts{Name: networkName}
@@ -123,7 +123,7 @@ func NetworkingNetworkV2Name(ctx context.Context, d *schema.ResourceData, meta i
 	config := meta.(*config.Config)
 	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return "", fmt.Errorf("Error creating OpenStack network client: %s", err)
+		return "", fmt.Errorf("Error creating VNPAYCLOUD network client: %s", err)
 	}
 
 	opts := networks.ListOpts{ID: networkID}

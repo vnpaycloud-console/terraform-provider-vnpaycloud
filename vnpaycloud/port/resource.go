@@ -292,7 +292,7 @@ func resourceNetworkingPortV2Create(ctx context.Context, d *schema.ResourceData,
 	config := meta.(*config.Config)
 	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	securityGroups := util.ExpandToStringSlice(d.Get("security_group_ids").(*schema.Set).List())
@@ -300,7 +300,7 @@ func resourceNetworkingPortV2Create(ctx context.Context, d *schema.ResourceData,
 
 	// Check and make sure an invalid security group configuration wasn't given.
 	if noSecurityGroups && len(securityGroups) > 0 {
-		return diag.Errorf("Cannot have both no_security_groups and security_group_ids set for openstack_networking_port_v2")
+		return diag.Errorf("Cannot have both no_security_groups and security_group_ids set for vnpaycloud_networking_port")
 	}
 
 	allowedAddressPairs := d.Get("allowed_address_pairs").(*schema.Set)
@@ -400,17 +400,17 @@ func resourceNetworkingPortV2Create(ctx context.Context, d *schema.ResourceData,
 		}
 	}
 
-	log.Printf("[DEBUG] openstack_networking_port_v2 create options: %#v", finalCreateOpts)
+	log.Printf("[DEBUG] vnpaycloud_networking_port create options: %#v", finalCreateOpts)
 
 	// Create a Neutron port and set extra options if they're specified.
 	var port portExtended
 
 	err = ports.Create(ctx, networkingClient, finalCreateOpts).ExtractInto(&port)
 	if err != nil {
-		return diag.Errorf("Error creating openstack_networking_port_v2: %s", err)
+		return diag.Errorf("Error creating vnpaycloud_networking_port: %s", err)
 	}
 
-	log.Printf("[DEBUG] Waiting for openstack_networking_port_v2 %s to become available.", port.ID)
+	log.Printf("[DEBUG] Waiting for vnpaycloud_networking_port %s to become available.", port.ID)
 
 	stateConf := &retry.StateChangeConf{
 		Target:     []string{"ACTIVE", "DOWN"},
@@ -422,7 +422,7 @@ func resourceNetworkingPortV2Create(ctx context.Context, d *schema.ResourceData,
 
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
-		return diag.Errorf("Error waiting for openstack_networking_port_v2 %s to become available: %s", port.ID, err)
+		return diag.Errorf("Error waiting for vnpaycloud_networking_port %s to become available: %s", port.ID, err)
 	}
 
 	d.SetId(port.ID)
@@ -432,12 +432,12 @@ func resourceNetworkingPortV2Create(ctx context.Context, d *schema.ResourceData,
 		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
 		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "ports", port.ID, tagOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error setting tags on openstack_networking_port_v2 %s: %s", port.ID, err)
+			return diag.Errorf("Error setting tags on vnpaycloud_networking_port %s: %s", port.ID, err)
 		}
-		log.Printf("[DEBUG] Set tags %s on openstack_networking_port_v2 %s", tags, port.ID)
+		log.Printf("[DEBUG] Set tags %s on vnpaycloud_networking_port %s", tags, port.ID)
 	}
 
-	log.Printf("[DEBUG] Created openstack_networking_port_v2 %s: %#v", port.ID, port)
+	log.Printf("[DEBUG] Created vnpaycloud_networking_port %s: %#v", port.ID, port)
 	return resourceNetworkingPortV2Read(ctx, d, meta)
 }
 
@@ -445,16 +445,16 @@ func resourceNetworkingPortV2Read(ctx context.Context, d *schema.ResourceData, m
 	config := meta.(*config.Config)
 	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	var port portExtended
 	err = ports.Get(ctx, networkingClient, d.Id()).ExtractInto(&port)
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error getting openstack_networking_port_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error getting vnpaycloud_networking_port"))
 	}
 
-	log.Printf("[DEBUG] Retrieved openstack_networking_port_v2 %s: %#v", d.Id(), port)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_networking_port %s: %#v", d.Id(), port)
 
 	d.Set("name", port.Name)
 	d.Set("description", port.Description)
@@ -494,7 +494,7 @@ func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData,
 	config := meta.(*config.Config)
 	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	securityGroups := util.ExpandToStringSlice(d.Get("security_group_ids").(*schema.Set).List())
@@ -502,7 +502,7 @@ func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData,
 
 	// Check and make sure an invalid security group configuration wasn't given.
 	if noSecurityGroups && len(securityGroups) > 0 {
-		return diag.Errorf("Cannot have both no_security_groups and security_group_ids set for openstack_networking_port_v2")
+		return diag.Errorf("Cannot have both no_security_groups and security_group_ids set for vnpaycloud_networking_port")
 	}
 
 	var hasChange bool
@@ -669,10 +669,10 @@ func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData,
 
 	// At this point, perform the update for all "standard" port changes.
 	if hasChange {
-		log.Printf("[DEBUG] openstack_networking_port_v2 %s update options: %#v", d.Id(), finalUpdateOpts)
+		log.Printf("[DEBUG] vnpaycloud_networking_port %s update options: %#v", d.Id(), finalUpdateOpts)
 		_, err = ports.Update(ctx, networkingClient, d.Id(), finalUpdateOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error updating OpenStack Neutron Port: %s", err)
+			return diag.Errorf("Error updating VNPAYCLOUD Neutron Port: %s", err)
 		}
 	}
 
@@ -682,9 +682,9 @@ func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData,
 		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
 		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "ports", d.Id(), tagOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error setting tags on openstack_networking_port_v2 %s: %s", d.Id(), err)
+			return diag.Errorf("Error setting tags on vnpaycloud_networking_port %s: %s", d.Id(), err)
 		}
-		log.Printf("[DEBUG] Set tags %s on openstack_networking_port_v2 %s", tags, d.Id())
+		log.Printf("[DEBUG] Set tags %s on vnpaycloud_networking_port %s", tags, d.Id())
 	}
 
 	return resourceNetworkingPortV2Read(ctx, d, meta)
@@ -694,11 +694,11 @@ func resourceNetworkingPortV2Delete(ctx context.Context, d *schema.ResourceData,
 	config := meta.(*config.Config)
 	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	if err := ports.Delete(ctx, networkingClient, d.Id()).ExtractErr(); err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting openstack_networking_port_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_networking_port"))
 	}
 
 	stateConf := &retry.StateChangeConf{
@@ -712,7 +712,7 @@ func resourceNetworkingPortV2Delete(ctx context.Context, d *schema.ResourceData,
 
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
-		return diag.Errorf("Error waiting for openstack_networking_port_v2 %s to Delete:  %s", d.Id(), err)
+		return diag.Errorf("Error waiting for vnpaycloud_networking_port %s to Delete:  %s", d.Id(), err)
 	}
 
 	d.SetId("")

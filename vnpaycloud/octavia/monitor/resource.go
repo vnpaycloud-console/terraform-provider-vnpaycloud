@@ -142,7 +142,7 @@ func resourceMonitorV2Create(ctx context.Context, d *schema.ResourceData, meta i
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	adminStateUp := d.Get("admin_state_up").(bool)
@@ -168,7 +168,7 @@ func resourceMonitorV2Create(ctx context.Context, d *schema.ResourceData, meta i
 	poolID := d.Get("pool_id").(string)
 	parentPool, err := pools.Get(ctx, lbClient, poolID).Extract()
 	if err != nil {
-		return diag.Errorf("Unable to retrieve parent openstack_lb_pool_v2 %s: %s", poolID, err)
+		return diag.Errorf("Unable to retrieve parent vnpaycloud_lb_pool %s: %s", poolID, err)
 	}
 
 	// Wait for parent pool to become active before continuing.
@@ -178,7 +178,7 @@ func resourceMonitorV2Create(ctx context.Context, d *schema.ResourceData, meta i
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[DEBUG] openstack_lb_monitor_v2 create options: %#v", createOpts)
+	log.Printf("[DEBUG] vnpaycloud_lb_monitor create options: %#v", createOpts)
 	var monitor *monitors.Monitor
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
 		monitor, err = monitors.Create(ctx, lbClient, createOpts).Extract()
@@ -189,7 +189,7 @@ func resourceMonitorV2Create(ctx context.Context, d *schema.ResourceData, meta i
 	})
 
 	if err != nil {
-		return diag.Errorf("Unable to create openstack_lb_monitor_v2: %s", err)
+		return diag.Errorf("Unable to create vnpaycloud_lb_monitor: %s", err)
 	}
 
 	// Wait for monitor to become active before continuing
@@ -207,7 +207,7 @@ func resourceMonitorV2Read(ctx context.Context, d *schema.ResourceData, meta int
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	monitor, err := monitors.Get(ctx, lbClient, d.Id()).Extract()
@@ -215,7 +215,7 @@ func resourceMonitorV2Read(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.FromErr(util.CheckDeleted(d, err, "monitor"))
 	}
 
-	log.Printf("[DEBUG] Retrieved openstack_lb_monitor_v2 %s: %#v", d.Id(), monitor)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_lb_monitor %s: %#v", d.Id(), monitor)
 
 	d.Set("tenant_id", monitor.ProjectID)
 	d.Set("type", monitor.Type)
@@ -232,7 +232,6 @@ func resourceMonitorV2Read(ctx context.Context, d *schema.ResourceData, meta int
 	d.Set("domain_name", monitor.DomainName)
 	d.Set("region", util.GetRegion(d, config))
 
-	// OpenContrail workaround (https://github.com/terraform-provider-openstack/terraform-provider-openstack/issues/762)
 	if len(monitor.Pools) > 0 && monitor.Pools[0].ID != "" {
 		d.Set("pool_id", monitor.Pools[0].ID)
 	}
@@ -245,7 +244,7 @@ func resourceMonitorV2Update(ctx context.Context, d *schema.ResourceData, meta i
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	var opts monitors.UpdateOpts
@@ -300,7 +299,7 @@ func resourceMonitorV2Update(ctx context.Context, d *schema.ResourceData, meta i
 	}
 
 	if !hasChange {
-		log.Printf("[DEBUG] openstack_lb_monitor_v2 %s: nothing to update", d.Id())
+		log.Printf("[DEBUG] vnpaycloud_lb_monitor %s: nothing to update", d.Id())
 		return resourceMonitorV2Read(ctx, d, meta)
 	}
 
@@ -308,13 +307,13 @@ func resourceMonitorV2Update(ctx context.Context, d *schema.ResourceData, meta i
 	poolID := d.Get("pool_id").(string)
 	parentPool, err := pools.Get(ctx, lbClient, poolID).Extract()
 	if err != nil {
-		return diag.Errorf("Unable to retrieve parent openstack_lb_pool_v2 %s: %s", poolID, err)
+		return diag.Errorf("Unable to retrieve parent vnpaycloud_lb_pool %s: %s", poolID, err)
 	}
 
 	// Get a clean copy of the monitor.
 	monitor, err := monitors.Get(ctx, lbClient, d.Id()).Extract()
 	if err != nil {
-		return diag.Errorf("Unable to retrieve openstack_lb_monitor_v2 %s: %s", d.Id(), err)
+		return diag.Errorf("Unable to retrieve vnpaycloud_lb_monitor %s: %s", d.Id(), err)
 	}
 
 	// Wait for parent pool to become active before continuing.
@@ -330,7 +329,7 @@ func resourceMonitorV2Update(ctx context.Context, d *schema.ResourceData, meta i
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[DEBUG] openstack_lb_monitor_v2 %s update options: %#v", d.Id(), opts)
+	log.Printf("[DEBUG] vnpaycloud_lb_monitor %s update options: %#v", d.Id(), opts)
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
 		_, err = monitors.Update(ctx, lbClient, d.Id(), opts).Extract()
 		if err != nil {
@@ -340,7 +339,7 @@ func resourceMonitorV2Update(ctx context.Context, d *schema.ResourceData, meta i
 	})
 
 	if err != nil {
-		return diag.Errorf("Unable to update openstack_lb_monitor_v2 %s: %s", d.Id(), err)
+		return diag.Errorf("Unable to update vnpaycloud_lb_monitor %s: %s", d.Id(), err)
 	}
 
 	// Wait for monitor to become active before continuing
@@ -356,21 +355,21 @@ func resourceMonitorV2Delete(ctx context.Context, d *schema.ResourceData, meta i
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	// Get a clean copy of the parent pool.
 	poolID := d.Get("pool_id").(string)
 	parentPool, err := pools.Get(ctx, lbClient, poolID).Extract()
 	if err != nil {
-		return diag.Errorf("Unable to retrieve parent openstack_lb_pool_v2 (%s)"+
-			" for the openstack_lb_monitor_v2: %s", poolID, err)
+		return diag.Errorf("Unable to retrieve parent vnpaycloud_lb_pool (%s)"+
+			" for the vnpaycloud_lb_monitor: %s", poolID, err)
 	}
 
 	// Get a clean copy of the monitor.
 	monitor, err := monitors.Get(ctx, lbClient, d.Id()).Extract()
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Unable to retrieve openstack_lb_monitor_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Unable to retrieve vnpaycloud_lb_monitor"))
 	}
 
 	// Wait for parent pool to become active before continuing
@@ -380,7 +379,7 @@ func resourceMonitorV2Delete(ctx context.Context, d *schema.ResourceData, meta i
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[DEBUG] Deleting openstack_lb_monitor_v2 %s", d.Id())
+	log.Printf("[DEBUG] Deleting vnpaycloud_lb_monitor %s", d.Id())
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
 		err = monitors.Delete(ctx, lbClient, d.Id()).ExtractErr()
 		if err != nil {
@@ -390,7 +389,7 @@ func resourceMonitorV2Delete(ctx context.Context, d *schema.ResourceData, meta i
 	})
 
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting openstack_lb_monitor_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_lb_monitor"))
 	}
 
 	// Wait for monitor to become DELETED
@@ -407,7 +406,7 @@ func resourceMonitorV2Import(ctx context.Context, d *schema.ResourceData, meta i
 	monitorID := parts[0]
 
 	if len(monitorID) == 0 {
-		return nil, fmt.Errorf("Invalid format specified for openstack_lb_monitor_v2. Format must be <monitorID>[/<poolID>]")
+		return nil, fmt.Errorf("Invalid format specified for vnpaycloud_lb_monitor. Format must be <monitorID>[/<poolID>]")
 	}
 
 	d.SetId(monitorID)

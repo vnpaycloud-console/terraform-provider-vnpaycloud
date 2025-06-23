@@ -173,7 +173,7 @@ func dataSourceKeyManagerSecretV1Read(ctx context.Context, d *schema.ResourceDat
 	config := meta.(*config.Config)
 	kmClient, err := config.KeyManagerV1Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack barbican client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD barbican client: %s", err)
 	}
 
 	aclOnly := d.Get("acl_only").(bool)
@@ -194,28 +194,28 @@ func dataSourceKeyManagerSecretV1Read(ctx context.Context, d *schema.ResourceDat
 
 	allPages, err := secrets.List(kmClient, listOpts).AllPages(ctx)
 	if err != nil {
-		return diag.Errorf("Unable to query openstack_keymanager_secret_v1 secrets: %s", err)
+		return diag.Errorf("Unable to query vnpaycloud_keymanager_secret secrets: %s", err)
 	}
 
 	allSecrets, err := secrets.ExtractSecrets(allPages)
 	if err != nil {
-		return diag.Errorf("Unable to retrieve openstack_keymanager_secret_v1 secrets: %s", err)
+		return diag.Errorf("Unable to retrieve vnpaycloud_keymanager_secret secrets: %s", err)
 	}
 
 	if len(allSecrets) < 1 {
-		return diag.Errorf("Your query returned no openstack_keymanager_secret_v1 results. " +
+		return diag.Errorf("Your query returned no vnpaycloud_keymanager_secret results. " +
 			"Please change your search criteria and try again")
 	}
 
 	if len(allSecrets) > 1 {
-		log.Printf("[DEBUG] Multiple openstack_keymanager_secret_v1 results found: %#v", allSecrets)
+		log.Printf("[DEBUG] Multiple vnpaycloud_keymanager_secret results found: %#v", allSecrets)
 		return diag.Errorf("Your query returned more than one result. Please try a more " +
 			"specific search criteria")
 	}
 
 	secret := allSecrets[0]
 
-	log.Printf("[DEBUG] Retrieved openstack_keymanager_secret_v1 %s: %#v", d.Id(), secret)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_keymanager_secret %s: %#v", d.Id(), secret)
 
 	uuid := keyManagerSecretV1GetUUIDfromSecretRef(secret.SecretRef)
 

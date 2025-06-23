@@ -220,10 +220,10 @@ func resourceLBV2ListenerRefreshFunc(ctx context.Context, lbClient *gophercloud.
 }
 
 func WaitForLBV2Listener(ctx context.Context, lbClient *gophercloud.ServiceClient, listener *listeners.Listener, target string, pending []string, timeout time.Duration) error {
-	log.Printf("[DEBUG] Waiting for openstack_lb_listener_v2 %s to become %s.", listener.ID, target)
+	log.Printf("[DEBUG] Waiting for vnpaycloud_lb_listener %s to become %s.", listener.ID, target)
 
 	if len(listener.Loadbalancers) == 0 {
-		return fmt.Errorf("Failed to detect a vnpaycloud_lb_loadbalancer_v2 for the %s openstack_lb_listener_v2", listener.ID)
+		return fmt.Errorf("Failed to detect a vnpaycloud_lb_loadbalancer for the %s vnpaycloud_lb_listener", listener.ID)
 	}
 
 	lbID := listener.Loadbalancers[0].ID
@@ -245,7 +245,7 @@ func WaitForLBV2Listener(ctx context.Context, lbClient *gophercloud.ServiceClien
 			}
 		}
 
-		return fmt.Errorf("Error waiting for openstack_lb_listener_v2 %s to become %s: %s", listener.ID, target, err)
+		return fmt.Errorf("Error waiting for vnpaycloud_lb_listener %s to become %s: %s", listener.ID, target, err)
 	}
 
 	return nil
@@ -538,7 +538,7 @@ func resourceLBV2MemberRefreshFunc(ctx context.Context, lbClient *gophercloud.Se
 }
 
 func WaitForLBV2Monitor(ctx context.Context, lbClient *gophercloud.ServiceClient, parentPool *pools.Pool, monitor *monitors.Monitor, target string, pending []string, timeout time.Duration) error {
-	log.Printf("[DEBUG] Waiting for openstack_lb_monitor_v2 %s to become %s.", monitor.ID, target)
+	log.Printf("[DEBUG] Waiting for vnpaycloud_lb_monitor %s to become %s.", monitor.ID, target)
 
 	lbID, err := lbV2FindLBIDviaPool(ctx, lbClient, parentPool)
 	if err != nil {
@@ -561,7 +561,7 @@ func WaitForLBV2Monitor(ctx context.Context, lbClient *gophercloud.ServiceClient
 				return nil
 			}
 		}
-		return fmt.Errorf("Error waiting for openstack_lb_monitor_v2 %s to become %s: %s", monitor.ID, target, err)
+		return fmt.Errorf("Error waiting for vnpaycloud_lb_monitor %s to become %s: %s", monitor.ID, target, err)
 	}
 
 	return nil
