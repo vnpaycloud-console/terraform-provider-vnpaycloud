@@ -74,7 +74,7 @@ func resourceComputeKeypairV2Create(ctx context.Context, d *schema.ResourceData,
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	userID := d.Get("user_id").(string)
@@ -92,11 +92,11 @@ func resourceComputeKeypairV2Create(ctx context.Context, d *schema.ResourceData,
 		util.MapValueSpecs(d),
 	}
 
-	log.Printf("[DEBUG] openstack_compute_keypair_v2 create options: %#v", createOpts)
+	log.Printf("[DEBUG] vnpaycloud_compute_keypair create options: %#v", createOpts)
 
 	kp, err := keypairs.Create(ctx, computeClient, createOpts).Extract()
 	if err != nil {
-		return diag.Errorf("Unable to create openstack_compute_keypair_v2 %s: %s", name, err)
+		return diag.Errorf("Unable to create vnpaycloud_compute_keypair %s: %s", name, err)
 	}
 
 	d.SetId(kp.Name)
@@ -112,7 +112,7 @@ func resourceComputeKeypairV2Read(ctx context.Context, d *schema.ResourceData, m
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	userID := d.Get("user_id").(string)
@@ -128,10 +128,10 @@ func resourceComputeKeypairV2Read(ctx context.Context, d *schema.ResourceData, m
 
 	kp, err := keypairs.Get(ctx, computeClient, d.Id(), kpopts).Extract()
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving openstack_compute_keypair_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving vnpaycloud_compute_keypair"))
 	}
 
-	log.Printf("[DEBUG] Retrieved openstack_compute_keypair_v2 %s: %#v", d.Id(), kp)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_compute_keypair %s: %#v", d.Id(), kp)
 
 	d.Set("name", kp.Name)
 	d.Set("public_key", kp.PublicKey)
@@ -148,7 +148,7 @@ func resourceComputeKeypairV2Delete(ctx context.Context, d *schema.ResourceData,
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	userID := d.Get("user_id").(string)
@@ -165,7 +165,7 @@ func resourceComputeKeypairV2Delete(ctx context.Context, d *schema.ResourceData,
 
 	err = keypairs.Delete(ctx, computeClient, d.Id(), kpopts).ExtractErr()
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting openstack_compute_keypair_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_compute_keypair"))
 	}
 
 	return nil

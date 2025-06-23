@@ -184,7 +184,7 @@ func resourcePoolV2Create(ctx context.Context, d *schema.ResourceData, meta inte
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
 	}
 
 	adminStateUp := d.Get("admin_state_up").(bool)
@@ -232,19 +232,19 @@ func resourcePoolV2Create(ctx context.Context, d *schema.ResourceData, meta inte
 	if listenerID != "" {
 		listener, err := listeners.Get(ctx, lbClient, listenerID).Extract()
 		if err != nil {
-			return diag.Errorf("Unable to get openstack_lb_listener_v2 %s: %s", listenerID, err)
+			return diag.Errorf("Unable to get vnpaycloud_lb_listener %s: %s", listenerID, err)
 		}
 
 		waitErr := shared.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 		if waitErr != nil {
 			return diag.Errorf(
-				"Error waiting for openstack_lb_listener_v2 %s to become active: %s", listenerID, err)
+				"Error waiting for vnpaycloud_lb_listener %s to become active: %s", listenerID, err)
 		}
 	} else {
 		waitErr := shared.WaitForLBV2LoadBalancer(ctx, lbClient, lbID, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 		if waitErr != nil {
 			return diag.Errorf(
-				"Error waiting for openstack_lb_loadbalancer_v2 %s to become active: %s", lbID, err)
+				"Error waiting for vnpaycloud_lb_loadbalancer %s to become active: %s", lbID, err)
 		}
 	}
 
@@ -278,7 +278,7 @@ func resourcePoolV2Read(ctx context.Context, d *schema.ResourceData, meta interf
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
 	}
 
 	pool, err := pools.Get(ctx, lbClient, d.Id()).Extract()
@@ -312,7 +312,7 @@ func resourcePoolV2Update(ctx context.Context, d *schema.ResourceData, meta inte
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
 	}
 
 	var updateOpts pools.UpdateOpts
@@ -416,7 +416,7 @@ func resourcePoolV2Delete(ctx context.Context, d *schema.ResourceData, meta inte
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
 	}
 
 	timeout := d.Timeout(schema.TimeoutDelete)
@@ -453,7 +453,7 @@ func resourcePoolV2Import(ctx context.Context, d *schema.ResourceData, meta inte
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return nil, fmt.Errorf("Error creating OpenStack loadbalancing client: %s", err)
+		return nil, fmt.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
 	}
 
 	pool, err := pools.Get(ctx, lbClient, d.Id()).Extract()

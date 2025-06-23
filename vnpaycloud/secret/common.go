@@ -132,7 +132,7 @@ func getACLSchema() *schema.Schema {
 				"project_access": {
 					Type:     schema.TypeBool,
 					Optional: true,
-					Default:  true, // defaults to true in OpenStack Barbican code
+					Default:  true, // defaults to true in VNPAYCLOUD Barbican code
 				},
 				"users": {
 					Type:     schema.TypeSet,

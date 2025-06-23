@@ -44,10 +44,6 @@ func ResourceVpc() *schema.Resource {
 				Computed: true,
 				ForceNew: true,
 			},
-			"enable_snat": {
-				Type:     schema.TypeBool,
-				Computed: true,
-			},
 		},
 	}
 }
@@ -123,7 +119,6 @@ func resourceVpcRead(ctx context.Context, d *schema.ResourceData, meta interface
 	d.Set("name", vpcResp.VPC.Name)
 	d.Set("description", vpcResp.VPC.Description)
 	d.Set("cidr_block", vpcResp.VPC.CIDR)
-	d.Set("enable_snat", vpcResp.VPC.EnableSNAT)
 
 	return nil
 }

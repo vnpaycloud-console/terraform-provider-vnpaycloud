@@ -179,7 +179,7 @@ func resourceKeyManagerSecretV1Create(ctx context.Context, d *schema.ResourceDat
 	config := meta.(*config.Config)
 	kmClient, err := config.KeyManagerV1Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack KeyManager client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD KeyManager client: %s", err)
 	}
 
 	var expiration *time.Time
@@ -203,7 +203,7 @@ func resourceKeyManagerSecretV1Create(ctx context.Context, d *schema.ResourceDat
 	var secret *secrets.Secret
 	secret, err = secrets.Create(ctx, kmClient, createOpts).Extract()
 	if err != nil {
-		return diag.Errorf("Error creating openstack_keymanager_secret_v1: %s", err)
+		return diag.Errorf("Error creating vnpaycloud_keymanager_secret: %s", err)
 	}
 
 	uuid := keyManagerSecretV1GetUUIDfromSecretRef(secret.SecretRef)
@@ -219,7 +219,7 @@ func resourceKeyManagerSecretV1Create(ctx context.Context, d *schema.ResourceDat
 
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
-		return diag.Errorf("Error waiting for openstack_keymanager_secret_v1: %s", err)
+		return diag.Errorf("Error waiting for vnpaycloud_keymanager_secret: %s", err)
 	}
 
 	d.SetId(uuid)
@@ -231,7 +231,7 @@ func resourceKeyManagerSecretV1Create(ctx context.Context, d *schema.ResourceDat
 		setOpts := expandKeyManagerV1ACLs(acl)
 		_, err = acls.SetSecretACL(ctx, kmClient, uuid, setOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error settings ACLs for the openstack_keymanager_secret_v1: %s", err)
+			return diag.Errorf("Error settings ACLs for the vnpaycloud_keymanager_secret: %s", err)
 		}
 	}
 
@@ -243,12 +243,12 @@ func resourceKeyManagerSecretV1Create(ctx context.Context, d *schema.ResourceDat
 	}
 	err = secrets.Update(ctx, kmClient, uuid, updateOpts).Err
 	if err != nil {
-		return diag.Errorf("Error setting openstack_keymanager_secret_v1 payload: %s", err)
+		return diag.Errorf("Error setting vnpaycloud_keymanager_secret payload: %s", err)
 	}
 
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
-		return diag.Errorf("Error waiting for openstack_keymanager_secret_v1: %s", err)
+		return diag.Errorf("Error waiting for vnpaycloud_keymanager_secret: %s", err)
 	}
 
 	// set the metadata
@@ -259,7 +259,7 @@ func resourceKeyManagerSecretV1Create(ctx context.Context, d *schema.ResourceDat
 	if len(metadataCreateOpts) > 0 {
 		_, err = secrets.CreateMetadata(ctx, kmClient, uuid, metadataCreateOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error creating metadata for openstack_keymanager_secret_v1 with ID %s: %s", uuid, err)
+			return diag.Errorf("Error creating metadata for vnpaycloud_keymanager_secret with ID %s: %s", uuid, err)
 		}
 
 		stateConf = &retry.StateChangeConf{
@@ -273,7 +273,7 @@ func resourceKeyManagerSecretV1Create(ctx context.Context, d *schema.ResourceDat
 
 		_, err = stateConf.WaitForStateContext(ctx)
 		if err != nil {
-			return diag.Errorf("Error creating metadata for openstack_keymanager_secret_v1 %s: %s", uuid, err)
+			return diag.Errorf("Error creating metadata for vnpaycloud_keymanager_secret %s: %s", uuid, err)
 		}
 	}
 
@@ -286,15 +286,15 @@ func resourceKeyManagerSecretV1Read(ctx context.Context, d *schema.ResourceData,
 	config := meta.(*config.Config)
 	kmClient, err := config.KeyManagerV1Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack barbican client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD barbican client: %s", err)
 	}
 
 	secret, err := secrets.Get(ctx, kmClient, d.Id()).Extract()
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving openstack_keymanager_secret_v1"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving vnpaycloud_keymanager_secret"))
 	}
 
-	log.Printf("[DEBUG] Retrieved openstack_keymanager_secret_v1 %s: %#v", d.Id(), secret)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_keymanager_secret %s: %#v", d.Id(), secret)
 
 	d.Set("name", secret.Name)
 
@@ -342,14 +342,14 @@ func resourceKeyManagerSecretV1Update(ctx context.Context, d *schema.ResourceDat
 	config := meta.(*config.Config)
 	kmClient, err := config.KeyManagerV1Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack barbican client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD barbican client: %s", err)
 	}
 
 	if d.HasChange("acl") {
 		updateOpts := expandKeyManagerV1ACLs(d.Get("acl"))
 		_, err := acls.UpdateSecretACL(ctx, kmClient, d.Id(), updateOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error updating openstack_keymanager_secret_v1 %s acl: %s", d.Id(), err)
+			return diag.Errorf("Error updating vnpaycloud_keymanager_secret %s acl: %s", d.Id(), err)
 		}
 	}
 
@@ -371,12 +371,12 @@ func resourceKeyManagerSecretV1Update(ctx context.Context, d *schema.ResourceDat
 			}
 		}
 
-		log.Printf("[DEBUG] Deleting the following items from metadata for openstack_keymanager_secret_v1 %s: %v", d.Id(), metadataToDelete)
+		log.Printf("[DEBUG] Deleting the following items from metadata for vnpaycloud_keymanager_secret %s: %v", d.Id(), metadataToDelete)
 
 		for _, key := range metadataToDelete {
 			err := secrets.DeleteMetadatum(ctx, kmClient, d.Id(), key).ExtractErr()
 			if err != nil && util.CheckDeleted(d, err, "") != nil {
-				return diag.Errorf("Error deleting openstack_keymanager_secret_v1 %s metadata %s: %s", d.Id(), key, err)
+				return diag.Errorf("Error deleting vnpaycloud_keymanager_secret %s metadata %s: %s", d.Id(), key, err)
 			}
 		}
 
@@ -396,7 +396,7 @@ func resourceKeyManagerSecretV1Update(ctx context.Context, d *schema.ResourceDat
 			}
 		}
 
-		log.Printf("[DEBUG] Updating the following items in metadata for openstack_keymanager_secret_v1 %s: %v", d.Id(), metadataToUpdate)
+		log.Printf("[DEBUG] Updating the following items in metadata for vnpaycloud_keymanager_secret %s: %v", d.Id(), metadataToUpdate)
 
 		for _, key := range metadataToUpdate {
 			var metadatumOpts secrets.MetadatumOpts
@@ -404,11 +404,11 @@ func resourceKeyManagerSecretV1Update(ctx context.Context, d *schema.ResourceDat
 			metadatumOpts.Value = newMetadata[key].(string)
 			_, err := secrets.UpdateMetadatum(ctx, kmClient, d.Id(), metadatumOpts).Extract()
 			if err != nil {
-				return diag.Errorf("Error updating openstack_keymanager_secret_v1 %s metadata %s: %s", d.Id(), key, err)
+				return diag.Errorf("Error updating vnpaycloud_keymanager_secret %s metadata %s: %s", d.Id(), key, err)
 			}
 		}
 
-		log.Printf("[DEBUG] Adding the following items to metadata for openstack_keymanager_secret_v1 %s: %v", d.Id(), metadataToAdd)
+		log.Printf("[DEBUG] Adding the following items to metadata for vnpaycloud_keymanager_secret %s: %v", d.Id(), metadataToAdd)
 
 		for _, key := range metadataToAdd {
 			var metadatumOpts secrets.MetadatumOpts
@@ -416,7 +416,7 @@ func resourceKeyManagerSecretV1Update(ctx context.Context, d *schema.ResourceDat
 			metadatumOpts.Value = newMetadata[key].(string)
 			err := secrets.CreateMetadatum(ctx, kmClient, d.Id(), metadatumOpts).Err
 			if err != nil {
-				return diag.Errorf("Error adding openstack_keymanager_secret_v1 %s metadata %s: %s", d.Id(), key, err)
+				return diag.Errorf("Error adding vnpaycloud_keymanager_secret %s metadata %s: %s", d.Id(), key, err)
 			}
 		}
 	}
@@ -428,7 +428,7 @@ func resourceKeyManagerSecretV1Delete(ctx context.Context, d *schema.ResourceDat
 	config := meta.(*config.Config)
 	kmClient, err := config.KeyManagerV1Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack barbican client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD barbican client: %s", err)
 	}
 
 	stateConf := &retry.StateChangeConf{

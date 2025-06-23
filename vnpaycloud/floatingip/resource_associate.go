@@ -27,7 +27,6 @@ func ResourceNetworkingFloatingIPAssociateV2() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
-				ForceNew: true,
 			},
 
 			"floating_ip": {
@@ -39,12 +38,6 @@ func ResourceNetworkingFloatingIPAssociateV2() *schema.Resource {
 			"port_id": {
 				Type:     schema.TypeString,
 				Required: true,
-			},
-
-			"fixed_ip": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
 			},
 		},
 	}
@@ -59,7 +52,6 @@ func resourceNetworkingFloatingIPAssociateV2Create(ctx context.Context, d *schem
 
 	floatingIP := d.Get("floating_ip").(string)
 	portID := d.Get("port_id").(string)
-	fixedIP := d.Get("fixed_ip").(string)
 
 	fipID, err := networkingFloatingIPV2ID(ctx, networkingClient, floatingIP)
 	if err != nil {
@@ -67,8 +59,7 @@ func resourceNetworkingFloatingIPAssociateV2Create(ctx context.Context, d *schem
 	}
 
 	updateOpts := floatingips.UpdateOpts{
-		PortID:  &portID,
-		FixedIP: fixedIP,
+		PortID: &portID,
 	}
 
 	log.Printf("[DEBUG] openstack_networking_floatingip_associate_v2 create options: %#v", updateOpts)
@@ -98,7 +89,6 @@ func resourceNetworkingFloatingIPAssociateV2Read(ctx context.Context, d *schema.
 
 	d.Set("floating_ip", fip.FloatingIP)
 	d.Set("port_id", fip.PortID)
-	d.Set("fixed_ip", fip.FixedIP)
 	d.Set("region", util.GetRegion(d, configMeta))
 
 	return nil
@@ -116,10 +106,6 @@ func resourceNetworkingFloatingIPAssociateV2Update(ctx context.Context, d *schem
 	// port_id must always exist
 	portID := d.Get("port_id").(string)
 	updateOpts.PortID = &portID
-
-	if d.HasChange("fixed_ip") {
-		updateOpts.FixedIP = d.Get("fixed_ip").(string)
-	}
 
 	log.Printf("[DEBUG] openstack_networking_floatingip_associate_v2 %s update options: %#v", d.Id(), updateOpts)
 	_, err = floatingips.Update(ctx, networkingClient, d.Id(), updateOpts).Extract()

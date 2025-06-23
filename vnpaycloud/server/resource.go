@@ -43,7 +43,7 @@ func ResourceComputeInstanceV2() *schema.Resource {
 		DeleteContext: resourceComputeInstanceV2Delete,
 
 		Importer: &schema.ResourceImporter{
-			StateContext: resourceOpenStackComputeInstanceV2ImportState,
+			StateContext: resourceComputeInstanceV2ImportState,
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(30 * time.Minute),
@@ -422,7 +422,7 @@ func ResourceComputeInstanceV2() *schema.Resource {
 			},
 		},
 		CustomizeDiff: customdiff.All(
-			// OpenStack cannot resize an instance, if its original flavor is deleted, that is why
+			// VNPAYCLOUD cannot resize an instance, if its original flavor is deleted, that is why
 			// we need to force recreation, if old flavor name or ID is reported as an empty string
 			customdiff.ForceNewIfChange("flavor_id", func(ctx context.Context, old, new, meta interface{}) bool {
 				return old.(string) == ""
@@ -451,11 +451,11 @@ func resourceComputeInstanceV2Create(ctx context.Context, d *schema.ResourceData
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 	imageClient, err := config.ImageV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack image client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD image client: %s", err)
 	}
 
 	var availabilityZone string
@@ -584,7 +584,7 @@ func resourceComputeInstanceV2Create(ctx context.Context, d *schema.ResourceData
 	// Otherwise, use the normal servers.Create function.
 	server, err := servers.Create(ctx, computeClient, createOptsBuilder, schedulerHints).Extract()
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack server: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD server: %s", err)
 	}
 	log.Printf("[INFO] Instance ID: %s", server.ID)
 
@@ -625,7 +625,7 @@ func resourceComputeInstanceV2Create(ctx context.Context, d *schema.ResourceData
 	if strings.ToLower(vmState) == "shutoff" {
 		err = servers.Stop(ctx, computeClient, d.Id()).ExtractErr()
 		if err != nil {
-			return diag.Errorf("Error stopping OpenStack instance: %s", err)
+			return diag.Errorf("Error stopping VNPAYCLOUD instance: %s", err)
 		}
 		stopStateConf := &retry.StateChangeConf{
 			//Pending:    []string{"ACTIVE"},
@@ -650,11 +650,11 @@ func resourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData, 
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 	imageClient, err := config.ImageV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack image client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD image client: %s", err)
 	}
 
 	server, err := servers.Get(ctx, computeClient, d.Id()).Extract()
@@ -677,7 +677,7 @@ func resourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData, 
 	// Determine the best IPv4 and IPv6 addresses to access the instance with
 	hostv4, hostv6 := getInstanceAccessAddresses(d, networks)
 
-	// AccessIPv4/v6 isn't standard in OpenStack, but there have been reports
+	// AccessIPv4/v6 isn't standard in VNPAYCLOUD, but there have been reports
 	// of them being used in some environments.
 	if server.AccessIPv4 != "" && hostv4 == "" {
 		hostv4 = server.AccessIPv4
@@ -720,7 +720,7 @@ func resourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData, 
 
 	flavorID, ok := server.Flavor["id"].(string)
 	if !ok {
-		return diag.Errorf("Error setting OpenStack server's flavor: %v", server.Flavor)
+		return diag.Errorf("Error setting VNPAYCLOUD server's flavor: %v", server.Flavor)
 	}
 	d.Set("flavor_id", flavorID)
 
@@ -763,7 +763,7 @@ func resourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData, 
 	computeClient.Microversion = computeV2TagsExtensionMicroversion
 	instanceTags, err := tags.List(ctx, computeClient, server.ID).Extract()
 	if err != nil {
-		log.Printf("[DEBUG] Unable to get tags for openstack_compute_instance_v2: %s", err)
+		log.Printf("[DEBUG] Unable to get tags for vnpaycloud_compute_server: %s", err)
 	} else {
 		computeV2InstanceReadTags(d, instanceTags)
 	}
@@ -778,7 +778,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	var updateOpts servers.UpdateOpts
@@ -789,7 +789,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 	if updateOpts != (servers.UpdateOpts{}) {
 		_, err := servers.Update(ctx, computeClient, d.Id(), updateOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error updating OpenStack server: %s", err)
+			return diag.Errorf("Error updating VNPAYCLOUD server: %s", err)
 		}
 	}
 
@@ -800,7 +800,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 		if strings.ToLower(powerStateNew) == "shelved_offloaded" {
 			err = servers.Shelve(ctx, computeClient, d.Id()).ExtractErr()
 			if err != nil {
-				return diag.Errorf("Error shelve OpenStack instance: %s", err)
+				return diag.Errorf("Error shelve VNPAYCLOUD instance: %s", err)
 			}
 			shelveStateConf := &retry.StateChangeConf{
 				//Pending:    []string{"ACTIVE"},
@@ -820,7 +820,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 		if strings.ToLower(powerStateNew) == "paused" {
 			err = servers.Pause(ctx, computeClient, d.Id()).ExtractErr()
 			if err != nil {
-				return diag.Errorf("Error pausing OpenStack instance: %s", err)
+				return diag.Errorf("Error pausing VNPAYCLOUD instance: %s", err)
 			}
 			pauseStateConf := &retry.StateChangeConf{
 				//Pending:    []string{"ACTIVE"},
@@ -840,7 +840,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 		if strings.ToLower(powerStateNew) == "shutoff" {
 			err = servers.Stop(ctx, computeClient, d.Id()).ExtractErr()
 			if err != nil {
-				return diag.Errorf("Error stopping OpenStack instance: %s", err)
+				return diag.Errorf("Error stopping VNPAYCLOUD instance: %s", err)
 			}
 			stopStateConf := &retry.StateChangeConf{
 				//Pending:    []string{"ACTIVE"},
@@ -864,17 +864,17 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 				}
 				err = servers.Unshelve(ctx, computeClient, d.Id(), unshelveOpt).ExtractErr()
 				if err != nil {
-					return diag.Errorf("Error unshelving OpenStack instance: %s", err)
+					return diag.Errorf("Error unshelving VNPAYCLOUD instance: %s", err)
 				}
 			} else if strings.ToLower(powerStateOld) == "paused" {
 				err = servers.Unpause(ctx, computeClient, d.Id()).ExtractErr()
 				if err != nil {
-					return diag.Errorf("Error resuming OpenStack instance: %s", err)
+					return diag.Errorf("Error resuming VNPAYCLOUD instance: %s", err)
 				}
 			} else if strings.ToLower(powerStateOld) != "build" {
 				err = servers.Start(ctx, computeClient, d.Id()).ExtractErr()
 				if err != nil {
-					return diag.Errorf("Error starting OpenStack instance: %s", err)
+					return diag.Errorf("Error starting VNPAYCLOUD instance: %s", err)
 				}
 			}
 			startStateConf := &retry.StateChangeConf{
@@ -928,7 +928,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 
 		_, err := servers.UpdateMetadata(ctx, computeClient, d.Id(), metadataOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error updating OpenStack server (%s) metadata: %s", d.Id(), err)
+			return diag.Errorf("Error updating VNPAYCLOUD server (%s) metadata: %s", d.Id(), err)
 		}
 	}
 
@@ -950,7 +950,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 					continue
 				}
 
-				return diag.Errorf("Error removing security group (%s) from OpenStack server (%s): %s", g, d.Id(), err)
+				return diag.Errorf("Error removing security group (%s) from VNPAYCLOUD server (%s): %s", g, d.Id(), err)
 			}
 			log.Printf("[DEBUG] Removed security group (%s) from instance (%s)", g, d.Id())
 		}
@@ -958,7 +958,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 		for _, g := range secgroupsToAdd.List() {
 			err := secgroups.AddServer(ctx, computeClient, d.Id(), g.(string)).ExtractErr()
 			if err != nil && err.Error() != "EOF" {
-				return diag.Errorf("Error adding security group (%s) to OpenStack server (%s): %s", g, d.Id(), err)
+				return diag.Errorf("Error adding security group (%s) to VNPAYCLOUD server (%s): %s", g, d.Id(), err)
 			}
 			log.Printf("[DEBUG] Added security group (%s) to instance (%s)", g, d.Id())
 		}
@@ -968,7 +968,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 		if newPwd, ok := d.Get("admin_pass").(string); ok {
 			err := servers.ChangeAdminPassword(ctx, computeClient, d.Id(), newPwd).ExtractErr()
 			if err != nil {
-				return diag.Errorf("Error changing admin password of OpenStack server (%s): %s", d.Id(), err)
+				return diag.Errorf("Error changing admin password of VNPAYCLOUD server (%s): %s", d.Id(), err)
 			}
 		}
 	}
@@ -1000,7 +1000,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 		log.Printf("[DEBUG] Resize configuration: %#v", resizeOpts)
 		err = servers.Resize(ctx, computeClient, d.Id(), resizeOpts).ExtractErr()
 		if err != nil {
-			return diag.Errorf("Error resizing OpenStack server: %s", err)
+			return diag.Errorf("Error resizing VNPAYCLOUD server: %s", err)
 		}
 
 		// Wait for the instance to finish resizing.
@@ -1040,7 +1040,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 			log.Printf("[DEBUG] Confirming resize")
 			err = servers.ConfirmResize(ctx, computeClient, d.Id()).ExtractErr()
 			if err != nil {
-				return diag.Errorf("Error confirming resize of OpenStack server: %s", err)
+				return diag.Errorf("Error confirming resize of VNPAYCLOUD server: %s", err)
 			}
 
 			stateConf = &retry.StateChangeConf{
@@ -1063,7 +1063,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 		var newImageID string
 		imageClient, err := config.ImageV2Client(ctx, util.GetRegion(d, config))
 		if err != nil {
-			return diag.Errorf("Error creating OpenStack image client: %s", err)
+			return diag.Errorf("Error creating VNPAYCLOUD image client: %s", err)
 		}
 
 		if d.HasChange("image_id") {
@@ -1089,7 +1089,7 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 		log.Printf("[DEBUG] Rebuild configuration: %#v", rebuildOpts)
 		_, err = servers.Rebuild(ctx, computeClient, d.Id(), rebuildOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error rebuilding OpenStack server: %s", err)
+			return diag.Errorf("Error rebuilding VNPAYCLOUD server: %s", err)
 		}
 		stateConf := &retry.StateChangeConf{
 			Pending:    []string{"REBUILD"},
@@ -1112,9 +1112,9 @@ func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData
 		computeClient.Microversion = computeV2TagsExtensionMicroversion
 		instanceTags, err := tags.ReplaceAll(ctx, computeClient, d.Id(), instanceTagsOpts).Extract()
 		if err != nil {
-			return diag.Errorf("Error setting tags on openstack_compute_instance_v2 %s: %s", d.Id(), err)
+			return diag.Errorf("Error setting tags on vnpaycloud_compute_server %s: %s", d.Id(), err)
 		}
-		log.Printf("[DEBUG] Set tags %s on openstack_compute_instance_v2 %s", instanceTags, d.Id())
+		log.Printf("[DEBUG] Set tags %s on vnpaycloud_compute_server %s", instanceTags, d.Id())
 	}
 
 	return resourceComputeInstanceV2Read(ctx, d, meta)
@@ -1124,13 +1124,13 @@ func resourceComputeInstanceV2Delete(ctx context.Context, d *schema.ResourceData
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	if d.Get("stop_before_destroy").(bool) {
 		err = servers.Stop(ctx, computeClient, d.Id()).ExtractErr()
 		if err != nil {
-			log.Printf("[WARN] Error stopping openstack_compute_instance_v2: %s", err)
+			log.Printf("[WARN] Error stopping vnpaycloud_compute_server: %s", err)
 		} else {
 			stopStateConf := &retry.StateChangeConf{
 				Pending:    []string{"ACTIVE"},
@@ -1156,7 +1156,7 @@ func resourceComputeInstanceV2Delete(ctx context.Context, d *schema.ResourceData
 	if detachPortBeforeDestroy {
 		allInstanceNetworks, err := getAllInstanceNetworks(ctx, d, meta)
 		if err != nil {
-			log.Printf("[WARN] Unable to get openstack_compute_instance_v2 ports: %s", err)
+			log.Printf("[WARN] Unable to get vnpaycloud_compute_server ports: %s", err)
 		} else {
 			for _, network := range allInstanceNetworks {
 				if network.Port != "" {
@@ -1169,23 +1169,23 @@ func resourceComputeInstanceV2Delete(ctx context.Context, d *schema.ResourceData
 						MinTimeout: 5 * time.Second,
 					}
 					if _, err = stateConf.WaitForStateContext(ctx); err != nil {
-						return diag.Errorf("Error detaching openstack_compute_instance_v2 %s: %s", d.Id(), err)
+						return diag.Errorf("Error detaching vnpaycloud_compute_server %s: %s", d.Id(), err)
 					}
 				}
 			}
 		}
 	}
 	if d.Get("force_delete").(bool) {
-		log.Printf("[DEBUG] Force deleting OpenStack Instance %s", d.Id())
+		log.Printf("[DEBUG] Force deleting VNPAYCLOUD Instance %s", d.Id())
 		err = servers.ForceDelete(ctx, computeClient, d.Id()).ExtractErr()
 		if err != nil {
-			return diag.FromErr(util.CheckDeleted(d, err, "Error force deleting openstack_compute_instance_v2"))
+			return diag.FromErr(util.CheckDeleted(d, err, "Error force deleting vnpaycloud_compute_server"))
 		}
 	} else {
-		log.Printf("[DEBUG] Deleting OpenStack Instance %s", d.Id())
+		log.Printf("[DEBUG] Deleting VNPAYCLOUD Instance %s", d.Id())
 		err = servers.Delete(ctx, computeClient, d.Id()).ExtractErr()
 		if err != nil {
-			return diag.FromErr(util.CheckDeleted(d, err, "Error deleting openstack_compute_instance_v2"))
+			return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_compute_server"))
 		}
 	}
 
@@ -1211,7 +1211,7 @@ func resourceComputeInstanceV2Delete(ctx context.Context, d *schema.ResourceData
 	return nil
 }
 
-func resourceOpenStackComputeInstanceV2ImportState(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+func resourceComputeInstanceV2ImportState(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	var serverWithAttachments struct {
 		VolumesAttached []map[string]interface{} `json:"os-extended-volumes:volumes_attached"`
 	}
@@ -1219,25 +1219,25 @@ func resourceOpenStackComputeInstanceV2ImportState(ctx context.Context, d *schem
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return nil, fmt.Errorf("Error creating OpenStack compute client: %s", err)
+		return nil, fmt.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	results := make([]*schema.ResourceData, 1)
 	diagErr := resourceComputeInstanceV2Read(ctx, d, meta)
 	if diagErr != nil {
-		return nil, fmt.Errorf("Error reading openstack_compute_instance_v2 %s: %v", d.Id(), diagErr)
+		return nil, fmt.Errorf("Error reading vnpaycloud_compute_server %s: %v", d.Id(), diagErr)
 	}
 
 	raw := servers.Get(ctx, computeClient, d.Id())
 	if raw.Err != nil {
-		return nil, util.CheckDeleted(d, raw.Err, "openstack_compute_instance_v2")
+		return nil, util.CheckDeleted(d, raw.Err, "vnpaycloud_compute_server")
 	}
 
 	if err := raw.ExtractInto(&serverWithAttachments); err != nil {
 		log.Printf("[DEBUG] unable to unmarshal raw struct to serverWithAttachments: %s", err)
 	}
 
-	log.Printf("[DEBUG] Retrieved openstack_compute_instance_v2 %s volume attachments: %#v",
+	log.Printf("[DEBUG] Retrieved vnpaycloud_compute_server %s volume attachments: %#v",
 		d.Id(), serverWithAttachments)
 
 	bds := []map[string]interface{}{}
@@ -1277,7 +1277,7 @@ func resourceOpenStackComputeInstanceV2ImportState(ctx context.Context, d *schem
 			log.Print("[DEBUG] Could not create BlockStorageV3 client, trying BlockStorageV2")
 			blockStorageClient, err := config.BlockStorageV2Client(ctx, util.GetRegion(d, config))
 			if err != nil {
-				return nil, fmt.Errorf("Error creating OpenStack volume V2 client: %s", err)
+				return nil, fmt.Errorf("Error creating VNPAYCLOUD volume V2 client: %s", err)
 			}
 			var volMetaData = struct {
 				VolumeImageMetadata map[string]interface{} `json:"volume_image_metadata"`
@@ -1315,7 +1315,7 @@ func resourceOpenStackComputeInstanceV2ImportState(ctx context.Context, d *schem
 
 	metadata, err := servers.Metadata(ctx, computeClient, d.Id()).Extract()
 	if err != nil {
-		return nil, fmt.Errorf("Unable to read metadata for openstack_compute_instance_v2 %s: %s", d.Id(), err)
+		return nil, fmt.Errorf("Unable to read metadata for vnpaycloud_compute_server %s: %s", d.Id(), err)
 	}
 
 	d.Set("metadata", metadata)
@@ -1326,7 +1326,7 @@ func resourceOpenStackComputeInstanceV2ImportState(ctx context.Context, d *schem
 }
 
 // ServerV2StateRefreshFunc returns a retry.StateRefreshFunc that is used to watch
-// an OpenStack instance.
+// an VNPAYCLOUD instance.
 func ServerV2StateRefreshFunc(ctx context.Context, client *gophercloud.ServiceClient, instanceID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
 		s, err := servers.Get(ctx, client, instanceID).Extract()
@@ -1639,7 +1639,7 @@ func resourceInstancePersonalityV2(d *schema.ResourceData) servers.Personality {
 					Contents: []byte(rawPersonality["content"].(string)),
 				}
 
-				log.Printf("[DEBUG] OpenStack Compute Instance Personality: %+v", file)
+				log.Printf("[DEBUG] VNPAYCLOUD Compute Instance Personality: %+v", file)
 
 				personalities = append(personalities, &file)
 			}

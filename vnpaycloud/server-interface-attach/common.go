@@ -29,7 +29,7 @@ func ComputeInterfaceAttachV2AttachFunc(ctx context.Context,
 func ComputeInterfaceAttachV2DetachFunc(ctx context.Context,
 	computeClient *gophercloud.ServiceClient, instanceID, attachmentID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		log.Printf("[DEBUG] Attempting to detach openstack_compute_interface_attach_v2 %s from instance %s",
+		log.Printf("[DEBUG] Attempting to detach vnpaycloud_compute_interface_attach %s from instance %s",
 			attachmentID, instanceID)
 
 		va, err := attachinterfaces.Get(ctx, computeClient, instanceID, attachmentID).Extract()
@@ -53,7 +53,7 @@ func ComputeInterfaceAttachV2DetachFunc(ctx context.Context,
 			return nil, "", err
 		}
 
-		log.Printf("[DEBUG] openstack_compute_interface_attach_v2 %s is still active.", attachmentID)
+		log.Printf("[DEBUG] vnpaycloud_compute_interface_attach %s is still active.", attachmentID)
 		return nil, "", nil
 	}
 }

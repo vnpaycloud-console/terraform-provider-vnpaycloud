@@ -52,7 +52,7 @@ func dataSourceComputeKeypairV2Read(ctx context.Context, d *schema.ResourceData,
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	computeClient.Microversion = computeKeyPairV2UserIDMicroversion
@@ -68,12 +68,12 @@ func dataSourceComputeKeypairV2Read(ctx context.Context, d *schema.ResourceData,
 	name := d.Get("name").(string)
 	kp, err := keypairs.Get(ctx, computeClient, name, opts).Extract()
 	if err != nil {
-		return diag.Errorf("Error retrieving openstack_compute_keypair_v2 %s: %s", name, err)
+		return diag.Errorf("Error retrieving vnpaycloud_compute_keypair %s: %s", name, err)
 	}
 
 	d.SetId(name)
 
-	log.Printf("[DEBUG] Retrieved openstack_compute_keypair_v2 %s: %#v", d.Id(), kp)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_compute_keypair %s: %#v", d.Id(), kp)
 
 	d.Set("fingerprint", kp.Fingerprint)
 	d.Set("public_key", kp.PublicKey)

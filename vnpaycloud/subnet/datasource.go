@@ -186,7 +186,7 @@ func dataSourceNetworkingSubnetV2Read(ctx context.Context, d *schema.ResourceDat
 	config := meta.(*config.Config)
 	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	listOpts := subnets.ListOpts{}
@@ -252,27 +252,27 @@ func dataSourceNetworkingSubnetV2Read(ctx context.Context, d *schema.ResourceDat
 
 	pages, err := subnets.List(networkingClient, listOpts).AllPages(ctx)
 	if err != nil {
-		return diag.Errorf("Unable to retrieve openstack_networking_subnet_v2: %s", err)
+		return diag.Errorf("Unable to retrieve vnpaycloud_networking_subnet: %s", err)
 	}
 
 	allSubnets, err := subnets.ExtractSubnets(pages)
 	if err != nil {
-		return diag.Errorf("Unable to extract openstack_networking_subnet_v2: %s", err)
+		return diag.Errorf("Unable to extract vnpaycloud_networking_subnet: %s", err)
 	}
 
 	if len(allSubnets) < 1 {
-		return diag.Errorf("Your query returned no openstack_networking_subnet_v2. " +
+		return diag.Errorf("Your query returned no vnpaycloud_networking_subnet. " +
 			"Please change your search criteria and try again.")
 	}
 
 	if len(allSubnets) > 1 {
-		return diag.Errorf("Your query returned more than one openstack_networking_subnet_v2." +
+		return diag.Errorf("Your query returned more than one vnpaycloud_networking_subnet." +
 			" Please try a more specific search criteria")
 	}
 
 	subnet := allSubnets[0]
 
-	log.Printf("[DEBUG] Retrieved openstack_networking_subnet_v2 %s: %+v", subnet.ID, subnet)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_networking_subnet %s: %+v", subnet.ID, subnet)
 	d.SetId(subnet.ID)
 
 	d.Set("name", subnet.Name)
@@ -291,21 +291,21 @@ func dataSourceNetworkingSubnetV2Read(ctx context.Context, d *schema.ResourceDat
 	d.Set("region", util.GetRegion(d, config))
 
 	if err := d.Set("dns_nameservers", subnet.DNSNameservers); err != nil {
-		log.Printf("[DEBUG] Unable to set openstack_networking_subnet_v2 dns_nameservers: %s", err)
+		log.Printf("[DEBUG] Unable to set vnpaycloud_networking_subnet dns_nameservers: %s", err)
 	}
 
 	if err := d.Set("service_types", subnet.ServiceTypes); err != nil {
-		log.Printf("[DEBUG] Unable to set openstack_networking_subnet_v2 service_types: %s", err)
+		log.Printf("[DEBUG] Unable to set vnpaycloud_networking_subnet service_types: %s", err)
 	}
 
 	hostRoutes := flattenNetworkingSubnetV2HostRoutes(subnet.HostRoutes)
 	if err := d.Set("host_routes", hostRoutes); err != nil {
-		log.Printf("[DEBUG] Unable to set openstack_networking_subnet_v2 host_routes: %s", err)
+		log.Printf("[DEBUG] Unable to set vnpaycloud_networking_subnet host_routes: %s", err)
 	}
 
 	allocationPools := flattenNetworkingSubnetV2AllocationPools(subnet.AllocationPools)
 	if err := d.Set("allocation_pools", allocationPools); err != nil {
-		log.Printf("[DEBUG] Unable to set openstack_networking_subnet_v2 allocation_pools: %s", err)
+		log.Printf("[DEBUG] Unable to set vnpaycloud_networking_subnet allocation_pools: %s", err)
 	}
 
 	return nil

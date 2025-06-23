@@ -31,12 +31,12 @@ func networkingSubnetV2StateRefreshFunc(ctx context.Context, client *gophercloud
 // networkingSubnetV2StateRefreshFuncDelete returns a special case retry.StateRefreshFunc to try to delete a subnet.
 func networkingSubnetV2StateRefreshFuncDelete(ctx context.Context, networkingClient *gophercloud.ServiceClient, subnetID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		log.Printf("[DEBUG] Attempting to delete openstack_networking_subnet_v2 %s", subnetID)
+		log.Printf("[DEBUG] Attempting to delete vnpaycloud_networking_subnet %s", subnetID)
 
 		s, err := subnets.Get(ctx, networkingClient, subnetID).Extract()
 		if err != nil {
 			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				log.Printf("[DEBUG] Successfully deleted openstack_networking_subnet_v2 %s", subnetID)
+				log.Printf("[DEBUG] Successfully deleted vnpaycloud_networking_subnet %s", subnetID)
 				return s, "DELETED", nil
 			}
 
@@ -46,7 +46,7 @@ func networkingSubnetV2StateRefreshFuncDelete(ctx context.Context, networkingCli
 		err = subnets.Delete(ctx, networkingClient, subnetID).ExtractErr()
 		if err != nil {
 			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				log.Printf("[DEBUG] Successfully deleted openstack_networking_subnet_v2 %s", subnetID)
+				log.Printf("[DEBUG] Successfully deleted vnpaycloud_networking_subnet %s", subnetID)
 				return s, "DELETED", nil
 			}
 			// Subnet is still in use - we can retry.
@@ -57,7 +57,7 @@ func networkingSubnetV2StateRefreshFuncDelete(ctx context.Context, networkingCli
 			return s, "ACTIVE", err
 		}
 
-		log.Printf("[DEBUG] openstack_networking_subnet_v2 %s is still active", subnetID)
+		log.Printf("[DEBUG] vnpaycloud_networking_subnet %s is still active", subnetID)
 
 		return s, "ACTIVE", nil
 	}

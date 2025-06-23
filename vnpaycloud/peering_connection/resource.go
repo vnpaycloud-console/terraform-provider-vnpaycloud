@@ -70,6 +70,11 @@ func ResourcePeeringConnection() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"subnet_id": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: false,
+			},
 		},
 	}
 }
@@ -88,6 +93,10 @@ func resourcePeeringConnectionCreate(ctx context.Context, d *schema.ResourceData
 func createPeeringConnectionRequest(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
 	c, err := client.NewClient(ctx, config.ConsoleClientConfig)
+
+	if len(d.Get("subnet_id").(string)) <= 0 {
+		return diag.Errorf("Please fill at least 1 subnet id before peering")
+	}
 
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud Peering Connection client: %s", err)
@@ -114,6 +123,7 @@ func createPeeringConnectionRequest(ctx context.Context, d *schema.ResourceData,
 
 	d.SetId(peeringConnectionRequest.PeerId)
 	d.Set("request_id", peeringConnectionRequest.ID)
+	d.Set("subnet_id", d.Get("subnet_id").(string))
 
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"OS_INITIATING"},

@@ -226,7 +226,7 @@ func resourceListenerV2Create(ctx context.Context, d *schema.ResourceData, meta 
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
 	}
 
 	timeout := d.Timeout(schema.TimeoutCreate)
@@ -292,7 +292,7 @@ func resourceListenerV2Create(ctx context.Context, d *schema.ResourceData, meta 
 		createOpts.TimeoutTCPInspect = &timeoutTCPInspect
 	}
 
-	log.Printf("[DEBUG] openstack_lb_listener_v2 create options: %#v", createOpts)
+	log.Printf("[DEBUG] vnpaycloud_lb_listener create options: %#v", createOpts)
 	var listener *listeners.Listener
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
 		listener, err = listeners.Create(ctx, lbClient, createOpts).Extract()
@@ -303,7 +303,7 @@ func resourceListenerV2Create(ctx context.Context, d *schema.ResourceData, meta 
 	})
 
 	if err != nil {
-		return diag.Errorf("Error creating openstack_lb_listener_v2: %s", err)
+		return diag.Errorf("Error creating vnpaycloud_lb_listener: %s", err)
 	}
 
 	// Wait for the listener to become ACTIVE.
@@ -321,15 +321,15 @@ func resourceListenerV2Read(ctx context.Context, d *schema.ResourceData, meta in
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	listener, err := listeners.Get(ctx, lbClient, d.Id()).Extract()
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "openstack_lb_listener_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "vnpaycloud_lb_listener"))
 	}
 
-	log.Printf("[DEBUG] Retrieved openstack_lb_listener_v2 %s: %#v", d.Id(), listener)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_lb_listener %s: %#v", d.Id(), listener)
 
 	d.Set("name", listener.Name)
 	d.Set("protocol", listener.Protocol)
@@ -364,7 +364,7 @@ func resourceListenerV2Read(ctx context.Context, d *schema.ResourceData, meta in
 	}
 
 	if err := d.Set("insert_headers", listener.InsertHeaders); err != nil {
-		return diag.Errorf("Unable to set openstack_lb_listener_v2 insert_headers: %s", err)
+		return diag.Errorf("Unable to set vnpaycloud_lb_listener insert_headers: %s", err)
 	}
 
 	return nil
@@ -374,13 +374,13 @@ func resourceListenerV2Update(ctx context.Context, d *schema.ResourceData, meta 
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	// Get a clean copy of the listener.
 	listener, err := listeners.Get(ctx, lbClient, d.Id()).Extract()
 	if err != nil {
-		return diag.Errorf("Unable to retrieve openstack_lb_listener_v2 %s: %s", d.Id(), err)
+		return diag.Errorf("Unable to retrieve vnpaycloud_lb_listener %s: %s", d.Id(), err)
 	}
 
 	// Wait for the listener to become ACTIVE.
@@ -540,11 +540,11 @@ func resourceListenerV2Update(ctx context.Context, d *schema.ResourceData, meta 
 	}
 
 	if !hasChange {
-		log.Printf("[DEBUG] openstack_lb_listener_v2 %s: nothing to update", d.Id())
+		log.Printf("[DEBUG] vnpaycloud_lb_listener %s: nothing to update", d.Id())
 		return resourceListenerV2Read(ctx, d, meta)
 	}
 
-	log.Printf("[DEBUG] openstack_lb_listener_v2 %s update options: %#v", d.Id(), updateOpts)
+	log.Printf("[DEBUG] vnpaycloud_lb_listener %s update options: %#v", d.Id(), updateOpts)
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
 		_, err = listeners.Update(ctx, lbClient, d.Id(), updateOpts).Extract()
 		if err != nil {
@@ -554,7 +554,7 @@ func resourceListenerV2Update(ctx context.Context, d *schema.ResourceData, meta 
 	})
 
 	if err != nil {
-		return diag.Errorf("Error updating openstack_lb_listener_v2 %s: %s", d.Id(), err)
+		return diag.Errorf("Error updating vnpaycloud_lb_listener %s: %s", d.Id(), err)
 	}
 
 	// Wait for the listener to become ACTIVE.
@@ -570,18 +570,18 @@ func resourceListenerV2Delete(ctx context.Context, d *schema.ResourceData, meta 
 	config := meta.(*config.Config)
 	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	// Get a clean copy of the listener.
 	listener, err := listeners.Get(ctx, lbClient, d.Id()).Extract()
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Unable to retrieve openstack_lb_listener_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Unable to retrieve vnpaycloud_lb_listener"))
 	}
 
 	timeout := d.Timeout(schema.TimeoutDelete)
 
-	log.Printf("[DEBUG] Deleting openstack_lb_listener_v2 %s", d.Id())
+	log.Printf("[DEBUG] Deleting vnpaycloud_lb_listener %s", d.Id())
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
 		err = listeners.Delete(ctx, lbClient, d.Id()).ExtractErr()
 		if err != nil {
@@ -591,7 +591,7 @@ func resourceListenerV2Delete(ctx context.Context, d *schema.ResourceData, meta 
 	})
 
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting openstack_lb_listener_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_lb_listener"))
 	}
 
 	// Wait for the listener to become DELETED.

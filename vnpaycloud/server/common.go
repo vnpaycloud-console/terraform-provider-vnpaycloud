@@ -1,9 +1,9 @@
 // This set of code handles all functions required to configure networking
-// on an openstack_compute_instance_v2 resource.
+// on an vnpaycloud_compute_instance_v2 resource.
 //
 // This is a complicated task because it's not possible to obtain all
 // information in a single API call. In fact, it even traverses multiple
-// OpenStack services.
+// VNPAYCLOUD services.
 //
 // The end result, from the user's point of view, is a structured set of
 // understandable network information within the instance resource.
@@ -62,16 +62,16 @@ type InstanceNetwork struct {
 
 // getAllInstanceNetworks loops through the networks defined in the Terraform
 // configuration and structures that information into something standard that
-// can be consumed by both OpenStack and Terraform.
+// can be consumed by both VNPAYCLOUD and Terraform.
 //
 // This would be simple, except we have ensure both the network name and
 // network ID have been determined. This isn't just for the convenience of a
 // user specifying a human-readable network name, but the network information
-// returned by an OpenStack instance only has the network name set! So if a
+// returned by an VNPAYCLOUD instance only has the network name set! So if a
 // user specified a network ID, there's no way to correlate it to the instance
 // unless we know both the name and ID.
 //
-// Not only that, but we have to account for two OpenStack network services
+// Not only that, but we have to account for two VNPAYCLOUD network services
 // running: nova-network (legacy) and Neutron (current).
 //
 // In addition, if a port was specified, not all of the port information
@@ -159,7 +159,7 @@ func getInstanceNetworkInfo(ctx context.Context, d *schema.ResourceData, meta in
 	config := meta.(*config.Config)
 	networkClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return nil, fmt.Errorf("Error creating OpenStack networking client: %s", err)
+		return nil, fmt.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
 	networkInfo, err := getInstanceNetworkInfoNeutron(ctx, networkClient, queryType, queryTerm)
@@ -252,7 +252,7 @@ func getInstanceAddresses(addresses map[string]interface{}) []InstanceAddresses 
 	// keyed by pool. This unfortunately causes problems because addresses are a
 	// JSON object which means that they are unordered because gophercloud
 	// uses a map[string]interface{} to hold them and maps are unordered.
-	// However OpenStack uses OrderedDict to return this data and this
+	// However VNPAYCLOUD uses OrderedDict to return this data and this
 	// provider uses a List type for the networks which is an ordered type,
 	// this means that importing resources into terraform will result in
 	// networks import out of order which causes terraform to say it has to
@@ -349,7 +349,7 @@ func flattenInstanceNetworks(ctx context.Context, d *schema.ResourceData, meta i
 	config := meta.(*config.Config)
 	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
 	if err != nil {
-		return nil, fmt.Errorf("Error creating OpenStack compute client: %s", err)
+		return nil, fmt.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	server, err := servers.Get(ctx, computeClient, d.Id()).Extract()
@@ -462,7 +462,7 @@ func getInstanceAccessAddresses(d *schema.ResourceData, networks []map[string]in
 		}
 	}
 
-	log.Printf("[DEBUG] OpenStack Instance Network Access Addresses: %s, %s", hostv4, hostv6)
+	log.Printf("[DEBUG] VNPAYCLOUD Instance Network Access Addresses: %s, %s", hostv4, hostv6)
 
 	return hostv4, hostv6
 }
