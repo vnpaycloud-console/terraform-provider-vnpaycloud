@@ -3,6 +3,7 @@ package peeringconnection
 import (
 	"context"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
@@ -66,15 +67,6 @@ func ResourcePeeringConnection() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"port_id": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"subnet_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: false,
-			},
 		},
 	}
 }
@@ -94,16 +86,12 @@ func createPeeringConnectionRequest(ctx context.Context, d *schema.ResourceData,
 	config := meta.(*config.Config)
 	c, err := client.NewClient(ctx, config.ConsoleClientConfig)
 
-	if len(d.Get("subnet_id").(string)) <= 0 {
-		return diag.Errorf("Please fill at least 1 subnet id before peering")
-	}
-
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud Peering Connection client: %s", err)
 	}
 
-	createOpts := CreatePeeringConnectionRequest{
-		PeeringConnectionRequest: CreatePeeringConnectionRequestOpts{
+	createOpts := dto.CreatePeeringConnectionRequest{
+		PeeringConnectionRequest: dto.CreatePeeringConnectionRequestOpts{
 			PeerVPCId:   d.Get("peer_vpc_id").(string),
 			PeerOrgId:   d.Get("peer_org_id").(string),
 			VPCId:       d.Get("vpc_id").(string),
@@ -112,7 +100,7 @@ func createPeeringConnectionRequest(ctx context.Context, d *schema.ResourceData,
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_peering_connection request options", map[string]interface{}{"create_opts": createOpts})
-	createResp := &CreatePeeringConnectionRequestResponse{}
+	createResp := &dto.CreatePeeringConnectionRequestResponse{}
 	_, err = c.Post(ctx, client.ApiPath.PeeringConnectionRequest, createOpts, createResp, nil)
 
 	if err != nil {
@@ -123,7 +111,6 @@ func createPeeringConnectionRequest(ctx context.Context, d *schema.ResourceData,
 
 	d.SetId(peeringConnectionRequest.PeerId)
 	d.Set("request_id", peeringConnectionRequest.ID)
-	d.Set("subnet_id", d.Get("subnet_id").(string))
 
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"OS_INITIATING"},
@@ -152,7 +139,7 @@ func approvePeeringConnectionRequest(ctx context.Context, d *schema.ResourceData
 		return diag.Errorf("Error creating VNPAY Cloud Peering Connection client: %s", err)
 	}
 
-	listOtps := ListPeeringConnectApprovalRequest{
+	listOtps := dto.ListPeeringConnectApprovalRequest{
 		VPCId:     d.Get("vpc_id").(string),
 		PeerVPCId: d.Get("peer_vpc_id").(string),
 		PeerOrgId: d.Get("peer_org_id").(string),
@@ -160,7 +147,7 @@ func approvePeeringConnectionRequest(ctx context.Context, d *schema.ResourceData
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_peering_connection list approvals options", map[string]interface{}{"list_otps": listOtps})
-	listResp := &ListPeeringConnectApprovalResponse{}
+	listResp := &dto.ListPeeringConnectApprovalResponse{}
 	_, err = c.Get(ctx, client.ApiPath.ListPeeringConnectionApproval(listOtps), listResp, nil)
 
 	if err != nil {
@@ -176,14 +163,14 @@ func approvePeeringConnectionRequest(ctx context.Context, d *schema.ResourceData
 		return diag.Errorf("Your vnpaycloud_peering_connection query did not return approval results.")
 	}
 
-	updateOtps := UpdatePeeringConnectApprovalRequest{
-		PeeringConnectApproval: PeeringConnectApprovalOpts{
+	updateOtps := dto.UpdatePeeringConnectApprovalRequest{
+		PeeringConnectApproval: dto.PeeringConnectApprovalOpts{
 			Accept: true,
 		},
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_peering_connection approval options", map[string]interface{}{"update_otps": updateOtps})
-	updateResp := &UpdatePeeringConnectApprovalResponse{}
+	updateResp := &dto.UpdatePeeringConnectApprovalResponse{}
 	_, err = c.Put(ctx, client.ApiPath.PeeringConnectionApprovalWithId(listResp.PeeringConnectApprovals[0].ID), updateOtps, updateResp, nil)
 
 	if err != nil {
@@ -233,7 +220,7 @@ func resourcePeeringConnectionRequestRead(ctx context.Context, d *schema.Resourc
 		return diag.Errorf("Error creating VNPAY Cloud Peering Connection client: %s", err)
 	}
 
-	getPeeringConnectionRequestResp := &GetPeeringConnectionRequestResponse{}
+	getPeeringConnectionRequestResp := &dto.GetPeeringConnectionRequestResponse{}
 	_, err = c.Get(ctx, client.ApiPath.PeeringConnectionRequestWithId(d.Get("request_id").(string)), getPeeringConnectionRequestResp, nil)
 
 	if err != nil {
@@ -255,7 +242,7 @@ func resourcePeeringConnectionRequestRead(ctx context.Context, d *schema.Resourc
 		return nil
 	}
 
-	getPeeringConnectionResp := &GetPeeringConnectionResponse{}
+	getPeeringConnectionResp := &dto.GetPeeringConnectionResponse{}
 
 	_, err = c.Get(ctx, client.ApiPath.PeeringConnectionWithId(d.Id()), getPeeringConnectionResp, nil)
 
@@ -267,7 +254,6 @@ func resourcePeeringConnectionRequestRead(ctx context.Context, d *schema.Resourc
 
 	d.Set("peer_status", peeringConnection.PeerStatus)
 	d.Set("status", peeringConnection.Status)
-	d.Set("port_id", peeringConnection.PortId)
 
 	return nil
 }
@@ -280,7 +266,7 @@ func resourcePeeringConnectionApprovalRead(ctx context.Context, d *schema.Resour
 		return diag.Errorf("Error creating VNPAY Cloud Peering Connection client: %s", err)
 	}
 
-	getPeeringConnectionResp := &GetPeeringConnectionResponse{}
+	getPeeringConnectionResp := &dto.GetPeeringConnectionResponse{}
 	_, err = c.Get(ctx, client.ApiPath.PeeringConnectionWithId(d.Id()), getPeeringConnectionResp, nil)
 
 	if err != nil {
@@ -297,7 +283,6 @@ func resourcePeeringConnectionApprovalRead(ctx context.Context, d *schema.Resour
 	d.Set("description", peeringConnection.Description)
 	d.Set("peer_status", peeringConnection.PeerStatus)
 	d.Set("status", peeringConnection.Status)
-	d.Set("port_id", peeringConnection.PortId)
 
 	return nil
 }
@@ -314,7 +299,7 @@ func resourcePeeringConnectionDelete(ctx context.Context, d *schema.ResourceData
 		return diag.Errorf("Error creating VNPAY Cloud Peering Connection client: %s", err)
 	}
 
-	resp := &GetPeeringConnectionResponse{}
+	resp := &dto.GetPeeringConnectionResponse{}
 	_, err = c.Get(ctx, client.ApiPath.PeeringConnectionWithId(d.Id()), resp, nil)
 
 	if err != nil {

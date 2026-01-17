@@ -25,7 +25,7 @@ type GetPeeringConnectionResponse struct {
 	PeeringConnection PeeringConnection `json:"peering_connection"`
 }
 
-func PeeringConnectionId2PortId(ctx context.Context, d *schema.ResourceData, meta interface{}, id string) (string, error) {
+func PeeringConnectionIdToPortId(ctx context.Context, d *schema.ResourceData, meta interface{}, id string) (string, error) {
 	config := meta.(*config.Config)
 	c, err := client.NewClient(ctx, config.ConsoleClientConfig)
 

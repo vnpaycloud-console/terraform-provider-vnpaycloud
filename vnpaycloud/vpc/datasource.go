@@ -3,11 +3,12 @@ package vpc
 import (
 	"context"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/util"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/vpcs"
 )
 
 func DataSourceVpc() *schema.Resource {
@@ -43,45 +44,42 @@ func DataSourceVpc() *schema.Resource {
 
 func dataSourceVpcRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	client, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	vpcClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud VPC client: %s", err)
 	}
 
-	listOpts := vpcs.ListOpts{
+	listOpts := dto.ListVpcParams{
 		ID:   d.Get("id").(string),
 		Name: d.Get("name").(string),
 		CIDR: d.Get("cidr_block").(string),
 	}
 
-	allPages, err := vpcs.List(client, listOpts).AllPages(ctx)
+	tflog.Debug(ctx, "vnpaycloud_vpc listOpts", map[string]interface{}{"listOpts": listOpts})
+
+	listVpcResp := dto.ListVpcResponse{}
+
+	_, err = vpcClient.Get(ctx, client.ApiPath.VPCWithParams(listOpts), &listVpcResp, nil)
 
 	if err != nil {
 		return diag.Errorf("Unable to query vnpaycloud_vpc: %s", err)
 	}
 
-	var allVpcs []vpcs.VPC
-	err = vpcs.ExtractVPCsInto(allPages, &allVpcs)
-
-	if err != nil {
-		return diag.Errorf("Unable to retrieve vnpaycloud_vpc: %s", err)
-	}
-
-	if len(allVpcs) > 1 {
+	if len(listVpcResp.VPCs) > 1 {
 		return diag.Errorf("Your vnpaycloud_vpc query returned multiple results")
 	}
 
-	if len(allVpcs) < 1 {
+	if len(listVpcResp.VPCs) < 1 {
 		return diag.Errorf("Your vnpaycloud_vpc query returned no results")
 	}
 
-	dataSourceVPCAttributes(ctx, d, allVpcs[0])
+	dataSourceVPCAttributes(ctx, d, listVpcResp.VPCs[0])
 
 	return nil
 }
 
-func dataSourceVPCAttributes(ctx context.Context, d *schema.ResourceData, volume vpcs.VPC) {
+func dataSourceVPCAttributes(ctx context.Context, d *schema.ResourceData, volume dto.Vpc) {
 	d.SetId(volume.ID)
 	d.Set("name", volume.Name)
 	d.Set("description", volume.Name)

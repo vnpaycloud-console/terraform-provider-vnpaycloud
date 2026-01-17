@@ -4,57 +4,50 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-
-	"github.com/vnpaycloud-console/gophercloud/v2"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/dns"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/layer3/floatingips"
 )
 
-type floatingIPExtended struct {
-	floatingips.FloatingIP
-	dns.FloatingIPDNSExt
-}
-
-// networkingFloatingIPV2ID retrieves floating IP ID by the provided IP address.
-func networkingFloatingIPV2ID(ctx context.Context, client *gophercloud.ServiceClient, floatingIP string) (string, error) {
-	listOpts := floatingips.ListOpts{
+// networkingFloatingIPID retrieves floating IP ID by the provided IP address.
+func networkingFloatingIPID(ctx context.Context, c *client.Client, floatingIP string) (string, error) {
+	listOpts := dto.ListFloatingIPOpts{
 		FloatingIP: floatingIP,
 	}
 
-	allPages, err := floatingips.List(client, listOpts).AllPages(ctx)
+	listResp := dto.ListFloatingIPResponse{}
+
+	_, err := c.All(ctx, client.ApiPath.FloatingIPWithParams(listOpts), &listResp, nil)
 	if err != nil {
 		return "", err
 	}
 
-	allFloatingIPs, err := floatingips.ExtractFloatingIPs(allPages)
-	if err != nil {
-		return "", err
-	}
+	allFloatingIPs := listResp.FloatingIPs
 
 	if len(allFloatingIPs) == 0 {
-		return "", fmt.Errorf("there are no openstack_networking_floatingip_v2 with %s IP", floatingIP)
+		return "", fmt.Errorf("there are no vnpaycloud_networking_floatingip with %s IP", floatingIP)
 	}
 	if len(allFloatingIPs) > 1 {
-		return "", fmt.Errorf("there are more than one openstack_networking_floatingip_v2 with %s IP", floatingIP)
+		return "", fmt.Errorf("there are more than one vnpaycloud_networking_floatingip with %s IP", floatingIP)
 	}
 
 	return allFloatingIPs[0].ID, nil
 }
 
-func networkingFloatingIPV2StateRefreshFunc(ctx context.Context, client *gophercloud.ServiceClient, fipID string) retry.StateRefreshFunc {
+func networkingFloatingIPStateRefreshFunc(ctx context.Context, networkingClient *client.Client, fipID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		fip, err := floatingips.Get(ctx, client, fipID).Extract()
+		fipResp := &dto.GetFloatingIPResponse{}
+		_, err := networkingClient.Get(ctx, client.ApiPath.FloatingIPWithId(fipID), fipResp, nil)
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				return fip, "DELETED", nil
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				return fipResp.FloatingIP, "DELETED", nil
 			}
 
 			return nil, "", err
 		}
 
-		return fip, fip.Status, nil
+		return fipResp.FloatingIP, fipResp.FloatingIP.Status, nil
 	}
 }

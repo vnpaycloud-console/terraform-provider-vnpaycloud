@@ -7,16 +7,17 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"maps"
 	"net/http"
 	"os"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/hashcode"
 	serverInterfaceAttach "terraform-provider-vnpaycloud/vnpaycloud/server-interface-attach"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
-
-	"github.com/vnpaycloud-console/gophercloud-utils/v2/terraform/hashcode"
-	"github.com/vnpaycloud-console/gophercloud/v2"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
@@ -24,26 +25,19 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
-	flavorsutils "github.com/vnpaycloud-console/gophercloud-utils/v2/openstack/compute/v2/flavors"
-	imagesutils "github.com/vnpaycloud-console/gophercloud-utils/v2/openstack/image/v2/images"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/blockstorage/v3/volumes"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/flavors"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/keypairs"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/secgroups"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/servers"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/tags"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/image/v2/images"
+	flavorsutils "terraform-provider-vnpaycloud/vnpaycloud/util/flavor"
+	imagesutils "terraform-provider-vnpaycloud/vnpaycloud/util/image"
 )
 
-func ResourceComputeInstanceV2() *schema.Resource {
+func ResourceComputeInstance() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceComputeInstanceV2Create,
-		ReadContext:   resourceComputeInstanceV2Read,
-		UpdateContext: resourceComputeInstanceV2Update,
-		DeleteContext: resourceComputeInstanceV2Delete,
+		CreateContext: resourceComputeInstanceCreate,
+		ReadContext:   resourceComputeInstanceRead,
+		UpdateContext: resourceComputeInstanceUpdate,
+		DeleteContext: resourceComputeInstanceDelete,
 
 		Importer: &schema.ResourceImporter{
-			StateContext: resourceComputeInstanceV2ImportState,
+			StateContext: resourceComputeInstanceImportState,
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(30 * time.Minute),
@@ -382,16 +376,6 @@ func ResourceComputeInstanceV2() *schema.Resource {
 				}, true),
 				DiffSuppressFunc: suppressPowerStateDiffs,
 			},
-			"tags": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
-			},
-			"all_tags": {
-				Type:     schema.TypeSet,
-				Computed: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
-			},
 			"vendor_options": {
 				Type:     schema.TypeSet,
 				Optional: true,
@@ -447,15 +431,11 @@ func ResourceComputeInstanceV2() *schema.Resource {
 	}
 }
 
-func resourceComputeInstanceV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceComputeInstanceCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
-	}
-	imageClient, err := config.ImageV2Client(ctx, util.GetRegion(d, config))
-	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD image client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud client: %s", err)
 	}
 
 	var availabilityZone string
@@ -465,7 +445,7 @@ func resourceComputeInstanceV2Create(ctx context.Context, d *schema.ResourceData
 	// If a bootable block_device was specified, ignore the image altogether.
 	// If an image_id was specified, use it.
 	// If an image_name was specified, look up the image ID, report if error.
-	imageID, err := getImageIDFromConfig(ctx, imageClient, d)
+	imageID, err := getImageIDFromConfig(ctx, tfClient, d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -473,7 +453,7 @@ func resourceComputeInstanceV2Create(ctx context.Context, d *schema.ResourceData
 	// Determines the Flavor ID using the following rules:
 	// If a flavor_id was specified, use it.
 	// If a flavor_name was specified, lookup the flavor ID, report if error.
-	flavorID, err := getFlavorID(ctx, computeClient, d)
+	flavorID, err := getFlavorID(ctx, tfClient, d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -486,7 +466,7 @@ func resourceComputeInstanceV2Create(ctx context.Context, d *schema.ResourceData
 
 	if networkMode := d.Get("network_mode").(string); networkMode == "auto" || networkMode == "none" {
 		// Use special string for network option
-		computeClient.Microversion = computeV2InstanceCreateServerWithNetworkModeMicroversion
+		// computeClient.Microversion = computeInstanceCreateServerWithNetworkModeMicroversion
 		networks = networkMode
 		log.Printf("[DEBUG] Create with network options %s", networks)
 	} else {
@@ -505,15 +485,15 @@ func resourceComputeInstanceV2Create(ctx context.Context, d *schema.ResourceData
 	configDrive := d.Get("config_drive").(bool)
 
 	// Retrieve tags and set microversion if they're provided.
-	instanceTags := computeV2InstanceTags(d)
-	if len(instanceTags) > 0 {
-		computeClient.Microversion = computeV2InstanceCreateServerWithTagsMicroversion
-	}
+	// instanceTags := computeInstanceTags(d)
+	// if len(instanceTags) > 0 {
+	// 	computeClient.Microversion = computeInstanceCreateServerWithTagsMicroversion
+	// }
 
 	var hypervisorHostname string
 	if v, ok := util.GetOkExists(d, "hypervisor_hostname"); ok {
 		hypervisorHostname = v.(string)
-		computeClient.Microversion = computeV2InstanceCreateServerWithHypervisorHostnameMicroversion
+		// computeClient.Microversion = computeInstanceCreateServerWithHypervisorHostnameMicroversion
 	}
 
 	if v, ok := util.GetOkExists(d, "availability_zone"); ok {
@@ -522,85 +502,98 @@ func resourceComputeInstanceV2Create(ctx context.Context, d *schema.ResourceData
 		availabilityZone = d.Get("availability_zone_hints").(string)
 	}
 
-	createOpts := &servers.CreateOpts{
+	createOpts := &dto.CreateServerOpts{
 		Name:               d.Get("name").(string),
 		ImageRef:           imageID,
 		FlavorRef:          flavorID,
-		SecurityGroups:     resourceInstanceSecGroupsV2(d),
+		SecurityGroups:     resourceInstanceSecGroups(d),
 		AvailabilityZone:   availabilityZone,
 		Networks:           networks,
 		HypervisorHostname: hypervisorHostname,
-		Metadata:           resourceInstanceMetadataV2(d),
+		Metadata:           resourceInstanceMetadata(d),
 		ConfigDrive:        &configDrive,
 		AdminPass:          d.Get("admin_pass").(string),
 		UserData:           []byte(d.Get("user_data").(string)),
-		Personality:        resourceInstancePersonalityV2(d),
-		Tags:               instanceTags,
+		Personality:        resourceInstancePersonality(d),
 	}
 
 	if vL, ok := d.GetOk("block_device"); ok {
-		blockDevices, err := resourceInstanceBlockDevicesV2(d, vL.([]interface{}))
+		blockDevices, err := resourceInstanceBlockDevices(d, vL.([]interface{}))
 		if err != nil {
 			return diag.FromErr(err)
 		}
 
-		// Check if Multiattach was set in any of the Block Devices.
-		// If so, set the client's microversion appropriately.
-		for _, bd := range d.Get("block_device").([]interface{}) {
-			if bd.(map[string]interface{})["multiattach"].(bool) {
-				computeClient.Microversion = computeV2InstanceBlockDeviceMultiattachMicroversion
-			}
-		}
+		// // Check if Multiattach was set in any of the Block Devices.
+		// // If so, set the client's microversion appropriately.
+		// for _, bd := range d.Get("block_device").([]interface{}) {
+		// 	if bd.(map[string]interface{})["multiattach"].(bool) {
+		// 		computeClient.Microversion = computeInstanceBlockDeviceMultiattachMicroversion
+		// 	}
+		// }
 
-		// Check if VolumeType was set in any of the Block Devices.
-		// If so, set the client's microversion appropriately.
-		for _, bd := range blockDevices {
-			if bd.VolumeType != "" {
-				computeClient.Microversion = computeV2InstanceBlockDeviceVolumeTypeMicroversion
-			}
-		}
+		// // Check if VolumeType was set in any of the Block Devices.
+		// // If so, set the client's microversion appropriately.
+		// for _, bd := range blockDevices {
+		// 	if bd.VolumeType != "" {
+		// 		computeClient.Microversion = computeInstanceBlockDeviceVolumeTypeMicroversion
+		// 	}
+		// }
 
 		createOpts.BlockDevice = blockDevices
 	}
 
-	var createOptsBuilder servers.CreateOptsBuilder = createOpts
+	var createOptsBuilder dto.CreateServerOptsBuilder = createOpts
 	if keyName, ok := d.Get("key_pair").(string); ok && keyName != "" {
-		createOptsBuilder = &keypairs.CreateOptsExt{
-			CreateOptsBuilder: createOptsBuilder,
-			KeyName:           keyName,
+		createOptsBuilder = &dto.CreateServerOptsExt{
+			CreateServerOptsBuilder: createOptsBuilder,
+			KeyName:                 keyName,
 		}
 	}
 
-	var schedulerHints servers.SchedulerHintOpts
+	var schedulerHints dto.SchedulerHintOpts
 	schedulerHintsRaw := d.Get("scheduler_hints").(*schema.Set).List()
 	if len(schedulerHintsRaw) > 0 {
 		log.Printf("[DEBUG] schedulerhints: %+v", schedulerHintsRaw)
-		schedulerHints = resourceInstanceSchedulerHintsV2(d, schedulerHintsRaw[0].(map[string]interface{}))
+		schedulerHints = resourceInstanceSchedulerHints(d, schedulerHintsRaw[0].(map[string]interface{}))
 	}
 
 	log.Printf("[DEBUG] Create Options: %#v", createOpts)
 
-	// If a block_device is used, use the bootfromvolume.Create function as it allows an empty ImageRef.
-	// Otherwise, use the normal servers.Create function.
-	server, err := servers.Create(ctx, computeClient, createOptsBuilder, schedulerHints).Extract()
+	builder, err := createOptsBuilder.ToServerCreateMap()
+	if err != nil {
+		return diag.Errorf("Error converting create options to map: %s", err)
+	}
+
+	schedulerHintsMap, err := schedulerHints.ToSchedulerHintsMap()
+	if err != nil {
+		return diag.Errorf("Error converting scheduler hints to map: %s", err)
+	}
+
+	maps.Copy(builder, schedulerHintsMap)
+
+	serverResp := &dto.CreateServerResponse{}
+	_, err = tfClient.Post(ctx, client.ApiPath.Server, builder, serverResp, &client.RequestOpts{
+		OkCodes: []int{200, 202},
+	})
+
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD server: %s", err)
 	}
-	log.Printf("[INFO] Instance ID: %s", server.ID)
+	log.Printf("[INFO] Instance ID: %s", serverResp.Server.ID)
 
 	// Store the ID now
-	d.SetId(server.ID)
+	d.SetId(serverResp.Server.ID)
 
 	// Wait for the instance to become running so we can get some attributes
 	// that aren't available until later.
 	log.Printf(
 		"[DEBUG] Waiting for instance (%s) to become running",
-		server.ID)
+		serverResp.Server.ID)
 
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"BUILD"},
 		Target:     []string{"ACTIVE"},
-		Refresh:    ServerV2StateRefreshFunc(ctx, computeClient, server.ID),
+		Refresh:    ServerStateRefreshFunc(ctx, tfClient, serverResp.Server.ID),
 		Timeout:    d.Timeout(schema.TimeoutCreate),
 		Delay:      10 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -618,19 +611,19 @@ func resourceComputeInstanceV2Create(ctx context.Context, d *schema.ResourceData
 	if err != nil {
 		return diag.Errorf(
 			"Error waiting for instance (%s) to become ready: %s",
-			server.ID, err)
+			serverResp.Server.ID, err)
 	}
 
 	vmState := d.Get("power_state").(string)
 	if strings.ToLower(vmState) == "shutoff" {
-		err = servers.Stop(ctx, computeClient, d.Id()).ExtractErr()
+		_, err = tfClient.Post(ctx, client.ApiPath.ServerActionWithId(d.Id()), map[string]any{"os-stop": nil}, nil, nil)
 		if err != nil {
 			return diag.Errorf("Error stopping VNPAYCLOUD instance: %s", err)
 		}
 		stopStateConf := &retry.StateChangeConf{
 			//Pending:    []string{"ACTIVE"},
 			Target:     []string{"SHUTOFF"},
-			Refresh:    ServerV2StateRefreshFunc(ctx, computeClient, d.Id()),
+			Refresh:    ServerStateRefreshFunc(ctx, tfClient, d.Id()),
 			Timeout:    d.Timeout(schema.TimeoutCreate),
 			Delay:      10 * time.Second,
 			MinTimeout: 3 * time.Second,
@@ -643,30 +636,27 @@ func resourceComputeInstanceV2Create(ctx context.Context, d *schema.ResourceData
 		}
 	}
 
-	return resourceComputeInstanceV2Read(ctx, d, meta)
+	return resourceComputeInstanceRead(ctx, d, meta)
 }
 
-func resourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceComputeInstanceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
-	}
-	imageClient, err := config.ImageV2Client(ctx, util.GetRegion(d, config))
-	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD image client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD client: %s", err)
 	}
 
-	server, err := servers.Get(ctx, computeClient, d.Id()).Extract()
+	serverResp := &dto.GetServerResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.ServerWithId(d.Id()), serverResp, nil)
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "server"))
 	}
 
-	log.Printf("[DEBUG] Retrieved Server %s: %+v", d.Id(), server)
+	log.Printf("[DEBUG] Retrieved Server %s: %+v", d.Id(), serverResp.Server)
 
-	d.Set("name", server.Name)
-	d.Set("created", server.Created.String())
-	d.Set("updated", server.Updated.String())
+	d.Set("name", serverResp.Server.Name)
+	d.Set("created", serverResp.Server.Created.String())
+	d.Set("updated", serverResp.Server.Updated.String())
 
 	// Get the instance network and address information
 	networks, err := flattenInstanceNetworks(ctx, d, meta)
@@ -679,12 +669,12 @@ func resourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData, 
 
 	// AccessIPv4/v6 isn't standard in VNPAYCLOUD, but there have been reports
 	// of them being used in some environments.
-	if server.AccessIPv4 != "" && hostv4 == "" {
-		hostv4 = server.AccessIPv4
+	if serverResp.Server.AccessIPv4 != "" && hostv4 == "" {
+		hostv4 = serverResp.Server.AccessIPv4
 	}
 
-	if server.AccessIPv6 != "" && hostv6 == "" {
-		hostv6 = server.AccessIPv6
+	if serverResp.Server.AccessIPv6 != "" && hostv6 == "" {
+		hostv6 = serverResp.Server.AccessIPv6
 	}
 
 	d.Set("network", networks)
@@ -708,25 +698,26 @@ func resourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData, 
 		})
 	}
 
-	d.Set("all_metadata", server.Metadata)
+	d.Set("all_metadata", serverResp.Server.Metadata)
 
 	secGrpNames := []string{}
-	for _, sg := range server.SecurityGroups {
+	for _, sg := range serverResp.Server.SecurityGroups {
 		secGrpNames = append(secGrpNames, sg["name"].(string))
 	}
 	d.Set("security_groups", secGrpNames)
 
-	d.Set("key_pair", server.KeyName)
+	d.Set("key_pair", serverResp.Server.KeyName)
 
-	flavorID, ok := server.Flavor["id"].(string)
+	flavorID, ok := serverResp.Server.Flavor["id"].(string)
 	if !ok {
-		return diag.Errorf("Error setting VNPAYCLOUD server's flavor: %v", server.Flavor)
+		return diag.Errorf("Error setting VNPAYCLOUD server's flavor: %v", serverResp.Server.Flavor)
 	}
 	d.Set("flavor_id", flavorID)
 
-	flavor, err := flavors.Get(ctx, computeClient, flavorID).Extract()
+	flavorResp := &dto.GetFlavorResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.FlavorWithId(flavorID), flavorResp, nil)
 	if err != nil {
-		if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
+		if util.ResponseCodeIs(err, http.StatusNotFound) {
 			// Original flavor was deleted, but it is possible that instance started
 			// with this flavor is still running
 			log.Printf("[DEBUG] Original instance flavor id %s could not be found", d.Id())
@@ -736,406 +727,58 @@ func resourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData, 
 			return diag.FromErr(err)
 		}
 	} else {
-		d.Set("flavor_name", flavor.Name)
+		d.Set("flavor_name", flavorResp.Flavor.Name)
 	}
 
 	// Set the instance's image information appropriately
-	if err := setImageInformation(ctx, imageClient, server, d); err != nil {
+	if err := setImageInformation(ctx, tfClient, &serverResp.Server, d); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set the availability zone
-	d.Set("availability_zone", server.AvailabilityZone)
+	d.Set("availability_zone", serverResp.Server.AvailabilityZone)
 
 	// Set the region
 	d.Set("region", util.GetRegion(d, config))
 
 	// Set the current power_state
-	currentStatus := strings.ToLower(server.Status)
+	currentStatus := strings.ToLower(serverResp.Server.Status)
 	switch currentStatus {
 	case "active", "shutoff", "error", "migrating", "shelved_offloaded", "shelved", "build", "paused":
 		d.Set("power_state", currentStatus)
 	default:
-		return diag.Errorf("Invalid power_state for instance %s: %s", d.Id(), server.Status)
+		return diag.Errorf("Invalid power_state for instance %s: %s", d.Id(), serverResp.Server.Status)
 	}
 
 	// Populate tags.
-	computeClient.Microversion = computeV2TagsExtensionMicroversion
-	instanceTags, err := tags.List(ctx, computeClient, server.ID).Extract()
-	if err != nil {
-		log.Printf("[DEBUG] Unable to get tags for vnpaycloud_compute_server: %s", err)
-	} else {
-		computeV2InstanceReadTags(d, instanceTags)
-	}
+	// computeClient.Microversion = computeTagsExtensionMicroversion
 
 	// Set the hypervisor hostname
-	d.Set("hypervisor_hostname", server.HypervisorHostname)
+	d.Set("hypervisor_hostname", serverResp.Server.HypervisorHostname)
 
 	return nil
 }
 
-func resourceComputeInstanceV2Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
-	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
-	}
-
-	var updateOpts servers.UpdateOpts
-	if d.HasChange("name") {
-		updateOpts.Name = d.Get("name").(string)
-	}
-
-	if updateOpts != (servers.UpdateOpts{}) {
-		_, err := servers.Update(ctx, computeClient, d.Id(), updateOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error updating VNPAYCLOUD server: %s", err)
-		}
-	}
-
-	if d.HasChange("power_state") {
-		powerStateOldRaw, powerStateNewRaw := d.GetChange("power_state")
-		powerStateOld := powerStateOldRaw.(string)
-		powerStateNew := powerStateNewRaw.(string)
-		if strings.ToLower(powerStateNew) == "shelved_offloaded" {
-			err = servers.Shelve(ctx, computeClient, d.Id()).ExtractErr()
-			if err != nil {
-				return diag.Errorf("Error shelve VNPAYCLOUD instance: %s", err)
-			}
-			shelveStateConf := &retry.StateChangeConf{
-				//Pending:    []string{"ACTIVE"},
-				Target:     []string{"SHELVED_OFFLOADED"},
-				Refresh:    ServerV2StateRefreshFunc(ctx, computeClient, d.Id()),
-				Timeout:    d.Timeout(schema.TimeoutUpdate),
-				Delay:      10 * time.Second,
-				MinTimeout: 3 * time.Second,
-			}
-
-			log.Printf("[DEBUG] Waiting for instance (%s) to shelve", d.Id())
-			_, err = shelveStateConf.WaitForStateContext(ctx)
-			if err != nil {
-				return diag.Errorf("Error waiting for instance (%s) to become shelve: %s", d.Id(), err)
-			}
-		}
-		if strings.ToLower(powerStateNew) == "paused" {
-			err = servers.Pause(ctx, computeClient, d.Id()).ExtractErr()
-			if err != nil {
-				return diag.Errorf("Error pausing VNPAYCLOUD instance: %s", err)
-			}
-			pauseStateConf := &retry.StateChangeConf{
-				//Pending:    []string{"ACTIVE"},
-				Target:     []string{"PAUSED"},
-				Refresh:    ServerV2StateRefreshFunc(ctx, computeClient, d.Id()),
-				Timeout:    d.Timeout(schema.TimeoutUpdate),
-				Delay:      10 * time.Second,
-				MinTimeout: 3 * time.Second,
-			}
-
-			log.Printf("[DEBUG] Waiting for instance (%s) to pause", d.Id())
-			_, err = pauseStateConf.WaitForStateContext(ctx)
-			if err != nil {
-				return diag.Errorf("Error waiting for instance (%s) to become paused: %s", d.Id(), err)
-			}
-		}
-		if strings.ToLower(powerStateNew) == "shutoff" {
-			err = servers.Stop(ctx, computeClient, d.Id()).ExtractErr()
-			if err != nil {
-				return diag.Errorf("Error stopping VNPAYCLOUD instance: %s", err)
-			}
-			stopStateConf := &retry.StateChangeConf{
-				//Pending:    []string{"ACTIVE"},
-				Target:     []string{"SHUTOFF"},
-				Refresh:    ServerV2StateRefreshFunc(ctx, computeClient, d.Id()),
-				Timeout:    d.Timeout(schema.TimeoutUpdate),
-				Delay:      10 * time.Second,
-				MinTimeout: 3 * time.Second,
-			}
-
-			log.Printf("[DEBUG] Waiting for instance (%s) to stop", d.Id())
-			_, err = stopStateConf.WaitForStateContext(ctx)
-			if err != nil {
-				return diag.Errorf("Error waiting for instance (%s) to become inactive(shutoff): %s", d.Id(), err)
-			}
-		}
-		if strings.ToLower(powerStateNew) == "active" {
-			if strings.ToLower(powerStateOld) == "shelved" || strings.ToLower(powerStateOld) == "shelved_offloaded" {
-				unshelveOpt := &servers.UnshelveOpts{
-					AvailabilityZone: d.Get("availability_zone").(string),
-				}
-				err = servers.Unshelve(ctx, computeClient, d.Id(), unshelveOpt).ExtractErr()
-				if err != nil {
-					return diag.Errorf("Error unshelving VNPAYCLOUD instance: %s", err)
-				}
-			} else if strings.ToLower(powerStateOld) == "paused" {
-				err = servers.Unpause(ctx, computeClient, d.Id()).ExtractErr()
-				if err != nil {
-					return diag.Errorf("Error resuming VNPAYCLOUD instance: %s", err)
-				}
-			} else if strings.ToLower(powerStateOld) != "build" {
-				err = servers.Start(ctx, computeClient, d.Id()).ExtractErr()
-				if err != nil {
-					return diag.Errorf("Error starting VNPAYCLOUD instance: %s", err)
-				}
-			}
-			startStateConf := &retry.StateChangeConf{
-				//Pending:    []string{"SHUTOFF"},
-				Target:     []string{"ACTIVE"},
-				Refresh:    ServerV2StateRefreshFunc(ctx, computeClient, d.Id()),
-				Timeout:    d.Timeout(schema.TimeoutUpdate),
-				Delay:      10 * time.Second,
-				MinTimeout: 3 * time.Second,
-			}
-
-			log.Printf("[DEBUG] Waiting for instance (%s) to start/unshelve/resume", d.Id())
-			_, err = startStateConf.WaitForStateContext(ctx)
-			if err != nil {
-				return diag.Errorf("Error waiting for instance (%s) to become active: %s", d.Id(), err)
-			}
-		}
-	}
-
-	if d.HasChange("metadata") {
-		oldMetadata, newMetadata := d.GetChange("metadata")
-		var metadataToDelete []string
-
-		// Determine if any metadata keys were removed from the configuration.
-		// Then request those keys to be deleted.
-		for oldKey := range oldMetadata.(map[string]interface{}) {
-			var found bool
-			for newKey := range newMetadata.(map[string]interface{}) {
-				if oldKey == newKey {
-					found = true
-				}
-			}
-
-			if !found {
-				metadataToDelete = append(metadataToDelete, oldKey)
-			}
-		}
-
-		for _, key := range metadataToDelete {
-			err := servers.DeleteMetadatum(ctx, computeClient, d.Id(), key).ExtractErr()
-			if err != nil && util.CheckDeleted(d, err, "") != nil {
-				return diag.Errorf("Error deleting metadata (%s) from server (%s): %s", key, d.Id(), err)
-			}
-		}
-
-		// Update existing metadata and add any new metadata.
-		metadataOpts := make(servers.MetadataOpts)
-		for k, v := range newMetadata.(map[string]interface{}) {
-			metadataOpts[k] = v.(string)
-		}
-
-		_, err := servers.UpdateMetadata(ctx, computeClient, d.Id(), metadataOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error updating VNPAYCLOUD server (%s) metadata: %s", d.Id(), err)
-		}
-	}
-
-	if d.HasChange("security_groups") {
-		oldSGRaw, newSGRaw := d.GetChange("security_groups")
-		oldSGSet := oldSGRaw.(*schema.Set)
-		newSGSet := newSGRaw.(*schema.Set)
-		secgroupsToAdd := newSGSet.Difference(oldSGSet)
-		secgroupsToRemove := oldSGSet.Difference(newSGSet)
-
-		log.Printf("[DEBUG] Security groups to add: %v", secgroupsToAdd)
-
-		log.Printf("[DEBUG] Security groups to remove: %v", secgroupsToRemove)
-
-		for _, g := range secgroupsToRemove.List() {
-			err := secgroups.RemoveServer(ctx, computeClient, d.Id(), g.(string)).ExtractErr()
-			if err != nil && err.Error() != "EOF" {
-				if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-					continue
-				}
-
-				return diag.Errorf("Error removing security group (%s) from VNPAYCLOUD server (%s): %s", g, d.Id(), err)
-			}
-			log.Printf("[DEBUG] Removed security group (%s) from instance (%s)", g, d.Id())
-		}
-
-		for _, g := range secgroupsToAdd.List() {
-			err := secgroups.AddServer(ctx, computeClient, d.Id(), g.(string)).ExtractErr()
-			if err != nil && err.Error() != "EOF" {
-				return diag.Errorf("Error adding security group (%s) to VNPAYCLOUD server (%s): %s", g, d.Id(), err)
-			}
-			log.Printf("[DEBUG] Added security group (%s) to instance (%s)", g, d.Id())
-		}
-	}
-
-	if d.HasChange("admin_pass") {
-		if newPwd, ok := d.Get("admin_pass").(string); ok {
-			err := servers.ChangeAdminPassword(ctx, computeClient, d.Id(), newPwd).ExtractErr()
-			if err != nil {
-				return diag.Errorf("Error changing admin password of VNPAYCLOUD server (%s): %s", d.Id(), err)
-			}
-		}
-	}
-
-	if d.HasChange("flavor_id") || d.HasChange("flavor_name") {
-		// Get vendor_options
-		vendorOptionsRaw := d.Get("vendor_options").(*schema.Set)
-		var ignoreResizeConfirmation bool
-		if vendorOptionsRaw.Len() > 0 {
-			vendorOptions := util.ExpandVendorOptions(vendorOptionsRaw.List())
-			ignoreResizeConfirmation = vendorOptions["ignore_resize_confirmation"].(bool)
-		}
-
-		var newFlavorID string
-		var err error
-		if d.HasChange("flavor_id") {
-			newFlavorID = d.Get("flavor_id").(string)
-		} else {
-			newFlavorName := d.Get("flavor_name").(string)
-			newFlavorID, err = flavorsutils.IDFromName(ctx, computeClient, newFlavorName)
-			if err != nil {
-				return diag.FromErr(err)
-			}
-		}
-
-		resizeOpts := &servers.ResizeOpts{
-			FlavorRef: newFlavorID,
-		}
-		log.Printf("[DEBUG] Resize configuration: %#v", resizeOpts)
-		err = servers.Resize(ctx, computeClient, d.Id(), resizeOpts).ExtractErr()
-		if err != nil {
-			return diag.Errorf("Error resizing VNPAYCLOUD server: %s", err)
-		}
-
-		// Wait for the instance to finish resizing.
-		log.Printf("[DEBUG] Waiting for instance (%s) to finish resizing", d.Id())
-
-		// Resize instance without confirmation if specified by user.
-		if ignoreResizeConfirmation {
-			stateConf := &retry.StateChangeConf{
-				Pending:    []string{"RESIZE", "VERIFY_RESIZE"},
-				Target:     []string{"ACTIVE", "SHUTOFF"},
-				Refresh:    ServerV2StateRefreshFunc(ctx, computeClient, d.Id()),
-				Timeout:    d.Timeout(schema.TimeoutUpdate),
-				Delay:      10 * time.Second,
-				MinTimeout: 3 * time.Second,
-			}
-
-			_, err = stateConf.WaitForStateContext(ctx)
-			if err != nil {
-				return diag.Errorf("Error waiting for instance (%s) to resize: %s", d.Id(), err)
-			}
-		} else {
-			stateConf := &retry.StateChangeConf{
-				Pending:    []string{"RESIZE"},
-				Target:     []string{"VERIFY_RESIZE"},
-				Refresh:    ServerV2StateRefreshFunc(ctx, computeClient, d.Id()),
-				Timeout:    d.Timeout(schema.TimeoutUpdate),
-				Delay:      10 * time.Second,
-				MinTimeout: 3 * time.Second,
-			}
-
-			_, err = stateConf.WaitForStateContext(ctx)
-			if err != nil {
-				return diag.Errorf("Error waiting for instance (%s) to resize: %s", d.Id(), err)
-			}
-
-			// Confirm resize.
-			log.Printf("[DEBUG] Confirming resize")
-			err = servers.ConfirmResize(ctx, computeClient, d.Id()).ExtractErr()
-			if err != nil {
-				return diag.Errorf("Error confirming resize of VNPAYCLOUD server: %s", err)
-			}
-
-			stateConf = &retry.StateChangeConf{
-				Pending:    []string{"VERIFY_RESIZE"},
-				Target:     []string{"ACTIVE", "SHUTOFF"},
-				Refresh:    ServerV2StateRefreshFunc(ctx, computeClient, d.Id()),
-				Timeout:    d.Timeout(schema.TimeoutUpdate),
-				Delay:      10 * time.Second,
-				MinTimeout: 3 * time.Second,
-			}
-
-			_, err = stateConf.WaitForStateContext(ctx)
-			if err != nil {
-				return diag.Errorf("Error waiting for instance (%s) to confirm resize: %s", d.Id(), err)
-			}
-		}
-	}
-
-	if d.HasChange("image_id") || d.HasChange("image_name") || d.HasChange("personality") {
-		var newImageID string
-		imageClient, err := config.ImageV2Client(ctx, util.GetRegion(d, config))
-		if err != nil {
-			return diag.Errorf("Error creating VNPAYCLOUD image client: %s", err)
-		}
-
-		if d.HasChange("image_id") {
-			newImageID = d.Get("image_id").(string)
-		} else if d.HasChange("image_name") {
-			newImageName := d.Get("image_name").(string)
-			newImageID, err = imagesutils.IDFromName(ctx, computeClient, newImageName)
-			if err != nil {
-				return diag.FromErr(err)
-			}
-		} else {
-			newImageID, err = getImageIDFromConfig(ctx, imageClient, d)
-			if err != nil {
-				return diag.FromErr(err)
-			}
-		}
-
-		var rebuildOpts servers.RebuildOptsBuilder = &servers.RebuildOpts{
-			ImageRef:    newImageID,
-			Personality: resourceInstancePersonalityV2(d),
-		}
-
-		log.Printf("[DEBUG] Rebuild configuration: %#v", rebuildOpts)
-		_, err = servers.Rebuild(ctx, computeClient, d.Id(), rebuildOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error rebuilding VNPAYCLOUD server: %s", err)
-		}
-		stateConf := &retry.StateChangeConf{
-			Pending:    []string{"REBUILD"},
-			Target:     []string{"ACTIVE", "SHUTOFF"},
-			Refresh:    ServerV2StateRefreshFunc(ctx, computeClient, d.Id()),
-			Timeout:    d.Timeout(schema.TimeoutUpdate),
-			Delay:      10 * time.Second,
-			MinTimeout: 3 * time.Second,
-		}
-		_, err = stateConf.WaitForStateContext(ctx)
-		if err != nil {
-			return diag.Errorf("Error waiting for instance (%s) to rebuild: %s", d.Id(), err)
-		}
-	}
-
-	// Perform any required updates to the tags.
-	if d.HasChange("tags") {
-		instanceTags := computeV2InstanceUpdateTags(d)
-		instanceTagsOpts := tags.ReplaceAllOpts{Tags: instanceTags}
-		computeClient.Microversion = computeV2TagsExtensionMicroversion
-		instanceTags, err := tags.ReplaceAll(ctx, computeClient, d.Id(), instanceTagsOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error setting tags on vnpaycloud_compute_server %s: %s", d.Id(), err)
-		}
-		log.Printf("[DEBUG] Set tags %s on vnpaycloud_compute_server %s", instanceTags, d.Id())
-	}
-
-	return resourceComputeInstanceV2Read(ctx, d, meta)
+func resourceComputeInstanceUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	return resourceComputeInstanceRead(ctx, d, meta)
 }
 
-func resourceComputeInstanceV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceComputeInstanceDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	computeClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD client: %s", err)
 	}
 
 	if d.Get("stop_before_destroy").(bool) {
-		err = servers.Stop(ctx, computeClient, d.Id()).ExtractErr()
+		_, err = computeClient.Post(ctx, client.ApiPath.ServerActionWithId(d.Id()), map[string]any{"os-stop": nil}, nil, nil)
 		if err != nil {
 			log.Printf("[WARN] Error stopping vnpaycloud_compute_server: %s", err)
 		} else {
 			stopStateConf := &retry.StateChangeConf{
 				Pending:    []string{"ACTIVE"},
 				Target:     []string{"SHUTOFF"},
-				Refresh:    ServerV2StateRefreshFunc(ctx, computeClient, d.Id()),
+				Refresh:    ServerStateRefreshFunc(ctx, computeClient, d.Id()),
 				Timeout:    d.Timeout(schema.TimeoutDelete),
 				Delay:      10 * time.Second,
 				MinTimeout: 3 * time.Second,
@@ -1163,7 +806,7 @@ func resourceComputeInstanceV2Delete(ctx context.Context, d *schema.ResourceData
 					stateConf := &retry.StateChangeConf{
 						Pending:    []string{""},
 						Target:     []string{"DETACHED"},
-						Refresh:    serverInterfaceAttach.ComputeInterfaceAttachV2DetachFunc(ctx, computeClient, d.Id(), network.Port),
+						Refresh:    serverInterfaceAttach.ComputeInterfaceAttachDetachFunc(ctx, computeClient, d.Id(), network.Port),
 						Timeout:    d.Timeout(schema.TimeoutDelete),
 						Delay:      5 * time.Second,
 						MinTimeout: 5 * time.Second,
@@ -1177,13 +820,13 @@ func resourceComputeInstanceV2Delete(ctx context.Context, d *schema.ResourceData
 	}
 	if d.Get("force_delete").(bool) {
 		log.Printf("[DEBUG] Force deleting VNPAYCLOUD Instance %s", d.Id())
-		err = servers.ForceDelete(ctx, computeClient, d.Id()).ExtractErr()
+		_, err = computeClient.Post(ctx, client.ApiPath.ServerActionWithId(d.Id()), map[string]any{"forceDelete": ""}, nil, nil)
 		if err != nil {
 			return diag.FromErr(util.CheckDeleted(d, err, "Error force deleting vnpaycloud_compute_server"))
 		}
 	} else {
 		log.Printf("[DEBUG] Deleting VNPAYCLOUD Instance %s", d.Id())
-		err = servers.Delete(ctx, computeClient, d.Id()).ExtractErr()
+		_, err = computeClient.Delete(ctx, client.ApiPath.ServerWithId(d.Id()), nil)
 		if err != nil {
 			return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_compute_server"))
 		}
@@ -1195,7 +838,7 @@ func resourceComputeInstanceV2Delete(ctx context.Context, d *schema.ResourceData
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"ACTIVE", "SHUTOFF"},
 		Target:     []string{"DELETED", "SOFT_DELETED"},
-		Refresh:    ServerV2StateRefreshFunc(ctx, computeClient, d.Id()),
+		Refresh:    ServerStateRefreshFunc(ctx, computeClient, d.Id()),
 		Timeout:    d.Timeout(schema.TimeoutDelete),
 		Delay:      10 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -1211,100 +854,72 @@ func resourceComputeInstanceV2Delete(ctx context.Context, d *schema.ResourceData
 	return nil
 }
 
-func resourceComputeInstanceV2ImportState(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-	var serverWithAttachments struct {
-		VolumesAttached []map[string]interface{} `json:"os-extended-volumes:volumes_attached"`
-	}
-
+func resourceComputeInstanceImportState(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	results := make([]*schema.ResourceData, 1)
-	diagErr := resourceComputeInstanceV2Read(ctx, d, meta)
+	diagErr := resourceComputeInstanceRead(ctx, d, meta)
 	if diagErr != nil {
 		return nil, fmt.Errorf("Error reading vnpaycloud_compute_server %s: %v", d.Id(), diagErr)
 	}
 
-	raw := servers.Get(ctx, computeClient, d.Id())
-	if raw.Err != nil {
-		return nil, util.CheckDeleted(d, raw.Err, "vnpaycloud_compute_server")
-	}
-
-	if err := raw.ExtractInto(&serverWithAttachments); err != nil {
-		log.Printf("[DEBUG] unable to unmarshal raw struct to serverWithAttachments: %s", err)
+	serverResp := &dto.GetServerResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.ServerWithId(d.Id()), serverResp, nil)
+	if err != nil {
+		return nil, util.CheckDeleted(d, err, "vnpaycloud_compute_server")
 	}
 
 	log.Printf("[DEBUG] Retrieved vnpaycloud_compute_server %s volume attachments: %#v",
-		d.Id(), serverWithAttachments)
+		d.Id(), serverResp.Server.AttachedVolumes)
 
 	bds := []map[string]interface{}{}
-	if len(serverWithAttachments.VolumesAttached) > 0 {
-		blockStorageClient, err := config.BlockStorageV3Client(ctx, util.GetRegion(d, config))
+	if len(serverResp.Server.AttachedVolumes) > 0 {
 		if err == nil {
-			var volMetaData = struct {
-				VolumeImageMetadata map[string]interface{} `json:"volume_image_metadata"`
-				ID                  string                 `json:"id"`
-				Size                int                    `json:"size"`
-				Bootable            string                 `json:"bootable"`
-			}{}
-			for i, b := range serverWithAttachments.VolumesAttached {
-				rawVolume := volumes.Get(ctx, blockStorageClient, b["id"].(string))
-				if err := rawVolume.ExtractInto(&volMetaData); err != nil {
-					log.Printf("[DEBUG] unable to unmarshal raw struct to volume metadata: %s", err)
-				}
+			for i, b := range serverResp.Server.AttachedVolumes {
+				volumeResp := &dto.GetVolumeResponse{}
+				_, err = tfClient.Get(ctx, client.ApiPath.VolumeWithId(tfClient.GetProjectID(), b.ID), volumeResp, nil)
 
-				log.Printf("[DEBUG] retrieved volume%+v", volMetaData)
+				log.Printf("[DEBUG] retrieved volume %+v", volumeResp.Volume)
 				v := map[string]interface{}{
 					//"delete_on_termination": true,
-					"uuid":             volMetaData.VolumeImageMetadata["image_id"],
+					"uuid":             volumeResp.Volume.VolumeImageMetadata["image_id"],
 					"boot_index":       i,
 					"destination_type": "volume",
 					"source_type":      "image",
-					"volume_size":      volMetaData.Size,
+					"volume_size":      volumeResp.Volume.Size,
 					"disk_bus":         "",
 					"volume_type":      "",
 					"device_type":      "",
 				}
 
-				if volMetaData.Bootable == "true" {
+				if volumeResp.Volume.Bootable == "true" {
 					bds = append(bds, v)
 				}
 			}
 		} else {
-			log.Print("[DEBUG] Could not create BlockStorageV3 client, trying BlockStorageV2")
-			blockStorageClient, err := config.BlockStorageV2Client(ctx, util.GetRegion(d, config))
-			if err != nil {
-				return nil, fmt.Errorf("Error creating VNPAYCLOUD volume V2 client: %s", err)
-			}
-			var volMetaData = struct {
-				VolumeImageMetadata map[string]interface{} `json:"volume_image_metadata"`
-				ID                  string                 `json:"id"`
-				Size                int                    `json:"size"`
-				Bootable            string                 `json:"bootable"`
-			}{}
-			for i, b := range serverWithAttachments.VolumesAttached {
-				rawVolume := volumes.Get(ctx, blockStorageClient, b["id"].(string))
-				if err := rawVolume.ExtractInto(&volMetaData); err != nil {
-					log.Printf("[DEBUG] unable to unmarshal raw struct to volume metadata: %s", err)
-				}
+			log.Print("[DEBUG] Could not create BlockStorageV3 client, trying BlockStorage")
+			for i, b := range serverResp.Server.AttachedVolumes {
+				volumeResp := &dto.GetVolumeResponse{}
+				_, err = tfClient.Get(ctx, client.ApiPath.VolumeWithId(tfClient.GetProjectID(), b.ID), volumeResp, nil)
 
-				log.Printf("[DEBUG] retrieved volume%+v", volMetaData)
+				log.Printf("[DEBUG] retrieved volume%+v", volumeResp.Volume)
 				v := map[string]interface{}{
 					//"delete_on_termination": true,
-					"uuid":             volMetaData.VolumeImageMetadata["image_id"],
+					"uuid":             volumeResp.Volume.VolumeImageMetadata["image_id"],
 					"boot_index":       i,
 					"destination_type": "volume",
 					"source_type":      "image",
-					"volume_size":      volMetaData.Size,
+					"volume_size":      volumeResp.Volume.Size,
 					"disk_bus":         "",
 					"volume_type":      "",
 					"device_type":      "",
 				}
 
-				if volMetaData.Bootable == "true" {
+				if volumeResp.Volume.Bootable == "true" {
 					bds = append(bds, v)
 				}
 			}
@@ -1313,7 +928,8 @@ func resourceComputeInstanceV2ImportState(ctx context.Context, d *schema.Resourc
 		d.Set("block_device", bds)
 	}
 
-	metadata, err := servers.Metadata(ctx, computeClient, d.Id()).Extract()
+	metadata := make(map[string]string)
+	_, err = tfClient.Get(ctx, client.ApiPath.ServerMetadataWithId(d.Id()), &metadata, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to read metadata for vnpaycloud_compute_server %s: %s", d.Id(), err)
 	}
@@ -1325,23 +941,24 @@ func resourceComputeInstanceV2ImportState(ctx context.Context, d *schema.Resourc
 	return results, nil
 }
 
-// ServerV2StateRefreshFunc returns a retry.StateRefreshFunc that is used to watch
+// ServerStateRefreshFunc returns a retry.StateRefreshFunc that is used to watch
 // an VNPAYCLOUD instance.
-func ServerV2StateRefreshFunc(ctx context.Context, client *gophercloud.ServiceClient, instanceID string) retry.StateRefreshFunc {
+func ServerStateRefreshFunc(ctx context.Context, computeClient *client.Client, instanceID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		s, err := servers.Get(ctx, client, instanceID).Extract()
+		serverResp := &dto.GetServerResponse{}
+		_, err := computeClient.Get(ctx, client.ApiPath.ServerWithId(instanceID), serverResp, nil)
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				return s, "DELETED", nil
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				return serverResp.Server, "DELETED", nil
 			}
 			return nil, "", err
 		}
 
-		return s, s.Status, nil
+		return serverResp.Server, serverResp.Server.Status, nil
 	}
 }
 
-func resourceInstanceSecGroupsV2(d *schema.ResourceData) []string {
+func resourceInstanceSecGroups(d *schema.ResourceData) []string {
 	rawSecGroups := d.Get("security_groups").(*schema.Set).List()
 	res := make([]string, len(rawSecGroups))
 	for i, raw := range rawSecGroups {
@@ -1350,7 +967,7 @@ func resourceInstanceSecGroupsV2(d *schema.ResourceData) []string {
 	return res
 }
 
-func resourceInstanceMetadataV2(d *schema.ResourceData) map[string]string {
+func resourceInstanceMetadata(d *schema.ResourceData) map[string]string {
 	m := make(map[string]string)
 	for key, val := range d.Get("metadata").(map[string]interface{}) {
 		m[key] = val.(string)
@@ -1358,11 +975,11 @@ func resourceInstanceMetadataV2(d *schema.ResourceData) map[string]string {
 	return m
 }
 
-func resourceInstanceBlockDevicesV2(_ *schema.ResourceData, bds []interface{}) ([]servers.BlockDevice, error) {
-	blockDeviceOpts := make([]servers.BlockDevice, len(bds))
+func resourceInstanceBlockDevices(_ *schema.ResourceData, bds []interface{}) ([]dto.BlockDevice, error) {
+	blockDeviceOpts := make([]dto.BlockDevice, len(bds))
 	for i, bd := range bds {
 		bdM := bd.(map[string]interface{})
-		blockDeviceOpts[i] = servers.BlockDevice{
+		blockDeviceOpts[i] = dto.BlockDevice{
 			UUID:       bdM["uuid"].(string),
 			VolumeSize: bdM["volume_size"].(int),
 			BootIndex:  bdM["boot_index"].(int),
@@ -1376,13 +993,13 @@ func resourceInstanceBlockDevicesV2(_ *schema.ResourceData, bds []interface{}) (
 		sourceType := bdM["source_type"].(string)
 		switch sourceType {
 		case "blank":
-			blockDeviceOpts[i].SourceType = servers.SourceBlank
+			blockDeviceOpts[i].SourceType = dto.SourceBlank
 		case "image":
-			blockDeviceOpts[i].SourceType = servers.SourceImage
+			blockDeviceOpts[i].SourceType = dto.SourceImage
 		case "snapshot":
-			blockDeviceOpts[i].SourceType = servers.SourceSnapshot
+			blockDeviceOpts[i].SourceType = dto.SourceSnapshot
 		case "volume":
-			blockDeviceOpts[i].SourceType = servers.SourceVolume
+			blockDeviceOpts[i].SourceType = dto.SourceVolume
 		default:
 			return blockDeviceOpts, fmt.Errorf("unknown block device source type %s", sourceType)
 		}
@@ -1390,9 +1007,9 @@ func resourceInstanceBlockDevicesV2(_ *schema.ResourceData, bds []interface{}) (
 		destinationType := bdM["destination_type"].(string)
 		switch destinationType {
 		case "local":
-			blockDeviceOpts[i].DestinationType = servers.DestinationLocal
+			blockDeviceOpts[i].DestinationType = dto.DestinationLocal
 		case "volume":
-			blockDeviceOpts[i].DestinationType = servers.DestinationVolume
+			blockDeviceOpts[i].DestinationType = dto.DestinationVolume
 		default:
 			return blockDeviceOpts, fmt.Errorf("unknown block device destination type %s", destinationType)
 		}
@@ -1402,7 +1019,7 @@ func resourceInstanceBlockDevicesV2(_ *schema.ResourceData, bds []interface{}) (
 	return blockDeviceOpts, nil
 }
 
-func resourceInstanceSchedulerHintsV2(ctx *schema.ResourceData, schedulerHintsRaw map[string]interface{}) servers.SchedulerHintOpts {
+func resourceInstanceSchedulerHints(ctx *schema.ResourceData, schedulerHintsRaw map[string]interface{}) dto.SchedulerHintOpts {
 	differentHost := []string{}
 	if v, ok := schedulerHintsRaw["different_host"].([]interface{}); ok {
 		for _, dh := range v {
@@ -1431,7 +1048,7 @@ func resourceInstanceSchedulerHintsV2(ctx *schema.ResourceData, schedulerHintsRa
 		}
 	}
 
-	schedulerHints := servers.SchedulerHintOpts{
+	schedulerHints := dto.SchedulerHintOpts{
 		Group:                schedulerHintsRaw["group"].(string),
 		DifferentHost:        differentHost,
 		SameHost:             sameHost,
@@ -1445,7 +1062,7 @@ func resourceInstanceSchedulerHintsV2(ctx *schema.ResourceData, schedulerHintsRa
 	return schedulerHints
 }
 
-func getImageIDFromConfig(ctx context.Context, imageClient *gophercloud.ServiceClient, d *schema.ResourceData) (string, error) {
+func getImageIDFromConfig(ctx context.Context, imageClient *client.Client, d *schema.ResourceData) (string, error) {
 	// If block_device was used, an Image does not need to be specified, unless an image/local
 	// combination was used. This emulates normal boot behavior. Otherwise, ignore the image altogether.
 	if vL, ok := d.GetOk("block_device"); ok {
@@ -1488,7 +1105,7 @@ func getImageIDFromConfig(ctx context.Context, imageClient *gophercloud.ServiceC
 	return "", fmt.Errorf("Neither a boot device, image ID, or image name were able to be determined")
 }
 
-func setImageInformation(ctx context.Context, imageClient *gophercloud.ServiceClient, server *servers.Server, d *schema.ResourceData) error {
+func setImageInformation(ctx context.Context, imageClient *client.Client, server *dto.Server, d *schema.ResourceData) error {
 	// If block_device was used, an Image does not need to be specified, unless an image/local
 	// combination was used. This emulates normal boot behavior. Otherwise, ignore the image altogether.
 	if vL, ok := d.GetOk("block_device"); ok {
@@ -1509,9 +1126,10 @@ func setImageInformation(ctx context.Context, imageClient *gophercloud.ServiceCl
 		imageID := server.Image["id"].(string)
 		if imageID != "" {
 			d.Set("image_id", imageID)
-			image, err := images.Get(ctx, imageClient, imageID).Extract()
+			imageResp := &dto.GetImageResponse{}
+			_, err := imageClient.Get(ctx, client.ApiPath.ImageWithId(imageID), imageResp, nil)
 			if err != nil {
-				if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
+				if util.ResponseCodeIs(err, http.StatusNotFound) {
 					// If the image name can't be found, set the value to "Image not found".
 					// The most likely scenario is that the image no longer exists in the Image Service
 					// but the instance still has a record from when it existed.
@@ -1520,14 +1138,14 @@ func setImageInformation(ctx context.Context, imageClient *gophercloud.ServiceCl
 				}
 				return err
 			}
-			d.Set("image_name", image.Name)
+			d.Set("image_name", imageResp.Image.Name)
 		}
 	}
 
 	return nil
 }
 
-func getFlavorID(ctx context.Context, computeClient *gophercloud.ServiceClient, d *schema.ResourceData) (string, error) {
+func getFlavorID(ctx context.Context, computeClient *client.Client, d *schema.ResourceData) (string, error) {
 	if flavorID := d.Get("flavor_id").(string); flavorID != "" {
 		return flavorID, nil
 	}
@@ -1626,15 +1244,15 @@ func resourceComputeInstancePersonalityHash(v interface{}) int {
 	return hashcode.String(buf.String())
 }
 
-func resourceInstancePersonalityV2(d *schema.ResourceData) servers.Personality {
-	var personalities servers.Personality
+func resourceInstancePersonality(d *schema.ResourceData) dto.Personality {
+	var personalities dto.Personality
 
 	if v := d.Get("personality"); v != nil {
 		personalityList := v.(*schema.Set).List()
 		if len(personalityList) > 0 {
 			for _, p := range personalityList {
 				rawPersonality := p.(map[string]interface{})
-				file := servers.File{
+				file := dto.File{
 					Path:     rawPersonality["file"].(string),
 					Contents: []byte(rawPersonality["content"].(string)),
 				}

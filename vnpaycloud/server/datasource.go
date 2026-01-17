@@ -5,19 +5,17 @@ import (
 	"log"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/flavors"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/servers"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/tags"
 )
 
-func DataSourceComputeInstanceV2() *schema.Resource {
+func DataSourceComputeInstance() *schema.Resource {
 	return &schema.Resource{
-		ReadContext: dataSourceComputeInstanceV2Read,
+		ReadContext: dataSourceComputeInstanceRead,
 		Schema: map[string]*schema.Schema{
 			"region": {
 				Type:     schema.TypeString,
@@ -134,24 +132,23 @@ func DataSourceComputeInstanceV2() *schema.Resource {
 	}
 }
 
-func dataSourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func dataSourceComputeInstanceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
 	log.Print("[DEBUG] Creating compute client")
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	c, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
-	}
-	imageClient, err := config.ImageV2Client(ctx, util.GetRegion(d, config))
-	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD image client: %s", err)
 	}
 
 	id := d.Get("id").(string)
 	log.Printf("[DEBUG] Attempting to retrieve server %s", id)
-	server, err := servers.Get(ctx, computeClient, id).Extract()
+	getServerResp := dto.GetServerResponse{}
+	_, err = c.Get(ctx, client.ApiPath.ServerWithId(id), &getServerResp, nil)
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "server"))
 	}
+
+	server := getServerResp.Server
 
 	log.Printf("[DEBUG] Retrieved Server %s: %+v", id, server)
 
@@ -205,14 +202,16 @@ func dataSourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData
 	d.Set("flavor_id", flavorID)
 
 	d.Set("key_pair", server.KeyName)
-	flavor, err := flavors.Get(ctx, computeClient, flavorID).Extract()
+	getFlavorResp := dto.GetFlavorResponse{}
+	_, err = c.Get(ctx, client.ApiPath.FlavorWithId(flavorID), &getFlavorResp, nil)
 	if err != nil {
 		return diag.FromErr(err)
 	}
+	flavor := getFlavorResp.Flavor
 	d.Set("flavor_name", flavor.Name)
 
 	// Set the instance's image information appropriately
-	if err := setImageInformation(ctx, imageClient, server, d); err != nil {
+	if err := setImageInformation(ctx, c, &server, d); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -229,15 +228,6 @@ func dataSourceComputeInstanceV2Read(ctx context.Context, d *schema.ResourceData
 		d.Set("power_state", currentStatus)
 	default:
 		return diag.Errorf("Invalid power_state for instance %s: %s", d.Id(), server.Status)
-	}
-
-	// Populate tags.
-	computeClient.Microversion = computeV2TagsExtensionMicroversion
-	instanceTags, err := tags.List(ctx, computeClient, server.ID).Extract()
-	if err != nil {
-		log.Printf("[DEBUG] Unable to get tags for vnpaycloud_compute_server: %s", err)
-	} else {
-		d.Set("tags", instanceTags)
 	}
 
 	return nil

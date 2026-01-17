@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
@@ -12,7 +13,7 @@ import (
 
 func routeTableStateRefreshFunc(ctx context.Context, consoleClient *client.Client, id string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		getResp := &GetRouteTableResponse{}
+		getResp := &dto.GetRouteTableResponse{}
 		_, err := consoleClient.Get(ctx, client.ApiPath.RouteTableWithId(id), getResp, nil)
 
 		if err != nil {

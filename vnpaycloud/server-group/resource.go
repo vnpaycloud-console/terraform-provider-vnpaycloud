@@ -9,17 +9,17 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/servergroups"
 )
 
-func ResourceComputeServerGroupV2() *schema.Resource {
+func ResourceComputeServerGroup() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceComputeServerGroupV2Create,
-		ReadContext:   resourceComputeServerGroupV2Read,
+		CreateContext: resourceComputeServerGroupCreate,
+		ReadContext:   resourceComputeServerGroupRead,
 		Update:        nil,
-		DeleteContext: resourceComputeServerGroupV2Delete,
+		DeleteContext: resourceComputeServerGroupDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -81,9 +81,9 @@ func ResourceComputeServerGroupV2() *schema.Resource {
 	}
 }
 
-func resourceComputeServerGroupV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceComputeServerGroupCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	computeClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
@@ -91,90 +91,92 @@ func resourceComputeServerGroupV2Create(ctx context.Context, d *schema.ResourceD
 	name := d.Get("name").(string)
 
 	rawPolicies := d.Get("policies").([]interface{})
-	policies := expandComputeServerGroupV2Policies(computeClient, rawPolicies)
+	policies := expandComputeServerGroupPolicies(computeClient, rawPolicies)
 	var policy string
 	if len(policies) == 1 {
 		policy = policies[0]
 	}
 
-	createOpts := ComputeServerGroupV2CreateOpts{
-		servergroups.CreateOpts{
-			Name:   name,
-			Policy: policy,
-		},
-		util.MapValueSpecs(d),
+	createOpts := dto.CreateServerGroupOpts{
+		Name:       name,
+		Policy:     policy,
+		ValueSpecs: util.MapValueSpecs(d),
 	}
 
 	rulesVal, rulesPresent := d.GetOk("rules")
 	if policy == "anti-affinity" && rulesPresent {
-		computeClient.Microversion = "2.64"
-		createOpts.CreateOpts.Rules = &servergroups.Rules{
-			MaxServerPerHost: expandComputeServerGroupV2RulesMaxServerPerHost(rulesVal.([]interface{})),
+		createOpts.Rules = &dto.Rules{
+			MaxServerPerHost: expandComputeServerGroupRulesMaxServerPerHost(rulesVal.([]interface{})),
 		}
 	}
 
 	log.Printf("[DEBUG] vnpaycloud_compute_servergroup create options: %#v", createOpts)
-	newSG, err := servergroups.Create(ctx, computeClient, createOpts).Extract()
+	createReq := dto.CreateServerGroupRequest{
+		ServerGroup: createOpts,
+	}
+	createResp := &dto.CreateServerGroupResponse{}
+	reqOpts := &client.RequestOpts{
+		OkCodes: []int{200},
+	}
+	_, err = computeClient.Post(ctx, client.ApiPath.ServerGroup, createReq, createResp, reqOpts)
 	if err != nil {
 		// return an error right away
-		if createOpts.CreateOpts.Rules != nil {
+		if createOpts.Rules != nil {
 			return diag.Errorf("Error creating vnpaycloud_compute_servergroup %s: %s", name, err)
 		}
 
 		log.Printf("[DEBUG] Falling back to legacy API call due to: %#v", err)
 		// fallback to legacy microversion
-		createOpts = ComputeServerGroupV2CreateOpts{
-			servergroups.CreateOpts{
-				Name:     name,
-				Policies: expandComputeServerGroupV2Policies(computeClient, rawPolicies),
-			},
-			util.MapValueSpecs(d),
+		createOpts = dto.CreateServerGroupOpts{
+			Name:       name,
+			Policies:   expandComputeServerGroupPolicies(computeClient, rawPolicies),
+			ValueSpecs: util.MapValueSpecs(d),
 		}
 		log.Printf("[DEBUG] vnpaycloud_compute_servergroup create options: %#v", createOpts)
-		newSG, err = servergroups.Create(ctx, computeClient, createOpts).Extract()
+		createReq = dto.CreateServerGroupRequest{
+			ServerGroup: createOpts,
+		}
+		_, err = computeClient.Post(ctx, client.ApiPath.ServerGroup, createReq, createResp, reqOpts)
 		if err != nil {
 			return diag.Errorf("Error creating vnpaycloud_compute_servergroup %s: %s", name, err)
 		}
 	}
 
-	d.SetId(newSG.ID)
+	d.SetId(createResp.ServerGroup.ID)
 
-	return resourceComputeServerGroupV2Read(ctx, d, meta)
+	return resourceComputeServerGroupRead(ctx, d, meta)
 }
 
-func resourceComputeServerGroupV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceComputeServerGroupRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	computeClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
-	// Attempt to read with microversion 2.64
-	computeClient.Microversion = "2.64"
-	sg, err := servergroups.Get(ctx, computeClient, d.Id()).Extract()
+	sgResp := &dto.GetServerGroupResponse{}
+	_, err = computeClient.Get(ctx, client.ApiPath.ServerGroupWithId(d.Id()), sgResp, nil)
 	if err != nil {
 		log.Printf("[DEBUG] Falling back to legacy API call due to: %#v", err)
-		// fallback to legacy microversion
-		computeClient.Microversion = ""
 
-		sg, err = servergroups.Get(ctx, computeClient, d.Id()).Extract()
+		_, err = computeClient.Get(ctx, client.ApiPath.ServerGroupWithId(d.Id()), sgResp, nil)
 		if err != nil {
 			return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving vnpaycloud_compute_servergroup"))
 		}
 	}
 
-	log.Printf("[DEBUG] Retrieved vnpaycloud_compute_servergroup %s: %#v", d.Id(), sg)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_compute_servergroup %s: %#v", d.Id(), sgResp.ServerGroup)
 
-	d.Set("name", sg.Name)
-	d.Set("members", sg.Members)
+	d.Set("name", sgResp.ServerGroup.Name)
+	d.Set("members", sgResp.ServerGroup.Members)
 	d.Set("region", util.GetRegion(d, config))
-	if sg.Policy != nil && *sg.Policy != "" {
-		d.Set("policies", []string{*sg.Policy})
+	if sgResp.ServerGroup.Policy != nil && *sgResp.ServerGroup.Policy != "" {
+		d.Set("policies", []string{*sgResp.ServerGroup.Policy})
 	} else {
-		d.Set("policies", sg.Policies)
+		d.Set("policies", sgResp.ServerGroup.Policies)
 	}
-	if sg.Rules != nil {
-		d.Set("rules", []map[string]interface{}{{"max_server_per_host": sg.Rules.MaxServerPerHost}})
+	if sgResp.ServerGroup.Rules != nil {
+		d.Set("rules", []map[string]interface{}{{"max_server_per_host": sgResp.ServerGroup.Rules.MaxServerPerHost}})
 	} else {
 		d.Set("rules", nil)
 	}
@@ -182,14 +184,14 @@ func resourceComputeServerGroupV2Read(ctx context.Context, d *schema.ResourceDat
 	return nil
 }
 
-func resourceComputeServerGroupV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceComputeServerGroupDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	computeClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
-	if err := servergroups.Delete(ctx, computeClient, d.Id()).ExtractErr(); err != nil {
+	if _, err := computeClient.Delete(ctx, client.ApiPath.ServerGroupWithId(d.Id()), nil); err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_compute_servergroup"))
 	}
 

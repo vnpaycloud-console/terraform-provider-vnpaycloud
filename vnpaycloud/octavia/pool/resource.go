@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
@@ -13,19 +15,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/loadbalancer/v2/listeners"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/loadbalancer/v2/pools"
 )
 
-func ResourcePoolV2() *schema.Resource {
+func ResourcePool() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourcePoolV2Create,
-		ReadContext:   resourcePoolV2Read,
-		UpdateContext: resourcePoolV2Update,
-		DeleteContext: resourcePoolV2Delete,
+		CreateContext: resourcePoolCreate,
+		ReadContext:   resourcePoolRead,
+		UpdateContext: resourcePoolUpdate,
+		DeleteContext: resourcePoolDelete,
 		Importer: &schema.ResourceImporter{
-			StateContext: resourcePoolV2Import,
+			StateContext: resourcePoolImport,
 		},
 
 		Timeouts: &schema.ResourceTimeout{
@@ -180,49 +179,49 @@ func ResourcePoolV2() *schema.Resource {
 	}
 }
 
-func resourcePoolV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourcePoolCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
-	adminStateUp := d.Get("admin_state_up").(bool)
+	//adminStateUp := d.Get("admin_state_up").(bool)
 	lbID := d.Get("loadbalancer_id").(string)
 	listenerID := d.Get("listener_id").(string)
 
-	createOpts := pools.CreateOpts{
-		ProjectID:         d.Get("tenant_id").(string),
-		Name:              d.Get("name").(string),
-		Description:       d.Get("description").(string),
-		Protocol:          pools.Protocol(d.Get("protocol").(string)),
-		LoadbalancerID:    lbID,
-		ListenerID:        listenerID,
-		LBMethod:          pools.LBMethod(d.Get("lb_method").(string)),
-		ALPNProtocols:     util.ExpandToStringSlice(d.Get("alpn_protocols").(*schema.Set).List()),
-		CATLSContainerRef: d.Get("ca_tls_container_ref").(string),
-		CRLContainerRef:   d.Get("crl_container_ref").(string),
-		TLSEnabled:        d.Get("tls_enabled").(bool),
-		TLSCiphers:        d.Get("tls_ciphers").(string),
-		TLSContainerRef:   d.Get("tls_container_ref").(string),
-		AdminStateUp:      &adminStateUp,
+	createOpts := dto.CreatePoolOpts{
+		//ProjectID:         d.Get("tenant_id").(string),
+		Name:           d.Get("name").(string),
+		Description:    d.Get("description").(string),
+		Protocol:       d.Get("protocol").(string),
+		LoadbalancerID: lbID,
+		ListenerID:     listenerID,
+		LBMethod:       d.Get("lb_method").(string),
+		//ALPNProtocols:     util.ExpandToStringSlice(d.Get("alpn_protocols").(*schema.Set).List()),
+		//CATLSContainerRef: d.Get("ca_tls_container_ref").(string),
+		//CRLContainerRef:   d.Get("crl_container_ref").(string),
+		//TLSEnabled:        d.Get("tls_enabled").(bool),
+		//TLSCiphers:        d.Get("tls_ciphers").(string),
+		//TLSContainerRef:   d.Get("tls_container_ref").(string),
+		//AdminStateUp:      &adminStateUp,
 	}
 
-	if v, ok := d.GetOk("tls_versions"); ok {
-		createOpts.TLSVersions = shared.ExpandLBPoolTLSVersionV2(v.(*schema.Set).List())
-	}
-
-	if v, ok := d.GetOk("persistence"); ok {
-		createOpts.Persistence, err = shared.ExpandLBPoolPersistanceV2(v.([]interface{}))
-		if err != nil {
-			return diag.FromErr(err)
-		}
-	}
-
-	if v, ok := d.GetOk("tags"); ok {
-		tags := v.(*schema.Set).List()
-		createOpts.Tags = util.ExpandToStringSlice(tags)
-	}
+	//if v, ok := d.GetOk("tls_versions"); ok {
+	//	createOpts.TLSVersions = shared.ExpandLBPoolTLSVersion(v.(*schema.Set).List())
+	//}
+	//
+	//if v, ok := d.GetOk("persistence"); ok {
+	//	createOpts.Persistence, err = shared.ExpandLBPoolPersistance(v.([]interface{}))
+	//	if err != nil {
+	//		return diag.FromErr(err)
+	//	}
+	//}
+	//
+	//if v, ok := d.GetOk("tags"); ok {
+	//	tags := v.(*schema.Set).List()
+	//	createOpts.Tags = util.ExpandToStringSlice(tags)
+	//}
 
 	log.Printf("[DEBUG] Create Options: %#v", createOpts)
 
@@ -230,18 +229,19 @@ func resourcePoolV2Create(ctx context.Context, d *schema.ResourceData, meta inte
 
 	// Wait for Listener or LoadBalancer to become active before continuing
 	if listenerID != "" {
-		listener, err := listeners.Get(ctx, lbClient, listenerID).Extract()
+		listenerResp := &dto.GetListenerResponse{}
+		_, err := tfClient.Get(ctx, client.ApiPath.LbaasListenerWithId(listenerID), listenerResp, &client.RequestOpts{})
 		if err != nil {
 			return diag.Errorf("Unable to get vnpaycloud_lb_listener %s: %s", listenerID, err)
 		}
 
-		waitErr := shared.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
+		waitErr := shared.WaitForLBListener(ctx, tfClient, &listenerResp.Listener, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 		if waitErr != nil {
 			return diag.Errorf(
 				"Error waiting for vnpaycloud_lb_listener %s to become active: %s", listenerID, err)
 		}
 	} else {
-		waitErr := shared.WaitForLBV2LoadBalancer(ctx, lbClient, lbID, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
+		waitErr := shared.WaitForLBLoadBalancer(ctx, tfClient, lbID, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 		if waitErr != nil {
 			return diag.Errorf(
 				"Error waiting for vnpaycloud_lb_loadbalancer %s to become active: %s", lbID, err)
@@ -249,9 +249,9 @@ func resourcePoolV2Create(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	log.Printf("[DEBUG] Attempting to create pool")
-	var pool *pools.Pool
+	poolResp := &dto.CreatePoolResponse{}
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		pool, err = pools.Create(ctx, lbClient, createOpts).Extract()
+		_, err = tfClient.Post(ctx, client.ApiPath.LbaasPool, &dto.CreatePoolRequest{Pool: createOpts}, poolResp, nil)
 		if err != nil {
 			return util.CheckForRetryableError(err)
 		}
@@ -261,30 +261,33 @@ func resourcePoolV2Create(ctx context.Context, d *schema.ResourceData, meta inte
 	if err != nil {
 		return diag.Errorf("Error creating pool: %s", err)
 	}
+	pool := &poolResp.Pool
 
 	// Pool was successfully created
 	// Wait for pool to become active before continuing
-	err = shared.WaitForLBV2Pool(ctx, lbClient, pool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBPool(ctx, tfClient, pool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	d.SetId(pool.ID)
 
-	return resourcePoolV2Read(ctx, d, meta)
+	return resourcePoolRead(ctx, d, meta)
 }
 
-func resourcePoolV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourcePoolRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
-	pool, err := pools.Get(ctx, lbClient, d.Id()).Extract()
+	poolResp := &dto.GetPoolResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasPoolWithId(d.Id()), poolResp, &client.RequestOpts{})
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "pool"))
 	}
+	pool := poolResp.Pool
 
 	log.Printf("[DEBUG] Retrieved pool %s: %#v", d.Id(), pool)
 
@@ -294,7 +297,7 @@ func resourcePoolV2Read(ctx context.Context, d *schema.ResourceData, meta interf
 	d.Set("tenant_id", pool.ProjectID)
 	d.Set("admin_state_up", pool.AdminStateUp)
 	d.Set("name", pool.Name)
-	d.Set("persistence", shared.FlattenLBPoolPersistenceV2(pool.Persistence))
+	d.Set("persistence", shared.FlattenLBPoolPersistence(pool.Persistence))
 	d.Set("alpn_protocols", pool.ALPNProtocols)
 	d.Set("ca_tls_container_ref", pool.CATLSContainerRef)
 	d.Set("crl_container_ref", pool.CRLContainerRef)
@@ -308,128 +311,30 @@ func resourcePoolV2Read(ctx context.Context, d *schema.ResourceData, meta interf
 	return nil
 }
 
-func resourcePoolV2Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
-	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
-	}
-
-	var updateOpts pools.UpdateOpts
-	if d.HasChange("lb_method") {
-		updateOpts.LBMethod = pools.LBMethod(d.Get("lb_method").(string))
-	}
-	if d.HasChange("name") {
-		name := d.Get("name").(string)
-		updateOpts.Name = &name
-	}
-	if d.HasChange("description") {
-		description := d.Get("description").(string)
-		updateOpts.Description = &description
-	}
-	if d.HasChange("admin_state_up") {
-		asu := d.Get("admin_state_up").(bool)
-		updateOpts.AdminStateUp = &asu
-	}
-	if d.HasChange("persistence") {
-		updateOpts.Persistence, err = shared.ExpandLBPoolPersistanceV2(d.Get("persistence").([]interface{}))
-		if err != nil {
-			return diag.FromErr(err)
-		}
-	}
-	if d.HasChange("alpn_protocols") {
-		v := util.ExpandToStringSlice(d.Get("alpn_protocols").(*schema.Set).List())
-		updateOpts.ALPNProtocols = &v
-	}
-	if d.HasChange("ca_tls_container_ref") {
-		v := d.Get("ca_tls_container_ref").(string)
-		updateOpts.CATLSContainerRef = &v
-	}
-	if d.HasChange("crl_container_ref") {
-		v := d.Get("crl_container_ref").(string)
-		updateOpts.CRLContainerRef = &v
-	}
-	if d.HasChange("tls_enabled") {
-		v := d.Get("tls_enabled").(bool)
-		updateOpts.TLSEnabled = &v
-	}
-	if d.HasChange("tls_ciphers") {
-		v := d.Get("tls_ciphers").(string)
-		updateOpts.TLSCiphers = &v
-	}
-	if d.HasChange("tls_container_ref") {
-		v := d.Get("tls_container_ref").(string)
-		updateOpts.TLSContainerRef = &v
-	}
-	if d.HasChange("tls_versions") {
-		v := shared.ExpandLBPoolTLSVersionV2(d.Get("tls_versions").(*schema.Set).List())
-		updateOpts.TLSVersions = &v
-	}
-
-	if d.HasChange("tags") {
-		if v, ok := d.GetOk("tags"); ok {
-			tags := v.(*schema.Set).List()
-			tagsToUpdate := util.ExpandToStringSlice(tags)
-			updateOpts.Tags = &tagsToUpdate
-		} else {
-			updateOpts.Tags = &[]string{}
-		}
-	}
-
-	timeout := d.Timeout(schema.TimeoutUpdate)
-
-	// Get a clean copy of the pool.
-	pool, err := pools.Get(ctx, lbClient, d.Id()).Extract()
-	if err != nil {
-		return diag.Errorf("Unable to retrieve pool %s: %s", d.Id(), err)
-	}
-
-	// Wait for pool to become active before continuing
-	err = shared.WaitForLBV2Pool(ctx, lbClient, pool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	log.Printf("[DEBUG] Updating pool %s with options: %#v", d.Id(), updateOpts)
-	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		_, err = pools.Update(ctx, lbClient, d.Id(), updateOpts).Extract()
-		if err != nil {
-			return util.CheckForRetryableError(err)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return diag.Errorf("Unable to update pool %s: %s", d.Id(), err)
-	}
-
-	// Wait for pool to become active before continuing
-	err = shared.WaitForLBV2Pool(ctx, lbClient, pool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return resourcePoolV2Read(ctx, d, meta)
+func resourcePoolUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	return resourcePoolRead(ctx, d, meta)
 }
 
-func resourcePoolV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourcePoolDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
 	timeout := d.Timeout(schema.TimeoutDelete)
 
 	// Get a clean copy of the pool.
-	pool, err := pools.Get(ctx, lbClient, d.Id()).Extract()
+	poolResp := &dto.GetPoolResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasPoolWithId(d.Id()), poolResp, &client.RequestOpts{})
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Unable to retrieve pool"))
 	}
+	pool := &poolResp.Pool
 
 	log.Printf("[DEBUG] Attempting to delete pool %s", d.Id())
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		err = pools.Delete(ctx, lbClient, d.Id()).ExtractErr()
+		_, err = tfClient.Delete(ctx, client.ApiPath.LbaasPoolWithId(d.Id()), nil)
 		if err != nil {
 			return util.CheckForRetryableError(err)
 		}
@@ -441,7 +346,7 @@ func resourcePoolV2Delete(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	// Wait for Pool to delete
-	err = shared.WaitForLBV2Pool(ctx, lbClient, pool, "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
+	err = shared.WaitForLBPool(ctx, tfClient, pool, "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -449,17 +354,19 @@ func resourcePoolV2Delete(ctx context.Context, d *schema.ResourceData, meta inte
 	return nil
 }
 
-func resourcePoolV2Import(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+func resourcePoolImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return nil, fmt.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
+		return nil, fmt.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
-	pool, err := pools.Get(ctx, lbClient, d.Id()).Extract()
+	poolResp := &dto.GetPoolResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasPoolWithId(d.Id()), poolResp, &client.RequestOpts{})
 	if err != nil {
 		return nil, util.CheckDeleted(d, err, "pool")
 	}
+	pool := &poolResp.Pool
 
 	log.Printf("[DEBUG] Retrieved pool %s during the import: %#v", d.Id(), pool)
 

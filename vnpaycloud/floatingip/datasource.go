@@ -5,18 +5,18 @@ import (
 	"log"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/layer3/floatingips"
 )
 
-func DataSourceNetworkingFloatingIPV2() *schema.Resource {
+func DataSourceNetworkingFloatingIP() *schema.Resource {
 	return &schema.Resource{
-		ReadContext: dataSourceNetworkingFloatingIPV2Read,
+		ReadContext: dataSourceNetworkingFloatingIPRead,
 
 		Schema: map[string]*schema.Schema{
 			"region": {
@@ -84,14 +84,14 @@ func DataSourceNetworkingFloatingIPV2() *schema.Resource {
 	}
 }
 
-func dataSourceNetworkingFloatingIPV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func dataSourceNetworkingFloatingIPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	configMeta := meta.(*config.Config)
-	networkingClient, err := configMeta.NetworkingV2Client(ctx, util.GetRegion(d, configMeta))
+	networkingClient, err := client.NewClient(ctx, configMeta.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCloud networking client: %s", err)
 	}
 
-	listOpts := floatingips.ListOpts{}
+	listOpts := dto.ListFloatingIPOpts{}
 
 	if v, ok := d.GetOk("description"); ok {
 		listOpts.Description = v.(string)
@@ -126,33 +126,30 @@ func dataSourceNetworkingFloatingIPV2Read(ctx context.Context, d *schema.Resourc
 		listOpts.Tags = strings.Join(tags, ",")
 	}
 
-	pages, err := floatingips.List(networkingClient, listOpts).AllPages(ctx)
+	listResp := dto.ListFloatingIPResponse{}
+
+	_, err = networkingClient.All(ctx, client.ApiPath.FloatingIPWithParams(listOpts), listResp, nil)
 	if err != nil {
-		return diag.Errorf("Unable to list openstack_networking_floatingips_v2: %s", err)
+		return diag.Errorf("Unable to list vnpaycloud_networking_floatingip: %s", err)
 	}
 
-	var allFloatingIPs []floatingIPExtended
-
-	err = floatingips.ExtractFloatingIPsInto(pages, &allFloatingIPs)
-	if err != nil {
-		return diag.Errorf("Unable to retrieve openstack_networking_floatingips_v2: %s", err)
-	}
+	allFloatingIPs := listResp.FloatingIPs
 
 	if len(allFloatingIPs) < 1 {
-		return diag.Errorf("No openstack_networking_floatingip_v2 found")
+		return diag.Errorf("No vnpaycloud_networking_floatingip found")
 	}
 
 	if len(allFloatingIPs) > 1 {
-		return diag.Errorf("More than one openstack_networking_floatingip_v2 found")
+		return diag.Errorf("More than one vnpaycloud_networking_floatingip found")
 	}
 
 	fip := allFloatingIPs[0]
 
-	log.Printf("[DEBUG] Retrieved openstack_networking_floatingip_v2 %s: %+v", fip.ID, fip)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_networking_floatingip %s: %+v", fip.ID, fip)
 	d.SetId(fip.ID)
 
 	d.Set("description", fip.Description)
-	d.Set("address", fip.FloatingIP.FloatingIP)
+	d.Set("address", fip.FloatingIP)
 	d.Set("pool", fip.FloatingNetworkID)
 	d.Set("port_id", fip.PortID)
 	d.Set("fixed_ip", fip.FixedIP)

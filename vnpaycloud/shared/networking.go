@@ -7,13 +7,12 @@ import (
 	"log"
 	"net/http"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/vnpaycloud-console/gophercloud/v2"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/networks"
-	"github.com/vnpaycloud-console/gophercloud/v2/pagination"
 )
 
 func NetworkingReadAttributesTags(d *schema.ResourceData, tags []string) {
@@ -39,7 +38,7 @@ type neutronError struct {
 }
 
 func RetryOn409(err error) bool {
-	e, ok := err.(gophercloud.ErrUnexpectedResponseCode)
+	e, ok := err.(client.ErrUnexpectedResponseCode)
 	if !ok {
 		return false
 	}
@@ -87,64 +86,56 @@ func decodeNeutronError(body []byte) (*neutronError, error) {
 	return &e.NeutronError, nil
 }
 
-// NetworkingNetworkV2ID retrieves network ID by the provided name.
-func NetworkingNetworkV2ID(ctx context.Context, d *schema.ResourceData, meta interface{}, networkName string) (string, error) {
+// NetworkingNetworkID retrieves network ID by the provided name.
+func NetworkingNetworkID(ctx context.Context, d *schema.ResourceData, meta interface{}, networkName string) (string, error) {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return "", fmt.Errorf("Error creating VNPAYCLOUD network client: %s", err)
 	}
 
-	opts := networks.ListOpts{Name: networkName}
-	pager := networks.List(networkingClient, opts)
+	opts := dto.ListNetworkParams{Name: networkName}
+	listResp := dto.ListNetworksResponse{}
+	_, err = networkingClient.Get(ctx, client.ApiPath.NetworkWithParams(opts), &listResp, nil)
+	if err != nil {
+		return "", fmt.Errorf("Error getting VNPAYCLOUD network: %s", err)
+	}
+
 	networkID := ""
 
-	err = pager.EachPage(ctx, func(ctx context.Context, page pagination.Page) (bool, error) {
-		networkList, err := networks.ExtractNetworks(page)
-		if err != nil {
-			return false, err
+	for _, n := range listResp.Networks {
+		if n.Name == networkName {
+			networkID = n.ID
+			break
 		}
-
-		for _, n := range networkList {
-			if n.Name == networkName {
-				networkID = n.ID
-				return false, nil
-			}
-		}
-
-		return true, nil
-	})
+	}
 
 	return networkID, err
 }
 
-// NetworkingNetworkV2Name retrieves network name by the provided ID.
-func NetworkingNetworkV2Name(ctx context.Context, d *schema.ResourceData, meta interface{}, networkID string) (string, error) {
+// NetworkingNetworkName retrieves network name by the provided ID.
+func NetworkingNetworkName(ctx context.Context, d *schema.ResourceData, meta interface{}, networkID string) (string, error) {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return "", fmt.Errorf("Error creating VNPAYCLOUD network client: %s", err)
 	}
 
-	opts := networks.ListOpts{ID: networkID}
-	pager := networks.List(networkingClient, opts)
+	opts := dto.ListNetworkParams{ID: networkID}
+	listResp := dto.ListNetworksResponse{}
+	_, err = networkingClient.Get(ctx, client.ApiPath.NetworkWithParams(opts), &listResp, nil)
+	if err != nil {
+		return "", fmt.Errorf("Error getting VNPAYCLOUD network: %s", err)
+	}
+
 	networkName := ""
 
-	err = pager.EachPage(ctx, func(ctx context.Context, page pagination.Page) (bool, error) {
-		networkList, err := networks.ExtractNetworks(page)
-		if err != nil {
-			return false, err
+	for _, n := range listResp.Networks {
+		if n.ID == networkID {
+			networkName = n.Name
+			break
 		}
-
-		for _, n := range networkList {
-			if n.ID == networkID {
-				networkName = n.Name
-				return false, nil
-			}
-		}
-
-		return true, nil
-	})
+	}
 
 	return networkName, err
 }

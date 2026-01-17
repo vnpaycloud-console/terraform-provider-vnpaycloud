@@ -3,10 +3,10 @@ package config
 import (
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 
-	"github.com/vnpaycloud-console/gophercloud-utils/v2/terraform/auth"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/mutexkv"
 )
 
 type Config struct {
-	auth.Config
+	*mutexkv.MutexKV
 	ConsoleClientConfig *client.ClientConfig
 }

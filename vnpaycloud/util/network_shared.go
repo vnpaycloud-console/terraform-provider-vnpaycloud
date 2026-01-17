@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-
-	"github.com/vnpaycloud-console/gophercloud/v2"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -33,7 +32,7 @@ type NeutronError struct {
 }
 
 func RetryOn409(err error) bool {
-	e, ok := err.(gophercloud.ErrUnexpectedResponseCode)
+	e, ok := err.(client.ErrUnexpectedResponseCode)
 	if !ok {
 		return false
 	}

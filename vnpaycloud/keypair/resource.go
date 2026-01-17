@@ -4,19 +4,19 @@ import (
 	"context"
 	"log"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/keypairs"
 )
 
-func ResourceComputeKeypairV2() *schema.Resource {
+func ResourceComputeKeypair() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceComputeKeypairV2Create,
-		ReadContext:   resourceComputeKeypairV2Read,
-		DeleteContext: resourceComputeKeypairV2Delete,
+		CreateContext: resourceComputeKeypairCreate,
+		ReadContext:   resourceComputeKeypairRead,
+		DeleteContext: resourceComputeKeypairDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -70,34 +70,39 @@ func ResourceComputeKeypairV2() *schema.Resource {
 	}
 }
 
-func resourceComputeKeypairV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceComputeKeypairCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	computeClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
-	userID := d.Get("user_id").(string)
-	if userID != "" {
-		computeClient.Microversion = computeKeyPairV2UserIDMicroversion
-	}
+	// userID := d.Get("user_id").(string)
+	// if userID != "" {
+	// 	computeClient.Microversion = computeKeyPairUserIDMicroversion
+	// }
 
 	name := d.Get("name").(string)
-	createOpts := ComputeKeyPairV2CreateOpts{
-		keypairs.CreateOpts{
-			Name:      name,
-			PublicKey: d.Get("public_key").(string),
-			UserID:    d.Get("user_id").(string),
-		},
-		util.MapValueSpecs(d),
+	createOpts := dto.CreateKeyPairOpts{
+		Name:       name,
+		PublicKey:  d.Get("public_key").(string),
+		UserID:     d.Get("user_id").(string),
+		ValueSpecs: util.MapValueSpecs(d),
 	}
 
 	log.Printf("[DEBUG] vnpaycloud_compute_keypair create options: %#v", createOpts)
 
-	kp, err := keypairs.Create(ctx, computeClient, createOpts).Extract()
+	createReq := dto.CreateKeyPairRequest{
+		KeyPair: createOpts,
+	}
+
+	createResp := &dto.CreateKeyPairResponse{}
+	_, err = computeClient.Post(ctx, client.ApiPath.KeyPair, createReq, createResp, &client.RequestOpts{OkCodes: []int{200, 201, 202}})
 	if err != nil {
 		return diag.Errorf("Unable to create vnpaycloud_compute_keypair %s: %s", name, err)
 	}
+
+	kp := createResp.KeyPair
 
 	d.SetId(kp.Name)
 	d.Set("user_id", d.Get("user_id").(string))
@@ -105,65 +110,56 @@ func resourceComputeKeypairV2Create(ctx context.Context, d *schema.ResourceData,
 	// Private Key is only available in the response to a create.
 	d.Set("private_key", kp.PrivateKey)
 
-	return resourceComputeKeypairV2Read(ctx, d, meta)
+	return resourceComputeKeypairRead(ctx, d, meta)
 }
 
-func resourceComputeKeypairV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceComputeKeypairRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	computeClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	userID := d.Get("user_id").(string)
-	if userID != "" {
-		computeClient.Microversion = computeKeyPairV2UserIDMicroversion
-	}
 
-	log.Printf("[DEBUG] Microversion %s", computeClient.Microversion)
-
-	kpopts := keypairs.GetOpts{
+	kpopts := dto.GetKeyPairOpts{
 		UserID: userID,
 	}
+	kp := &dto.GetKeyPairResponse{}
 
-	kp, err := keypairs.Get(ctx, computeClient, d.Id(), kpopts).Extract()
+	_, err = computeClient.Get(ctx, client.ApiPath.KeyPairWithIdAndParams(d.Id(), kpopts), kp, nil)
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving vnpaycloud_compute_keypair"))
 	}
 
-	log.Printf("[DEBUG] Retrieved vnpaycloud_compute_keypair %s: %#v", d.Id(), kp)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_compute_keypair %s: %#v", d.Id(), kp.KeyPair)
 
-	d.Set("name", kp.Name)
-	d.Set("public_key", kp.PublicKey)
-	d.Set("fingerprint", kp.Fingerprint)
+	d.Set("name", kp.KeyPair.Name)
+	d.Set("public_key", kp.KeyPair.PublicKey)
+	d.Set("fingerprint", kp.KeyPair.Fingerprint)
 	d.Set("region", util.GetRegion(d, config))
 	if userID != "" {
-		d.Set("user_id", kp.UserID)
+		d.Set("user_id", kp.KeyPair.UserID)
 	}
 
 	return nil
 }
 
-func resourceComputeKeypairV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceComputeKeypairDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	computeClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
 	userID := d.Get("user_id").(string)
-	if userID != "" {
-		computeClient.Microversion = computeKeyPairV2UserIDMicroversion
-	}
-
 	log.Printf("[DEBUG] User ID %s", userID)
-	log.Printf("[DEBUG] Microversion %s", computeClient.Microversion)
 
-	kpopts := keypairs.DeleteOpts{
+	kpopts := dto.DeleteKeyPairOpts{
 		UserID: userID,
 	}
 
-	err = keypairs.Delete(ctx, computeClient, d.Id(), kpopts).ExtractErr()
+	_, err = computeClient.Delete(ctx, client.ApiPath.KeyPairWithIdAndParams(d.Id(), kpopts), nil)
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_compute_keypair"))
 	}

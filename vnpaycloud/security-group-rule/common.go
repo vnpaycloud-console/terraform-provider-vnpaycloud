@@ -5,85 +5,87 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
-	"github.com/vnpaycloud-console/gophercloud/v2"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/security/rules"
 )
 
-func ResourceNetworkingSecGroupRuleV2StateRefreshFunc(ctx context.Context, client *gophercloud.ServiceClient, sgRuleID string) retry.StateRefreshFunc {
+func ResourceNetworkingSecGroupRuleStateRefreshFunc(ctx context.Context, secGroupRuleclient *client.Client, sgRuleID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		sgRule, err := rules.Get(ctx, client, sgRuleID).Extract()
+		securityGroupRuleResp := &dto.GetSecurityGroupRuleResponse{}
+		_, err := secGroupRuleclient.Get(ctx, client.ApiPath.SecurityGroupRuleWithId(sgRuleID), securityGroupRuleResp, nil)
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				return sgRule, "DELETED", nil
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				return securityGroupRuleResp.SecurityGroupRule, "DELETED", nil
 			}
 
-			return sgRule, "", err
+			return securityGroupRuleResp.SecurityGroupRule, "", err
 		}
 
-		return sgRule, "ACTIVE", nil
+		return securityGroupRuleResp.SecurityGroupRule, "ACTIVE", nil
 	}
 }
 
-func ResourceNetworkingSecGroupRuleV2Direction(v interface{}, k string) ([]string, []error) {
-	switch rules.RuleDirection(v.(string)) {
-	case rules.DirIngress:
+func ResourceNetworkingSecGroupRuleDirection(v interface{}, k string) ([]string, []error) {
+	switch dto.RuleDirection(v.(string)) {
+	case dto.RuleDirIngress:
 		return nil, nil
-	case rules.DirEgress:
-		return nil, nil
-	}
-
-	return nil, []error{fmt.Errorf("unknown %q %s for vnpaycloud_networking_secgroup_rule_v2", v, k)}
-}
-
-func ResourceNetworkingSecGroupRuleV2EtherType(v interface{}, k string) ([]string, []error) {
-	switch rules.RuleEtherType(v.(string)) {
-	case rules.EtherType4:
-		return nil, nil
-	case rules.EtherType6:
+	case dto.RuleDirEgress:
 		return nil, nil
 	}
 
-	return nil, []error{fmt.Errorf("unknown %q %s for vnpaycloud_networking_secgroup_rule_v2s", v, k)}
+	return nil, []error{fmt.Errorf("unknown %q %s for vnpaycloud_networking_secgroup_rule", v, k)}
 }
 
-func resourceNetworkingSecGroupRuleV2Protocol(v interface{}, k string) ([]string, []error) {
+func ResourceNetworkingSecGroupRuleEtherType(v interface{}, k string) ([]string, []error) {
+	switch dto.RuleEtherType(v.(string)) {
+	case dto.RuleEtherType4:
+		return nil, nil
+	case dto.RuleEtherType6:
+		return nil, nil
+	}
+
+	return nil, []error{fmt.Errorf("unknown %q %s for vnpaycloud_networking_secgroup_rule", v, k)}
+}
+
+func resourceNetworkingSecGroupRuleProtocol(v interface{}, k string) ([]string, []error) {
 	//nolint:exhaustive // we need to override the rules.ProtocolAny case with an empty string
-	switch rules.RuleProtocol(v.(string)) {
-	case rules.ProtocolAH,
-		rules.ProtocolDCCP,
-		rules.ProtocolEGP,
-		rules.ProtocolESP,
-		rules.ProtocolGRE,
-		rules.ProtocolICMP,
-		rules.ProtocolIGMP,
-		rules.ProtocolIPv6Encap,
-		rules.ProtocolIPv6Frag,
-		rules.ProtocolIPv6ICMP,
-		rules.ProtocolIPv6NoNxt,
-		rules.ProtocolIPv6Opts,
-		rules.ProtocolIPv6Route,
-		rules.ProtocolOSPF,
-		rules.ProtocolPGM,
-		rules.ProtocolRSVP,
-		rules.ProtocolSCTP,
-		rules.ProtocolTCP,
-		rules.ProtocolUDP,
-		rules.ProtocolUDPLite,
-		rules.ProtocolVRRP,
-		rules.ProtocolIPIP,
-		"": // rules.ProtocolAny
+	switch dto.RuleProtocol(v.(string)) {
+	case dto.RuleProtocolAH,
+		dto.RuleProtocolDCCP,
+		dto.RuleProtocolEGP,
+		dto.RuleProtocolESP,
+		dto.RuleProtocolGRE,
+		dto.RuleProtocolICMP,
+		dto.RuleProtocolIGMP,
+		dto.RuleProtocolIPv6Encap,
+		dto.RuleProtocolIPv6Frag,
+		dto.RuleProtocolIPv6ICMP,
+		dto.RuleProtocolIPv6NoNxt,
+		dto.RuleProtocolIPv6Opts,
+		dto.RuleProtocolIPv6Route,
+		dto.RuleProtocolOSPF,
+		dto.RuleProtocolPGM,
+		dto.RuleProtocolRSVP,
+		dto.RuleProtocolSCTP,
+		dto.RuleProtocolTCP,
+		dto.RuleProtocolUDP,
+		dto.RuleProtocolUDPLite,
+		dto.RuleProtocolVRRP,
+		dto.RuleProtocolIPIP,
+		"": // ProtocolAny
 		return nil, nil
 	}
 
 	// If the protocol wasn't matched above, see if it's an integer.
 	p, err := strconv.Atoi(v.(string))
 	if err != nil {
-		return nil, []error{fmt.Errorf("unknown %q %s for vnpaycloud_networking_secgroup_rule_v2: %s", v, k, err)}
+		return nil, []error{fmt.Errorf("unknown %q %s for vnpaycloud_networking_secgroup_rule: %s", v, k, err)}
 	}
 	if p < 0 || p > 255 {
-		return nil, []error{fmt.Errorf("unknown %q %s for vnpaycloud_networking_secgroup_rule_v2", v, k)}
+		return nil, []error{fmt.Errorf("unknown %q %s for vnpaycloud_networking_secgroup_rule", v, k)}
 	}
 
 	return nil, nil

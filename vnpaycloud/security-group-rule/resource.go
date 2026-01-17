@@ -12,16 +12,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/security/rules"
 )
 
-func ResourceNetworkingSecGroupRuleV2() *schema.Resource {
+func ResourceNetworkingSecGroupRule() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceNetworkingSecGroupRuleV2Create,
-		ReadContext:   resourceNetworkingSecGroupRuleV2Read,
-		DeleteContext: resourceNetworkingSecGroupRuleV2Delete,
+		CreateContext: resourceNetworkingSecGroupRuleCreate,
+		ReadContext:   resourceNetworkingSecGroupRuleRead,
+		DeleteContext: resourceNetworkingSecGroupRuleDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -48,14 +48,14 @@ func ResourceNetworkingSecGroupRuleV2() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
-				ValidateFunc: ResourceNetworkingSecGroupRuleV2Direction,
+				ValidateFunc: ResourceNetworkingSecGroupRuleDirection,
 			},
 
 			"ethertype": {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
-				ValidateFunc: ResourceNetworkingSecGroupRuleV2EtherType,
+				ValidateFunc: ResourceNetworkingSecGroupRuleEtherType,
 			},
 
 			"port_range_min": {
@@ -78,14 +78,7 @@ func ResourceNetworkingSecGroupRuleV2() *schema.Resource {
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ValidateFunc: resourceNetworkingSecGroupRuleV2Protocol,
-			},
-
-			"remote_group_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
-				Computed: true,
+				ValidateFunc: resourceNetworkingSecGroupRuleProtocol,
 			},
 
 			"remote_ip_prefix": {
@@ -114,9 +107,9 @@ func ResourceNetworkingSecGroupRuleV2() *schema.Resource {
 	}
 }
 
-func resourceNetworkingSecGroupRuleV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingSecGroupRuleCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud networking client: %s", err)
 	}
@@ -128,64 +121,64 @@ func resourceNetworkingSecGroupRuleV2Create(ctx context.Context, d *schema.Resou
 	protocol := d.Get("protocol").(string)
 	direction := d.Get("direction").(string)
 	etherType := d.Get("ethertype").(string)
-	opts := rules.CreateOpts{
-		Direction:      rules.RuleDirection(direction),
-		EtherType:      rules.RuleEtherType(etherType),
-		Protocol:       rules.RuleProtocol(protocol),
+	createOpts := dto.CreateSecurityGroupRuleOpts{
+		Direction:      dto.RuleDirection(direction),
+		EtherType:      dto.RuleEtherType(etherType),
+		Protocol:       dto.RuleProtocol(protocol),
 		PortRangeMin:   d.Get("port_range_min").(int),
 		PortRangeMax:   d.Get("port_range_max").(int),
 		Description:    d.Get("description").(string),
 		SecGroupID:     securityGroupID,
-		RemoteGroupID:  d.Get("remote_group_id").(string),
 		RemoteIPPrefix: d.Get("remote_ip_prefix").(string),
 		ProjectID:      d.Get("tenant_id").(string),
 	}
 
-	log.Printf("[DEBUG] vnpaycloud_networking_secgroup_rule_v2 create options: %#v", opts)
+	log.Printf("[DEBUG] vnpaycloud_networking_secgroup_rule create options: %#v", createOpts)
 
-	sgRule, err := rules.Create(ctx, networkingClient, opts).Extract()
+	createResp := &dto.CreateSecurityGroupRuleResponse{}
+	_, err = tfClient.Post(ctx, client.ApiPath.SecurityGroupRule, dto.CreateSecurityGroupRuleRequest{SecurityGroupRule: createOpts}, createResp, nil)
 	if err != nil {
-		return diag.Errorf("Error creating vnpaycloud_networking_secgroup_rule_v2: %s", err)
+		return diag.Errorf("Error creating vnpaycloud_networking_secgroup_rule: %s", err)
 	}
 
-	d.SetId(sgRule.ID)
+	d.SetId(createResp.SecurityGroupRule.ID)
 
-	log.Printf("[DEBUG] Created vnpaycloud_networking_secgroup_rule_v2 %s: %#v", sgRule.ID, sgRule)
-	return resourceNetworkingSecGroupRuleV2Read(ctx, d, meta)
+	log.Printf("[DEBUG] Created vnpaycloud_networking_secgroup_rule %s: %#v", createResp.SecurityGroupRule.ID, createResp.SecurityGroupRule)
+	return resourceNetworkingSecGroupRuleRead(ctx, d, meta)
 }
 
-func resourceNetworkingSecGroupRuleV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingSecGroupRuleRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud networking client: %s", err)
 	}
 
-	sgRule, err := rules.Get(ctx, networkingClient, d.Id()).Extract()
+	securityGroupRuleResp := &dto.GetSecurityGroupRuleResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.SecurityGroupRuleWithId(d.Id()), securityGroupRuleResp, nil)
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error getting vnpaycloud_networking_secgroup_rule_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error getting vnpaycloud_networking_secgroup_rule"))
 	}
 
-	log.Printf("[DEBUG] Retrieved vnpaycloud_networking_secgroup_rule_v2 %s: %#v", d.Id(), sgRule)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_networking_secgroup_rule %s: %#v", d.Id(), securityGroupRuleResp.SecurityGroupRule)
 
-	d.Set("description", sgRule.Description)
-	d.Set("direction", sgRule.Direction)
-	d.Set("ethertype", sgRule.EtherType)
-	d.Set("protocol", sgRule.Protocol)
-	d.Set("port_range_min", sgRule.PortRangeMin)
-	d.Set("port_range_max", sgRule.PortRangeMax)
-	d.Set("remote_group_id", sgRule.RemoteGroupID)
-	d.Set("remote_ip_prefix", sgRule.RemoteIPPrefix)
-	d.Set("security_group_id", sgRule.SecGroupID)
-	d.Set("tenant_id", sgRule.TenantID)
+	d.Set("description", securityGroupRuleResp.SecurityGroupRule.Description)
+	d.Set("direction", securityGroupRuleResp.SecurityGroupRule.Direction)
+	d.Set("ethertype", securityGroupRuleResp.SecurityGroupRule.EtherType)
+	d.Set("protocol", securityGroupRuleResp.SecurityGroupRule.Protocol)
+	d.Set("port_range_min", securityGroupRuleResp.SecurityGroupRule.PortRangeMin)
+	d.Set("port_range_max", securityGroupRuleResp.SecurityGroupRule.PortRangeMax)
+	d.Set("remote_ip_prefix", securityGroupRuleResp.SecurityGroupRule.RemoteIPPrefix)
+	d.Set("security_group_id", securityGroupRuleResp.SecurityGroupRule.SecGroupID)
+	d.Set("tenant_id", securityGroupRuleResp.SecurityGroupRule.TenantID)
 	d.Set("region", util.GetRegion(d, config))
 
 	return nil
 }
 
-func resourceNetworkingSecGroupRuleV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingSecGroupRuleDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud networking client: %s", err)
 	}
@@ -194,14 +187,14 @@ func resourceNetworkingSecGroupRuleV2Delete(ctx context.Context, d *schema.Resou
 	config.MutexKV.Lock(securityGroupID)
 	defer config.MutexKV.Unlock(securityGroupID)
 
-	if err := rules.Delete(ctx, networkingClient, d.Id()).ExtractErr(); err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_networking_secgroup_rule_v2"))
+	if _, err := tfClient.Delete(ctx, client.ApiPath.SecurityGroupWithId(securityGroupID), nil); err != nil {
+		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_networking_secgroup_rule"))
 	}
 
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"ACTIVE"},
 		Target:     []string{"DELETED"},
-		Refresh:    ResourceNetworkingSecGroupRuleV2StateRefreshFunc(ctx, networkingClient, d.Id()),
+		Refresh:    ResourceNetworkingSecGroupRuleStateRefreshFunc(ctx, tfClient, d.Id()),
 		Timeout:    d.Timeout(schema.TimeoutDelete),
 		Delay:      5 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -209,7 +202,7 @@ func resourceNetworkingSecGroupRuleV2Delete(ctx context.Context, d *schema.Resou
 
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
-		return diag.Errorf("Error waiting for vnpaycloud_networking_secgroup_rule_v2 %s to Delete:  %s", d.Id(), err)
+		return diag.Errorf("Error waiting for vnpaycloud_networking_secgroup_rule %s to Delete:  %s", d.Id(), err)
 	}
 
 	d.SetId("")

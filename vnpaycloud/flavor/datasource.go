@@ -5,20 +5,17 @@ import (
 	"log"
 	"net/http"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
-
-	"github.com/vnpaycloud-console/gophercloud/v2"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/flavors"
-	"github.com/vnpaycloud-console/gophercloud/v2/pagination"
 )
 
-func DataSourceComputeFlavorV2() *schema.Resource {
+func DataSourceComputeFlavor() *schema.Resource {
 	return &schema.Resource{
-		ReadContext: dataSourceComputeFlavorV2Read,
+		ReadContext: dataSourceComputeFlavorRead,
 
 		Schema: map[string]*schema.Schema{
 			"region": {
@@ -107,74 +104,56 @@ func DataSourceComputeFlavorV2() *schema.Resource {
 	}
 }
 
-// dataSourceComputeFlavorV2Read performs the flavor lookup.
-func dataSourceComputeFlavorV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+// dataSourceComputeFlavorRead performs the flavor lookup.
+func dataSourceComputeFlavorRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	computeClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack compute client: %s", err)
+		return diag.Errorf("Error creating VNPAYCloud compute client: %s", err)
 	}
 
-	var allFlavors []flavors.Flavor
+	var allFlavors []dto.Flavor
 	if v := d.Get("flavor_id").(string); v != "" {
-		var flavor *flavors.Flavor
-		// try and read flavor using microversion that includes description
-		computeClient.Microversion = computeV2FlavorDescriptionMicroversion
-		flavor, err = flavors.Get(ctx, computeClient, v).Extract()
+		var flavor dto.GetFlavorResponse
+		_, err = computeClient.Get(ctx, client.ApiPath.FlavorWithId(v), &flavor, nil)
 		if err != nil {
-			// reset microversion to 2.1 and try again
-			computeClient.Microversion = "2.1"
-			flavor, err = flavors.Get(ctx, computeClient, v).Extract()
-			if err != nil {
-				if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-					return diag.Errorf("No Flavor found")
-				}
-				return diag.Errorf("Unable to retrieve OpenStack %s flavor: %s", v, err)
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				return diag.Errorf("No Flavor found")
 			}
+			return diag.Errorf("Unable to retrieve VNPAYCloud %s flavor: %s", v, err)
 		}
 
-		allFlavors = append(allFlavors, *flavor)
+		allFlavors = append(allFlavors, flavor.Flavor)
 	} else {
-		accessType := flavors.AllAccess
+		accessType := dto.FlavorAllAccess
 		if v, ok := util.GetOkExists(d, "is_public"); ok {
 			if v, ok := v.(bool); ok {
 				if v {
-					accessType = flavors.PublicAccess
+					accessType = dto.FlavorPublicAccess
 				} else {
-					accessType = flavors.PrivateAccess
+					accessType = dto.FlavorPrivateAccess
 				}
 			}
 		}
-		listOpts := flavors.ListOpts{
+		listOpts := dto.ListFlavorParams{
 			MinDisk:    d.Get("min_disk").(int),
 			MinRAM:     d.Get("min_ram").(int),
 			AccessType: accessType,
 		}
 
-		log.Printf("[DEBUG] openstack_compute_flavor_v2 ListOpts: %#v", listOpts)
-
-		var allPages pagination.Page
-		// try and read flavor using microversion that includes description
-		computeClient.Microversion = computeV2FlavorDescriptionMicroversion
-		allPages, err = flavors.ListDetail(computeClient, listOpts).AllPages(ctx)
+		log.Printf("[DEBUG] vnpaycloud_compute_flavor ListOpts: %#v", listOpts)
+		listResp := dto.ListFlavorsResponse{}
+		_, err = computeClient.Get(ctx, client.ApiPath.FlavorDetailWithParams(listOpts), &listResp, nil)
 		if err != nil {
-			// reset microversion to 2.1 and try again
-			computeClient.Microversion = "2.1"
-			allPages, err = flavors.ListDetail(computeClient, listOpts).AllPages(ctx)
-			if err != nil {
-				return diag.Errorf("Unable to query OpenStack flavors: %s", err)
-			}
+			return diag.Errorf("Unable to query VNPAYCloud flavors: %s", err)
 		}
 
-		allFlavors, err = flavors.ExtractFlavors(allPages)
-		if err != nil {
-			return diag.Errorf("Unable to retrieve OpenStack flavors: %s", err)
-		}
+		allFlavors = listResp.Flavors
 	}
 
 	// Loop through all flavors to find a more specific one.
 	if len(allFlavors) > 0 {
-		var filteredFlavors []flavors.Flavor
+		var filteredFlavors []dto.Flavor
 		for _, flavor := range allFlavors {
 			if v := d.Get("name").(string); v != "" {
 				if flavor.Name != v {
@@ -236,12 +215,12 @@ func dataSourceComputeFlavorV2Read(ctx context.Context, d *schema.ResourceData, 
 			"Please try a more specific search criteria")
 	}
 
-	return diag.FromErr(dataSourceComputeFlavorV2Attributes(ctx, d, computeClient, &allFlavors[0]))
+	return diag.FromErr(dataSourceComputeFlavorAttributes(ctx, d, computeClient, &allFlavors[0]))
 }
 
-// dataSourceComputeFlavorV2Attributes populates the fields of a Flavor resource.
-func dataSourceComputeFlavorV2Attributes(ctx context.Context, d *schema.ResourceData, computeClient *gophercloud.ServiceClient, flavor *flavors.Flavor) error {
-	log.Printf("[DEBUG] Retrieved openstack_compute_flavor_v2 %s: %#v", flavor.ID, flavor)
+// dataSourceComputeFlavorAttributes populates the fields of a Flavor resource.
+func dataSourceComputeFlavorAttributes(ctx context.Context, d *schema.ResourceData, computeClient *client.Client, flavor *dto.Flavor) error {
+	log.Printf("[DEBUG] Retrieved vnpaycloud_compute_flavor %s: %#v", flavor.ID, flavor)
 
 	d.SetId(flavor.ID)
 	d.Set("name", flavor.Name)
@@ -254,13 +233,15 @@ func dataSourceComputeFlavorV2Attributes(ctx context.Context, d *schema.Resource
 	d.Set("vcpus", flavor.VCPUs)
 	d.Set("is_public", flavor.IsPublic)
 
-	es, err := flavors.ListExtraSpecs(ctx, computeClient, d.Id()).Extract()
+	es := map[string]map[string]string{}
+
+	_, err := computeClient.Get(ctx, client.ApiPath.FlavorExtraSpecs(d.Id()), &es, nil)
 	if err != nil {
 		return err
 	}
 
-	if err := d.Set("extra_specs", es); err != nil {
-		log.Printf("[WARN] Unable to set extra_specs for openstack_compute_flavor_v2 %s: %s", d.Id(), err)
+	if err := d.Set("extra_specs", es["extra_specs"]); err != nil {
+		log.Printf("[WARN] Unable to set extra_specs for vnpaycloud_compute_flavor %s: %s", d.Id(), err)
 	}
 
 	return nil

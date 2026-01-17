@@ -1,6 +1,8 @@
 package securityGroup
 
 import (
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -10,9 +12,6 @@ import (
 	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
-
-	"github.com/vnpaycloud-console/gophercloud/v2"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/security/groups"
 )
 
 func NetworkingReadAttributesTags(d *schema.ResourceData, tags []string) {
@@ -27,36 +26,37 @@ func NetworkingAttributesTags(d *schema.ResourceData) []string {
 	return util.ExpandObjectTags(d)
 }
 
-// networkingSecgroupV2StateRefreshFuncDelete returns a special case retry.StateRefreshFunc to try to delete a secgroup.
-func networkingSecgroupV2StateRefreshFuncDelete(ctx context.Context, networkingClient *gophercloud.ServiceClient, id string) retry.StateRefreshFunc {
+// networkingSecgroupStateRefreshFuncDelete returns a special case retry.StateRefreshFunc to try to delete a secgroup.
+func networkingSecgroupStateRefreshFuncDelete(ctx context.Context, networkingClient *client.Client, id string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		log.Printf("[DEBUG] Attempting to delete vnpaycloud_networking_secgroup_v2 %s", id)
+		log.Printf("[DEBUG] Attempting to delete vnpaycloud_networking_secgroup %s", id)
 
-		r, err := groups.Get(ctx, networkingClient, id).Extract()
+		secGroupResp := &dto.GetSecurityGroupResponse{}
+		_, err := networkingClient.Get(ctx, client.ApiPath.SecurityGroupWithId(id), secGroupResp, nil)
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				log.Printf("[DEBUG] Successfully deleted vnpaycloud_networking_secgroup_v2 %s", id)
-				return r, "DELETED", nil
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				log.Printf("[DEBUG] Successfully deleted vnpaycloud_networking_secgroup %s", id)
+				return secGroupResp.SecurityGroup, "DELETED", nil
 			}
 
-			return r, "ACTIVE", err
+			return secGroupResp.SecurityGroup, "ACTIVE", err
 		}
 
-		err = groups.Delete(ctx, networkingClient, id).ExtractErr()
+		_, err = networkingClient.Delete(ctx, client.ApiPath.SecurityGroupWithId(id), nil)
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				log.Printf("[DEBUG] Successfully deleted vnpaycloud_networking_secgroup_v2 %s", id)
-				return r, "DELETED", nil
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				log.Printf("[DEBUG] Successfully deleted vnpaycloud_networking_secgroup %s", id)
+				return secGroupResp.SecurityGroup, "DELETED", nil
 			}
-			if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
-				return r, "ACTIVE", nil
+			if util.ResponseCodeIs(err, http.StatusConflict) {
+				return secGroupResp.SecurityGroup, "ACTIVE", nil
 			}
 
-			return r, "ACTIVE", err
+			return secGroupResp.SecurityGroup, "ACTIVE", err
 		}
 
-		log.Printf("[DEBUG] vnpaycloud_networking_secgroup_v2 %s is still active", id)
+		log.Printf("[DEBUG] vnpaycloud_networking_secgroup %s is still active", id)
 
-		return r, "ACTIVE", nil
+		return secGroupResp.SecurityGroup, "ACTIVE", nil
 	}
 }

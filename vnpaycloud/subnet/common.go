@@ -5,71 +5,74 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
-
-	"github.com/vnpaycloud-console/gophercloud/v2"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/subnets"
 )
 
-// networkingSubnetV2StateRefreshFunc returns a standard retry.StateRefreshFunc to wait for subnet status.
-func networkingSubnetV2StateRefreshFunc(ctx context.Context, client *gophercloud.ServiceClient, subnetID string) retry.StateRefreshFunc {
+// networkingSubnetStateRefreshFunc returns a standard retry.StateRefreshFunc to wait for subnet status.
+func networkingSubnetStateRefreshFunc(ctx context.Context, subnetClient *client.Client, subnetID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		subnet, err := subnets.Get(ctx, client, subnetID).Extract()
+		subnetResp := &dto.GetSubnetResponse{}
+		_, err := subnetClient.Get(ctx, client.ApiPath.SubnetWithId(subnetID), subnetResp, nil)
+
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				return subnet, "DELETED", nil
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				return subnetResp.Subnet, "DELETED", nil
 			}
 
 			return nil, "", err
 		}
 
-		return subnet, "ACTIVE", nil
+		return subnetResp.Subnet, "ACTIVE", nil
 	}
 }
 
-// networkingSubnetV2StateRefreshFuncDelete returns a special case retry.StateRefreshFunc to try to delete a subnet.
-func networkingSubnetV2StateRefreshFuncDelete(ctx context.Context, networkingClient *gophercloud.ServiceClient, subnetID string) retry.StateRefreshFunc {
+// networkingSubnetStateRefreshFuncDelete returns a special case retry.StateRefreshFunc to try to delete a subnet.
+func networkingSubnetStateRefreshFuncDelete(ctx context.Context, subnetClient *client.Client, subnetID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
 		log.Printf("[DEBUG] Attempting to delete vnpaycloud_networking_subnet %s", subnetID)
 
-		s, err := subnets.Get(ctx, networkingClient, subnetID).Extract()
+		subnetResp := &dto.GetSubnetResponse{}
+		_, err := subnetClient.Get(ctx, client.ApiPath.SubnetWithId(subnetID), subnetResp, nil)
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
 				log.Printf("[DEBUG] Successfully deleted vnpaycloud_networking_subnet %s", subnetID)
-				return s, "DELETED", nil
+				return subnetResp.Subnet, "DELETED", nil
 			}
 
-			return s, "ACTIVE", err
+			return subnetResp.Subnet, "ACTIVE", err
 		}
 
-		err = subnets.Delete(ctx, networkingClient, subnetID).ExtractErr()
+		_, err = subnetClient.Delete(ctx, client.ApiPath.SubnetWithId(subnetID), nil)
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
 				log.Printf("[DEBUG] Successfully deleted vnpaycloud_networking_subnet %s", subnetID)
-				return s, "DELETED", nil
+				return subnetResp.Subnet, "DELETED", nil
 			}
 			// Subnet is still in use - we can retry.
-			if gophercloud.ResponseCodeIs(err, http.StatusConflict) {
-				return s, "ACTIVE", nil
+			if util.ResponseCodeIs(err, http.StatusConflict) {
+				return subnetResp.Subnet, "ACTIVE", nil
 			}
 
-			return s, "ACTIVE", err
+			return subnetResp.Subnet, "ACTIVE", err
 		}
 
 		log.Printf("[DEBUG] vnpaycloud_networking_subnet %s is still active", subnetID)
 
-		return s, "ACTIVE", nil
+		return subnetResp.Subnet, "ACTIVE", nil
 	}
 }
 
-// expandNetworkingSubnetV2AllocationPools returns a slice of subnets.AllocationPool structs.
-func expandNetworkingSubnetV2AllocationPools(allocationPools []interface{}) []subnets.AllocationPool {
-	result := make([]subnets.AllocationPool, len(allocationPools))
+// expandNetworkingSubnetAllocationPools returns a slice of subnets.AllocationPool structs.
+func expandNetworkingSubnetAllocationPools(allocationPools []interface{}) []dto.AllocationPool {
+	result := make([]dto.AllocationPool, len(allocationPools))
 	for i, raw := range allocationPools {
 		rawMap := raw.(map[string]interface{})
 
-		result[i] = subnets.AllocationPool{
+		result[i] = dto.AllocationPool{
 			Start: rawMap["start"].(string),
 			End:   rawMap["end"].(string),
 		}
@@ -78,9 +81,9 @@ func expandNetworkingSubnetV2AllocationPools(allocationPools []interface{}) []su
 	return result
 }
 
-// flattenNetworkingSubnetV2AllocationPools allows to flatten slice of subnets.AllocationPool structs into
+// flattenNetworkingSubnetAllocationPools allows to flatten slice of subnets.AllocationPool structs into
 // a slice of maps.
-func flattenNetworkingSubnetV2AllocationPools(allocationPools []subnets.AllocationPool) []map[string]interface{} {
+func flattenNetworkingSubnetAllocationPools(allocationPools []dto.AllocationPool) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(allocationPools))
 	for i, allocationPool := range allocationPools {
 		pool := make(map[string]interface{})
@@ -93,9 +96,9 @@ func flattenNetworkingSubnetV2AllocationPools(allocationPools []subnets.Allocati
 	return result
 }
 
-// flattenNetworkingSubnetV2HostRoutes allows to flatten slice of subnets.HostRoute structs into
+// flattenNetworkingSubnetHostRoutes allows to flatten slice of subnets.HostRoute structs into
 // a slice of maps.
-func flattenNetworkingSubnetV2HostRoutes(hostRoutes []subnets.HostRoute) []map[string]interface{} {
+func flattenNetworkingSubnetHostRoutes(hostRoutes []dto.HostRoute) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(hostRoutes))
 	for i, hostRoute := range hostRoutes {
 		route := make(map[string]interface{})
@@ -108,7 +111,7 @@ func flattenNetworkingSubnetV2HostRoutes(hostRoutes []subnets.HostRoute) []map[s
 	return result
 }
 
-func networkingSubnetV2AllocationPoolsMatch(oldPools, newPools []interface{}) bool {
+func networkingSubnetAllocationPoolsMatch(oldPools, newPools []interface{}) bool {
 	if len(oldPools) != len(newPools) {
 		return false
 	}
@@ -138,7 +141,7 @@ func networkingSubnetV2AllocationPoolsMatch(oldPools, newPools []interface{}) bo
 	return true
 }
 
-func networkingSubnetV2DNSNameserverAreUnique(raw []interface{}) error {
+func networkingSubnetDNSNameserverAreUnique(raw []interface{}) error {
 	set := make(map[string]struct{})
 	for _, rawNS := range raw {
 		nameserver, ok := rawNS.(string)

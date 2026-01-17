@@ -5,21 +5,21 @@ import (
 	"log"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/subnets"
 )
 
 var descriptions map[string]string
 
-func DataSourceNetworkingSubnetV2() *schema.Resource {
+func DataSourceNetworkingSubnet() *schema.Resource {
 	return &schema.Resource{
-		ReadContext: dataSourceNetworkingSubnetV2Read,
+		ReadContext: dataSourceNetworkingSubnetRead,
 
 		Schema: map[string]*schema.Schema{
 			"region": {
@@ -182,14 +182,14 @@ func DataSourceNetworkingSubnetV2() *schema.Resource {
 	}
 }
 
-func dataSourceNetworkingSubnetV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func dataSourceNetworkingSubnetRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
-	listOpts := subnets.ListOpts{}
+	listOpts := dto.ListSubnetParams{}
 
 	if v, ok := d.GetOk("name"); ok {
 		listOpts.Name = v.(string)
@@ -250,15 +250,14 @@ func dataSourceNetworkingSubnetV2Read(ctx context.Context, d *schema.ResourceDat
 		listOpts.Tags = strings.Join(tags, ",")
 	}
 
-	pages, err := subnets.List(networkingClient, listOpts).AllPages(ctx)
+	listResp := dto.ListSubnetResponse{}
+
+	_, err = networkingClient.Get(ctx, client.ApiPath.SubnetWithParams(listOpts), &listResp, nil)
 	if err != nil {
 		return diag.Errorf("Unable to retrieve vnpaycloud_networking_subnet: %s", err)
 	}
 
-	allSubnets, err := subnets.ExtractSubnets(pages)
-	if err != nil {
-		return diag.Errorf("Unable to extract vnpaycloud_networking_subnet: %s", err)
-	}
+	allSubnets := listResp.Subnets
 
 	if len(allSubnets) < 1 {
 		return diag.Errorf("Your query returned no vnpaycloud_networking_subnet. " +
@@ -298,12 +297,12 @@ func dataSourceNetworkingSubnetV2Read(ctx context.Context, d *schema.ResourceDat
 		log.Printf("[DEBUG] Unable to set vnpaycloud_networking_subnet service_types: %s", err)
 	}
 
-	hostRoutes := flattenNetworkingSubnetV2HostRoutes(subnet.HostRoutes)
+	hostRoutes := flattenNetworkingSubnetHostRoutes(subnet.HostRoutes)
 	if err := d.Set("host_routes", hostRoutes); err != nil {
 		log.Printf("[DEBUG] Unable to set vnpaycloud_networking_subnet host_routes: %s", err)
 	}
 
-	allocationPools := flattenNetworkingSubnetV2AllocationPools(subnet.AllocationPools)
+	allocationPools := flattenNetworkingSubnetAllocationPools(subnet.AllocationPools)
 	if err := d.Set("allocation_pools", allocationPools); err != nil {
 		log.Printf("[DEBUG] Unable to set vnpaycloud_networking_subnet allocation_pools: %s", err)
 	}

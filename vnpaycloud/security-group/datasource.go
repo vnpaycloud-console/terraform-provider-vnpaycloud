@@ -5,16 +5,17 @@ import (
 	"log"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/security/groups"
 )
 
-func DataSourceNetworkingSecGroupV2() *schema.Resource {
+func DataSourceNetworkingSecGroup() *schema.Resource {
 	return &schema.Resource{
-		ReadContext: dataSourceNetworkingSecGroupV2Read,
+		ReadContext: dataSourceNetworkingSecGroupRead,
 
 		Schema: map[string]*schema.Schema{
 			"region": {
@@ -60,14 +61,14 @@ func DataSourceNetworkingSecGroupV2() *schema.Resource {
 	}
 }
 
-func dataSourceNetworkingSecGroupV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func dataSourceNetworkingSecGroupRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud networking client: %s", err)
 	}
 
-	listOpts := groups.ListOpts{
+	listOpts := dto.ListSecurityGroupParams{
 		ID:          d.Get("secgroup_id").(string),
 		Name:        d.Get("name").(string),
 		Description: d.Get("description").(string),
@@ -83,15 +84,14 @@ func dataSourceNetworkingSecGroupV2Read(ctx context.Context, d *schema.ResourceD
 		listOpts.Tags = strings.Join(tags, ",")
 	}
 
-	pages, err := groups.List(networkingClient, listOpts).AllPages(ctx)
+	listResp := dto.ListSecurityGroupResponse{}
+
+	_, err = networkingClient.Get(ctx, client.ApiPath.SecurityGroupWithParams(listOpts), &listResp, nil)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	allSecGroups, err := groups.ExtractGroups(pages)
-	if err != nil {
-		return diag.Errorf("Unable to retrieve security groups: %s", err)
-	}
+	allSecGroups := listResp.SecurityGroups
 
 	if len(allSecGroups) < 1 {
 		return diag.Errorf("No Security Group found with name: %s", d.Get("name"))

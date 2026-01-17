@@ -4,20 +4,20 @@ import (
 	"context"
 	"log"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/layer3/floatingips"
 )
 
-func ResourceNetworkingFloatingIPAssociateV2() *schema.Resource {
+func ResourceNetworkingFloatingIPAssociate() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceNetworkingFloatingIPAssociateV2Create,
-		ReadContext:   resourceNetworkingFloatingIPAssociateV2Read,
-		UpdateContext: resourceNetworkingFloatingIPAssociateV2Update,
-		DeleteContext: resourceNetworkingFloatingIPAssociateV2Delete,
+		CreateContext: resourceNetworkingFloatingIPAssociateCreate,
+		ReadContext:   resourceNetworkingFloatingIPAssociateRead,
+		UpdateContext: resourceNetworkingFloatingIPAssociateUpdate,
+		DeleteContext: resourceNetworkingFloatingIPAssociateDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -43,95 +43,102 @@ func ResourceNetworkingFloatingIPAssociateV2() *schema.Resource {
 	}
 }
 
-func resourceNetworkingFloatingIPAssociateV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingFloatingIPAssociateCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	configMeta := meta.(*config.Config)
-	networkingClient, err := configMeta.NetworkingV2Client(ctx, util.GetRegion(d, configMeta))
+	networkingClient, err := client.NewClient(ctx, configMeta.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack network client: %s", err)
+		return diag.Errorf("Error creating VNPAYCloud network client: %s", err)
 	}
 
 	floatingIP := d.Get("floating_ip").(string)
 	portID := d.Get("port_id").(string)
 
-	fipID, err := networkingFloatingIPV2ID(ctx, networkingClient, floatingIP)
+	fipID, err := networkingFloatingIPID(ctx, networkingClient, floatingIP)
 	if err != nil {
-		return diag.Errorf("Unable to get ID of openstack_networking_floatingip_associate_v2 floating_ip %s: %s", floatingIP, err)
+		return diag.Errorf("Unable to get ID of vnpaycloud_networking_floatingip_associate floating_ip %s: %s", floatingIP, err)
 	}
 
-	updateOpts := floatingips.UpdateOpts{
+	updateOpts := dto.UpdateFloatingIPOpts{
 		PortID: &portID,
 	}
+	updateReq := dto.UpdateFloatingIPRequest{
+		FloatingIP: updateOpts,
+	}
 
-	log.Printf("[DEBUG] openstack_networking_floatingip_associate_v2 create options: %#v", updateOpts)
-	_, err = floatingips.Update(ctx, networkingClient, fipID, updateOpts).Extract()
+	log.Printf("[DEBUG] vnpaycloud_networking_floatingip_associate create options: %#v", updateOpts)
+	_, err = networkingClient.Put(ctx, client.ApiPath.FloatingIPWithId(fipID), updateReq, nil, nil)
 	if err != nil {
-		return diag.Errorf("Error associating openstack_networking_floatingip_associate_v2 floating_ip %s with port %s: %s", fipID, portID, err)
+		return diag.Errorf("Error associating vnpaycloud_networking_floatingip_associate floating_ip %s with port %s: %s", fipID, portID, err)
 	}
 
 	d.SetId(fipID)
 
-	return resourceNetworkingFloatingIPAssociateV2Read(ctx, d, meta)
+	return resourceNetworkingFloatingIPAssociateRead(ctx, d, meta)
 }
 
-func resourceNetworkingFloatingIPAssociateV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingFloatingIPAssociateRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	configMeta := meta.(*config.Config)
-	networkingClient, err := configMeta.NetworkingV2Client(ctx, util.GetRegion(d, configMeta))
+	networkingClient, err := client.NewClient(ctx, configMeta.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack network client: %s", err)
+		return diag.Errorf("Error creating VNPAYCloud network client: %s", err)
 	}
 
-	fip, err := floatingips.Get(ctx, networkingClient, d.Id()).Extract()
+	fipResp := dto.GetFloatingIPResponse{}
+	_, err = networkingClient.Get(ctx, client.ApiPath.FloatingIPWithId(d.Id()), &fipResp, nil)
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error getting openstack_networking_floatingip_associate_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error getting vnpaycloud_networking_floatingip_associate"))
 	}
 
-	log.Printf("[DEBUG] Retrieved openstack_networking_floatingip_associate_v2 %s: %#v", d.Id(), fip)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_networking_floatingip_associate %s: %#v", d.Id(), fipResp)
 
-	d.Set("floating_ip", fip.FloatingIP)
-	d.Set("port_id", fip.PortID)
+	d.Set("floating_ip", fipResp.FloatingIP.FloatingIP)
+	d.Set("port_id", fipResp.FloatingIP.PortID)
 	d.Set("region", util.GetRegion(d, configMeta))
 
 	return nil
 }
 
-func resourceNetworkingFloatingIPAssociateV2Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingFloatingIPAssociateUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	configMeta := meta.(*config.Config)
-	networkingClient, err := configMeta.NetworkingV2Client(ctx, util.GetRegion(d, configMeta))
+	networkingClient, err := client.NewClient(ctx, configMeta.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack network client: %s", err)
+		return diag.Errorf("Error creating VNPAYCloud network client: %s", err)
 	}
 
-	var updateOpts floatingips.UpdateOpts
+	var updateOpts dto.UpdateFloatingIPOpts
 
 	// port_id must always exist
 	portID := d.Get("port_id").(string)
 	updateOpts.PortID = &portID
 
-	log.Printf("[DEBUG] openstack_networking_floatingip_associate_v2 %s update options: %#v", d.Id(), updateOpts)
-	_, err = floatingips.Update(ctx, networkingClient, d.Id(), updateOpts).Extract()
+	log.Printf("[DEBUG] vnpaycloud_networking_floatingip_associate %s update options: %#v", d.Id(), updateOpts)
+	_, err = networkingClient.Put(ctx, client.ApiPath.FloatingIPWithId(d.Id()), updateOpts, nil, nil)
 	if err != nil {
-		return diag.Errorf("Error updating openstack_networking_floatingip_associate_v2 %s: %s", d.Id(), err)
+		return diag.Errorf("Error updating vnpaycloud_networking_floatingip_associate %s: %s", d.Id(), err)
 	}
 
-	return resourceNetworkingFloatingIPAssociateV2Read(ctx, d, meta)
+	return resourceNetworkingFloatingIPAssociateRead(ctx, d, meta)
 }
 
-func resourceNetworkingFloatingIPAssociateV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingFloatingIPAssociateDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	configMeta := meta.(*config.Config)
-	networkingClient, err := configMeta.NetworkingV2Client(ctx, util.GetRegion(d, configMeta))
+	networkingClient, err := client.NewClient(ctx, configMeta.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack network client: %s", err)
+		return diag.Errorf("Error creating VNPAYCloud network client: %s", err)
 	}
 
 	portID := d.Get("port_id").(string)
-	updateOpts := floatingips.UpdateOpts{
+	updateOpts := dto.UpdateFloatingIPOpts{
 		PortID: new(string),
 	}
+	updateReq := dto.UpdateFloatingIPRequest{
+		FloatingIP: updateOpts,
+	}
 
-	log.Printf("[DEBUG] openstack_networking_floatingip_associate_v2 disassociating options: %#v", updateOpts)
-	_, err = floatingips.Update(ctx, networkingClient, d.Id(), updateOpts).Extract()
+	log.Printf("[DEBUG] vnpaycloud_networking_floatingip_associate disassociating options: %#v", updateOpts)
+	_, err = networkingClient.Put(ctx, client.ApiPath.FloatingIPWithId(d.Id()), updateReq, nil, nil)
 	if err != nil {
-		return diag.Errorf("Error disassociating openstack_networking_floatingip_associate_v2 floating_ip %s with port %s: %s", d.Id(), portID, err)
+		return diag.Errorf("Error disassociating vnpaycloud_networking_floatingip_associate floating_ip %s with port %s: %s", d.Id(), portID, err)
 	}
 
 	return nil

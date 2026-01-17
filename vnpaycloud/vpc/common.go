@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
@@ -12,7 +13,7 @@ import (
 
 func vpcStateRefreshFunc(ctx context.Context, vpcClient *client.Client, vpcId string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		vpcResp := &GetVpcDtoResponse{}
+		vpcResp := &dto.GetVpcResponse{}
 		_, err := vpcClient.Get(ctx, client.ApiPath.VPCWithId(vpcId), vpcResp, nil)
 
 		if err != nil {

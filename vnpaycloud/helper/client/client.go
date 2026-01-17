@@ -5,14 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 const (
-	DefaultUserAgent = "vnpaycloud-console-gophercloud/v2.0.0"
+	DefaultUserAgent = "vnpaycloud-console/v1.0.1"
 )
 
 var applicationJSON = "application/json"
@@ -20,7 +22,22 @@ var applicationJSON = "application/json"
 type Client struct {
 	baseURL    string
 	token      string
+	tokenID    string
+	userID     string
 	httpClient http.Client
+	projectID  string
+}
+
+func (client *Client) GetProjectID() string {
+	return client.projectID
+}
+
+func (client *Client) GetUserID() string {
+	return client.userID
+}
+
+func (client *Client) GetTokenID() string {
+	return client.tokenID
 }
 
 type ClientConfig struct {
@@ -88,7 +105,100 @@ func (client *Client) Authenticate(ctx context.Context, appCredID, appCredSecret
 	}
 
 	client.token = token
+	client.projectID = respBody["token"].(map[string]interface{})["project"].(map[string]interface{})["id"].(string)
+	client.userID = respBody["token"].(map[string]interface{})["user"].(map[string]interface{})["id"].(string)
+	// client.tokenID = respBody["token"].(map[string]interface{})["id"].(string)
 	return nil
+}
+
+func (client *Client) All(ctx context.Context, path string, JSONResponse any, opts *RequestOpts) (*http.Response, error) {
+	if opts == nil {
+		opts = new(RequestOpts)
+	}
+
+	var allItems []interface{}
+	var lastMarker string
+	limit := 100
+
+	for {
+		currentPath := path
+		if !strings.Contains(currentPath, "?") {
+			currentPath += "?"
+		} else {
+			currentPath += "&"
+		}
+		currentPath += fmt.Sprintf("limit=%d", limit)
+		if lastMarker != "" {
+			currentPath += fmt.Sprintf("&marker=%s", lastMarker)
+		}
+
+		var tempResponse map[string]interface{}
+		tempOpts := *opts
+		client.initReqOpts(nil, &tempResponse, &tempOpts)
+
+		resp, err := client.doRequest(ctx, "GET", client.baseURL+currentPath, &tempOpts)
+		if err != nil {
+			return resp, err
+		}
+
+		var pageItems []interface{}
+		for _, v := range tempResponse {
+			if items, ok := v.([]interface{}); ok {
+				pageItems = items
+				break
+			}
+		}
+
+		if len(pageItems) == 0 {
+			break
+		}
+
+		allItems = append(allItems, pageItems...)
+		lastItem := pageItems[len(pageItems)-1]
+		if m, ok := lastItem.(map[string]interface{}); ok {
+			if id, ok := m["id"].(string); ok {
+				lastMarker = id
+			} else {
+				break
+			}
+		} else {
+			break
+		}
+
+		if len(pageItems) < limit {
+			break
+		}
+	}
+
+	var resourceKey string
+	tempResponse := make(map[string]interface{})
+	tempOpts := *opts
+	client.initReqOpts(nil, &tempResponse, &tempOpts)
+	resp, err := client.doRequest(ctx, "GET", client.baseURL+path, &tempOpts)
+	if err != nil {
+		return resp, err
+	}
+	for k, v := range tempResponse {
+		if _, ok := v.([]interface{}); ok {
+			resourceKey = k
+			break
+		}
+	}
+
+	finalResponse := map[string]interface{}{
+		resourceKey: allItems,
+	}
+
+	finalJSON, err := json.Marshal(finalResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(finalJSON, JSONResponse); err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
 
 func (client *Client) Get(ctx context.Context, path string, JSONResponse any, opts *RequestOpts) (*http.Response, error) {
@@ -255,13 +365,13 @@ func defaultOkCodes(method string) []int {
 	case "GET", "HEAD":
 		return []int{200}
 	case "POST":
-		return []int{201, 202}
+		return []int{200, 201, 202}
 	case "PUT":
-		return []int{201, 202}
+		return []int{200, 201, 202}
 	case "PATCH":
 		return []int{200, 202, 204}
 	case "DELETE":
-		return []int{202, 204}
+		return []int{200, 202, 204}
 	}
 
 	return []int{}

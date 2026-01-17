@@ -6,17 +6,16 @@ import (
 	"fmt"
 	"net/http"
 
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/hashcode"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
-	"github.com/vnpaycloud-console/gophercloud-utils/v2/terraform/hashcode"
-	"github.com/vnpaycloud-console/gophercloud/v2"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/blockstorage/v3/volumes"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/util"
 )
 
-const blockstorageV3VolumeFromBackupMicroversion = "3.47"
-const blockstorageV3ResizeOnlineInUse = "3.42"
-
-func flattenBlockStorageVolumeAttachments(v []volumes.Attachment) []map[string]interface{} {
+func flattenBlockStorageVolumeAttachments(v []dto.Attachment) []map[string]interface{} {
 	attachments := make([]map[string]interface{}, len(v))
 	for i, attachment := range v {
 		attachments[i] = make(map[string]interface{})
@@ -28,24 +27,25 @@ func flattenBlockStorageVolumeAttachments(v []volumes.Attachment) []map[string]i
 	return attachments
 }
 
-func blockStorageVolumeStateRefreshFunc(ctx context.Context, client *gophercloud.ServiceClient, volumeID string) retry.StateRefreshFunc {
+func blockStorageVolumeStateRefreshFunc(ctx context.Context, volumeClient *client.Client, volumeID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		v, err := volumes.Get(ctx, client, volumeID).Extract()
+		v := &dto.GetVolumeResponse{}
+		_, err := volumeClient.Get(ctx, client.ApiPath.VolumeWithId(volumeClient.GetProjectID(), volumeID), v, nil)
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
 				return v, "deleted", nil
 			}
 
 			return nil, "", err
 		}
 
-		if v.Status == "error" {
-			return v, v.Status, fmt.Errorf("The volume is in error status. " +
+		if v.Volume.Status == "error" {
+			return v, v.Volume.Status, fmt.Errorf("The volume is in error status. " +
 				"Please check with your cloud admin or check the Block Storage " +
 				"API logs to see why this error occurred.")
 		}
 
-		return v, v.Status, nil
+		return v, v.Volume.Status, nil
 	}
 }
 
@@ -58,7 +58,7 @@ func blockStorageVolumeAttachmentHash(v interface{}) int {
 	return hashcode.String(buf.String())
 }
 
-func expandBlockStorageVolumeSchedulerHints(v volumes.SchedulerHintOpts) map[string]interface{} {
+func expandBlockStorageVolumeSchedulerHints(v dto.SchedulerVolumeHintOpts) map[string]interface{} {
 	schedulerHints := make(map[string]interface{})
 
 	differentHost := make([]interface{}, len(v.DifferentHost))
@@ -103,8 +103,8 @@ func blockStorageVolumeSchedulerHintsHash(v interface{}) int {
 	return hashcode.String(buf.String())
 }
 
-func resourceBlockStorageVolumeSchedulerHints(schedulerHintsRaw map[string]interface{}) volumes.SchedulerHintOpts {
-	schedulerHints := volumes.SchedulerHintOpts{
+func resourceBlockStorageVolumeSchedulerHints(schedulerHintsRaw map[string]interface{}) dto.SchedulerVolumeHintOpts {
+	schedulerHints := dto.SchedulerVolumeHintOpts{
 		Query:                schedulerHintsRaw["query"].(string),
 		LocalToInstance:      schedulerHintsRaw["local_to_instance"].(string),
 		AdditionalProperties: schedulerHintsRaw["additional_properties"].(map[string]interface{}),

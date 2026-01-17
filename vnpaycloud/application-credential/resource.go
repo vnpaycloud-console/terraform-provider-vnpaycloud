@@ -5,14 +5,14 @@ import (
 	"log"
 	"net/http"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"github.com/vnpaycloud-console/gophercloud/v2"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/identity/v3/applicationcredentials"
 )
 
 func ResourceIdentityApplicationCredentialV3() *schema.Resource {
@@ -116,10 +116,10 @@ func ResourceIdentityApplicationCredentialV3() *schema.Resource {
 }
 
 func resourceIdentityApplicationCredentialV3Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	cfg := meta.(*config.Config)
-	identityClient, err := cfg.IdentityV3Client(ctx, util.GetRegion(d, cfg))
+	config := meta.(*config.Config)
+	identityClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack identity client: %s", err)
+		return diag.Errorf("Error creating VNPAYCloud identity client: %s", err)
 	}
 
 	tokenInfo, err := util.GetTokenInfo(ctx, identityClient)
@@ -132,14 +132,14 @@ func resourceIdentityApplicationCredentialV3Create(ctx context.Context, d *schem
 		expiresAt = &v
 	}
 
-	var accessRules []applicationcredentials.AccessRule
+	var accessRules []dto.AccessRule
 	if v, ok := d.GetOk("access_rules"); ok && v.(*schema.Set).Len() > 0 {
 		accessRules = expandIdentityApplicationCredentialAccessRulesV3(v.(*schema.Set).List())
 	} else {
-		accessRules = []applicationcredentials.AccessRule{}
+		accessRules = []dto.AccessRule{}
 	}
 
-	createOpts := applicationcredentials.CreateOpts{
+	createOpts := dto.CreateApplicationCredentialOpts{
 		Name:         d.Get("name").(string),
 		Description:  d.Get("description").(string),
 		Unrestricted: d.Get("unrestricted").(bool),
@@ -148,32 +148,37 @@ func resourceIdentityApplicationCredentialV3Create(ctx context.Context, d *schem
 		ExpiresAt:    expiresAt,
 	}
 
-	log.Printf("[DEBUG] openstack_identity_application_credential_v3 create options: %#v", createOpts)
+	log.Printf("[DEBUG] vnpaycloud_identity_application_credential create options: %#v", createOpts)
 
-	createOpts.Secret = d.Get("secret").(string)
-
-	applicationCredential, err := applicationcredentials.Create(ctx, identityClient, tokenInfo.UserID, createOpts).Extract()
-	if err != nil {
-		if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-			err := err.(gophercloud.ErrUnexpectedResponseCode)
-			return diag.Errorf("Error creating openstack_identity_application_credential_v3: %s", err.Body)
-		}
-		return diag.Errorf("Error creating openstack_identity_application_credential_v3: %s", err)
+	createRequest := dto.CreateApplicationCredentialRequest{
+		ApplicationCredential: createOpts,
 	}
 
-	d.SetId(applicationCredential.ID)
+	createOpts.Secret = d.Get("secret").(string)
+	createResponse := dto.CreateApplicationCredentialResponse{}
+
+	_, err = identityClient.Post(ctx, client.ApiPath.ApplicationCredential(tokenInfo.UserID), createRequest, &createResponse, nil)
+	if err != nil {
+		if client.ResponseCodeIs(err, http.StatusNotFound) {
+			err := err.(client.ErrUnexpectedResponseCode)
+			return diag.Errorf("Error creating vnpaycloud_identity_application_credential: %s", err.Body)
+		}
+		return diag.Errorf("Error creating vnpaycloud_identity_application_credential: %s", err)
+	}
+
+	d.SetId(createResponse.ApplicationCredential.ID)
 
 	// Secret is returned only once
-	d.Set("secret", applicationCredential.Secret)
+	d.Set("secret", createResponse.ApplicationCredential.Secret)
 
 	return resourceIdentityApplicationCredentialV3Read(ctx, d, meta)
 }
 
 func resourceIdentityApplicationCredentialV3Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	cfg := meta.(*config.Config)
-	identityClient, err := cfg.IdentityV3Client(ctx, util.GetRegion(d, cfg))
+	config := meta.(*config.Config)
+	identityClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack identity client: %s", err)
+		return diag.Errorf("Error creating VNPAYCloud identity client: %s", err)
 	}
 
 	tokenInfo, err := util.GetTokenInfo(ctx, identityClient)
@@ -181,12 +186,15 @@ func resourceIdentityApplicationCredentialV3Read(ctx context.Context, d *schema.
 		return diag.FromErr(err)
 	}
 
-	applicationCredential, err := applicationcredentials.Get(ctx, identityClient, tokenInfo.UserID, d.Id()).Extract()
+	getResponse := dto.GetApplicationCredentialResponse{}
+	_, err = identityClient.Get(ctx, client.ApiPath.ApplicationCredentialWithId(tokenInfo.UserID, d.Id()), &getResponse, nil)
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving openstack_identity_application_credential_v3"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving vnpaycloud_identity_application_credential"))
 	}
 
-	log.Printf("[DEBUG] Retrieved openstack_identity_application_credential_v3 %s: %#v", d.Id(), applicationCredential)
+	applicationCredential := getResponse.ApplicationCredential
+
+	log.Printf("[DEBUG] Retrieved vnpaycloud_identity_application_credential %s: %#v", d.Id(), applicationCredential)
 
 	d.Set("name", applicationCredential.Name)
 	d.Set("description", applicationCredential.Description)
@@ -194,7 +202,7 @@ func resourceIdentityApplicationCredentialV3Read(ctx context.Context, d *schema.
 	d.Set("roles", flattenIdentityApplicationCredentialRolesV3(applicationCredential.Roles))
 	d.Set("access_rules", flattenIdentityApplicationCredentialAccessRulesV3(applicationCredential.AccessRules))
 	d.Set("project_id", applicationCredential.ProjectID)
-	d.Set("region", util.GetRegion(d, cfg))
+	d.Set("region", util.GetRegion(d, config))
 
 	if applicationCredential.ExpiresAt == (time.Time{}) {
 		d.Set("expires_at", "")
@@ -206,10 +214,10 @@ func resourceIdentityApplicationCredentialV3Read(ctx context.Context, d *schema.
 }
 
 func resourceIdentityApplicationCredentialV3Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	cfg := meta.(*config.Config)
-	identityClient, err := cfg.IdentityV3Client(ctx, util.GetRegion(d, cfg))
+	config := meta.(*config.Config)
+	identityClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack identity client: %s", err)
+		return diag.Errorf("Error creating VNPAYCloud identity client: %s", err)
 	}
 
 	tokenInfo, err := util.GetTokenInfo(ctx, identityClient)
@@ -217,9 +225,9 @@ func resourceIdentityApplicationCredentialV3Delete(ctx context.Context, d *schem
 		return diag.FromErr(err)
 	}
 
-	err = applicationcredentials.Delete(ctx, identityClient, tokenInfo.UserID, d.Id()).ExtractErr()
+	_, err = identityClient.Delete(ctx, client.ApiPath.ApplicationCredentialWithId(tokenInfo.UserID, d.Id()), nil)
 	if err != nil {
-		err = util.CheckDeleted(d, err, "Error deleting openstack_identity_application_credential_v3")
+		err = util.CheckDeleted(d, err, "Error deleting vnpaycloud_identity_application_credential")
 		if err != nil {
 			return diag.FromErr(err)
 		}

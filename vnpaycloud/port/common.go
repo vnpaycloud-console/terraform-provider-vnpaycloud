@@ -7,47 +7,34 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/hashcode"
+	"terraform-provider-vnpaycloud/vnpaycloud/types"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
-	"github.com/vnpaycloud-console/gophercloud-utils/v2/terraform/hashcode"
-	"github.com/vnpaycloud-console/gophercloud/v2"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/dns"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/extradhcpopts"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/portsbinding"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/portsecurity"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/qos/policies"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/ports"
 )
 
-type portExtended struct {
-	ports.Port
-	extradhcpopts.ExtraDHCPOptsExt
-	portsecurity.PortSecurityExt
-	portsbinding.PortsBindingExt
-	dns.PortDNSExt
-	policies.QoSPolicyExt
-}
-
-func resourceNetworkingPortV2StateRefreshFunc(ctx context.Context, client *gophercloud.ServiceClient, portID string) retry.StateRefreshFunc {
+func resourceNetworkingPortStateRefreshFunc(ctx context.Context, c *client.Client, portID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		n, err := ports.Get(ctx, client, portID).Extract()
+		getResp := &dto.GetPortResponse{}
+		_, err := c.Get(ctx, client.ApiPath.PortWithId(portID), getResp, nil)
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				return n, "DELETED", nil
+			if client.ResponseCodeIs(err, http.StatusNotFound) {
+				return getResp.Port, "DELETED", nil
 			}
 
-			return n, "", err
+			return getResp.Port, "", err
 		}
 
-		return n, n.Status, nil
+		return getResp.Port, getResp.Port.Status, nil
 	}
 }
 
-func expandNetworkingPortDHCPOptsV2Create(dhcpOpts *schema.Set) []extradhcpopts.CreateExtraDHCPOpt {
-	var extraDHCPOpts []extradhcpopts.CreateExtraDHCPOpt
+func expandNetworkingPortDHCPOptsCreate(dhcpOpts *schema.Set) []dto.CreateExtraDHCPOpt {
+	var extraDHCPOpts []dto.CreateExtraDHCPOpt
 
 	if dhcpOpts != nil {
 		for _, raw := range dhcpOpts.List() {
@@ -57,10 +44,10 @@ func expandNetworkingPortDHCPOptsV2Create(dhcpOpts *schema.Set) []extradhcpopts.
 			optName := rawMap["name"].(string)
 			optValue := rawMap["value"].(string)
 
-			extraDHCPOpts = append(extraDHCPOpts, extradhcpopts.CreateExtraDHCPOpt{
+			extraDHCPOpts = append(extraDHCPOpts, dto.CreateExtraDHCPOpt{
 				OptName:   optName,
 				OptValue:  optValue,
-				IPVersion: gophercloud.IPVersion(ipVersion),
+				IPVersion: types.IPVersion(ipVersion),
 			})
 		}
 	}
@@ -68,8 +55,8 @@ func expandNetworkingPortDHCPOptsV2Create(dhcpOpts *schema.Set) []extradhcpopts.
 	return extraDHCPOpts
 }
 
-func expandNetworkingPortDHCPOptsV2Update(oldDHCPopts, newDHCPopts *schema.Set) []extradhcpopts.UpdateExtraDHCPOpt {
-	var extraDHCPOpts []extradhcpopts.UpdateExtraDHCPOpt
+func expandNetworkingPortDHCPOptsUpdate(oldDHCPopts, newDHCPopts *schema.Set) []dto.UpdateExtraDHCPOpt {
+	var extraDHCPOpts []dto.UpdateExtraDHCPOpt
 	var newOptNames []string
 
 	if newDHCPopts != nil {
@@ -82,10 +69,10 @@ func expandNetworkingPortDHCPOptsV2Update(oldDHCPopts, newDHCPopts *schema.Set) 
 			// DHCP option name is the primary key, we will check this key below
 			newOptNames = append(newOptNames, optName)
 
-			extraDHCPOpts = append(extraDHCPOpts, extradhcpopts.UpdateExtraDHCPOpt{
+			extraDHCPOpts = append(extraDHCPOpts, dto.UpdateExtraDHCPOpt{
 				OptName:   optName,
 				OptValue:  &optValue,
-				IPVersion: gophercloud.IPVersion(ipVersion),
+				IPVersion: types.IPVersion(ipVersion),
 			})
 		}
 	}
@@ -98,7 +85,7 @@ func expandNetworkingPortDHCPOptsV2Update(oldDHCPopts, newDHCPopts *schema.Set) 
 
 			// if we already add a new option with the same name, it means that we update it, no need to delete
 			if !util.StrSliceContains(newOptNames, optName) {
-				extraDHCPOpts = append(extraDHCPOpts, extradhcpopts.UpdateExtraDHCPOpt{
+				extraDHCPOpts = append(extraDHCPOpts, dto.UpdateExtraDHCPOpt{
 					OptName:  optName,
 					OptValue: nil,
 				})
@@ -109,7 +96,7 @@ func expandNetworkingPortDHCPOptsV2Update(oldDHCPopts, newDHCPopts *schema.Set) 
 	return extraDHCPOpts
 }
 
-func flattenNetworkingPortDHCPOptsV2(dhcpOpts extradhcpopts.ExtraDHCPOptsExt) []map[string]interface{} {
+func flattenNetworkingPortDHCPOpts(dhcpOpts dto.ExtraDHCPOptsExt) []map[string]interface{} {
 	dhcpOptsSet := make([]map[string]interface{}, len(dhcpOpts.ExtraDHCPOpts))
 
 	for i, dhcpOpt := range dhcpOpts.ExtraDHCPOpts {
@@ -123,13 +110,13 @@ func flattenNetworkingPortDHCPOptsV2(dhcpOpts extradhcpopts.ExtraDHCPOptsExt) []
 	return dhcpOptsSet
 }
 
-func expandNetworkingPortAllowedAddressPairsV2(allowedAddressPairs *schema.Set) []ports.AddressPair {
+func expandNetworkingPortAllowedAddressPairs(allowedAddressPairs *schema.Set) []dto.AddressPair {
 	rawPairs := allowedAddressPairs.List()
 
-	pairs := make([]ports.AddressPair, len(rawPairs))
+	pairs := make([]dto.AddressPair, len(rawPairs))
 	for i, raw := range rawPairs {
 		rawMap := raw.(map[string]interface{})
-		pairs[i] = ports.AddressPair{
+		pairs[i] = dto.AddressPair{
 			IPAddress:  rawMap["ip_address"].(string),
 			MACAddress: rawMap["mac_address"].(string),
 		}
@@ -138,7 +125,7 @@ func expandNetworkingPortAllowedAddressPairsV2(allowedAddressPairs *schema.Set) 
 	return pairs
 }
 
-func flattenNetworkingPortAllowedAddressPairsV2(mac string, allowedAddressPairs []ports.AddressPair) []map[string]interface{} {
+func flattenNetworkingPortAllowedAddressPairs(mac string, allowedAddressPairs []dto.AddressPair) []map[string]interface{} {
 	pairs := make([]map[string]interface{}, len(allowedAddressPairs))
 
 	for i, pair := range allowedAddressPairs {
@@ -155,7 +142,7 @@ func flattenNetworkingPortAllowedAddressPairsV2(mac string, allowedAddressPairs 
 	return pairs
 }
 
-func expandNetworkingPortFixedIPV2(d *schema.ResourceData) interface{} {
+func expandNetworkingPortFixedIP(d *schema.ResourceData) interface{} {
 	// If no_fixed_ip was specified, then just return an empty array.
 	// Since no_fixed_ip is mutually exclusive to fixed_ip,
 	// we can safely do this.
@@ -172,7 +159,7 @@ func expandNetworkingPortFixedIPV2(d *schema.ResourceData) interface{} {
 		return nil
 	}
 
-	ip := make([]ports.IP, 0, len(rawIP))
+	ip := make([]dto.IP, 0, len(rawIP))
 	for _, raw := range rawIP {
 		if raw == nil {
 			continue
@@ -183,7 +170,7 @@ func expandNetworkingPortFixedIPV2(d *schema.ResourceData) interface{} {
 		if subnetID == "" && ipAddress == "" {
 			continue
 		}
-		ip = append(ip, ports.IP{
+		ip = append(ip, dto.IP{
 			SubnetID:  rawMap["subnet_id"].(string),
 			IPAddress: rawMap["ip_address"].(string),
 		})
@@ -191,7 +178,7 @@ func expandNetworkingPortFixedIPV2(d *schema.ResourceData) interface{} {
 	return ip
 }
 
-func resourceNetworkingPortV2AllowedAddressPairsHash(v interface{}) int {
+func resourceNetworkingPortAllowedAddressPairsHash(v interface{}) int {
 	var buf bytes.Buffer
 	m := v.(map[string]interface{})
 	buf.WriteString(fmt.Sprintf("%s-%s", m["ip_address"].(string), m["mac_address"].(string)))
@@ -199,7 +186,7 @@ func resourceNetworkingPortV2AllowedAddressPairsHash(v interface{}) int {
 	return hashcode.String(buf.String())
 }
 
-func expandNetworkingPortFixedIPToStringSlice(fixedIPs []ports.IP) []string {
+func expandNetworkingPortFixedIPToStringSlice(fixedIPs []dto.FixedIP) []string {
 	s := make([]string, len(fixedIPs))
 	for i, fixedIP := range fixedIPs {
 		s[i] = fixedIP.IPAddress
@@ -208,7 +195,7 @@ func expandNetworkingPortFixedIPToStringSlice(fixedIPs []ports.IP) []string {
 	return s
 }
 
-func flattenNetworkingPortBindingV2(port portExtended) interface{} {
+func flattenNetworkingPortBinding(port dto.PortExtended) interface{} {
 	var portBinding []map[string]interface{}
 	var profile interface{}
 
@@ -218,7 +205,7 @@ func flattenNetworkingPortBindingV2(port portExtended) interface{} {
 		// port resource.
 		tmp, err := json.Marshal(port.Profile)
 		if err != nil {
-			log.Printf("[DEBUG] flattenNetworkingPortBindingV2: Cannot marshal port.Profile: %s", err)
+			log.Printf("[DEBUG] flattenNetworkingPortBinding: Cannot marshal port.Profile: %s", err)
 		}
 		profile = string(tmp)
 	}
@@ -233,7 +220,7 @@ func flattenNetworkingPortBindingV2(port portExtended) interface{} {
 
 		p, err := json.Marshal(v)
 		if err != nil {
-			log.Printf("[DEBUG] flattenNetworkingPortBindingV2: Cannot marshal %s key value: %s", k, err)
+			log.Printf("[DEBUG] flattenNetworkingPortBinding: Cannot marshal %s key value: %s", k, err)
 		}
 		vifDetails[k] = string(p)
 	}

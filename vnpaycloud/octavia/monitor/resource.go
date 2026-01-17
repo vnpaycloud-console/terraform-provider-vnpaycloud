@@ -6,6 +6,8 @@ import (
 	"log"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
@@ -14,19 +16,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/loadbalancer/v2/monitors"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/loadbalancer/v2/pools"
 )
 
-func ResourceMonitorV2() *schema.Resource {
+func ResourceMonitor() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceMonitorV2Create,
-		ReadContext:   resourceMonitorV2Read,
-		UpdateContext: resourceMonitorV2Update,
-		DeleteContext: resourceMonitorV2Delete,
+		CreateContext: resourceMonitorCreate,
+		ReadContext:   resourceMonitorRead,
+		UpdateContext: resourceMonitorUpdate,
+		DeleteContext: resourceMonitorDelete,
 		Importer: &schema.ResourceImporter{
-			StateContext: resourceMonitorV2Import,
+			StateContext: resourceMonitorImport,
 		},
 
 		Timeouts: &schema.ResourceTimeout{
@@ -138,18 +137,18 @@ func ResourceMonitorV2() *schema.Resource {
 	}
 }
 
-func resourceMonitorV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceMonitorCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
-	adminStateUp := d.Get("admin_state_up").(bool)
+	//adminStateUp := d.Get("admin_state_up").(bool)
 
-	createOpts := monitors.CreateOpts{
-		PoolID:         d.Get("pool_id").(string),
-		TenantID:       d.Get("tenant_id").(string),
+	createOpts := dto.CreateMonitorOpts{
+		PoolID: d.Get("pool_id").(string),
+		//TenantID:       d.Get("tenant_id").(string),
 		Type:           d.Get("type").(string),
 		Delay:          d.Get("delay").(int),
 		Timeout:        d.Get("timeout").(int),
@@ -157,31 +156,33 @@ func resourceMonitorV2Create(ctx context.Context, d *schema.ResourceData, meta i
 		MaxRetriesDown: d.Get("max_retries_down").(int),
 		URLPath:        d.Get("url_path").(string),
 		HTTPMethod:     d.Get("http_method").(string),
-		HTTPVersion:    d.Get("http_version").(string),
-		ExpectedCodes:  d.Get("expected_codes").(string),
-		Name:           d.Get("name").(string),
-		DomainName:     d.Get("domain_name").(string),
-		AdminStateUp:   &adminStateUp,
+		//HTTPVersion:    d.Get("http_version").(string),
+		ExpectedCodes: d.Get("expected_codes").(string),
+		Name:          d.Get("name").(string),
+		//DomainName:     d.Get("domain_name").(string),
+		//AdminStateUp:   &adminStateUp,
 	}
 
 	// Get a clean copy of the parent pool.
 	poolID := d.Get("pool_id").(string)
-	parentPool, err := pools.Get(ctx, lbClient, poolID).Extract()
+	poolResp := &dto.GetPoolResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasPoolWithId(poolID), poolResp, &client.RequestOpts{})
 	if err != nil {
 		return diag.Errorf("Unable to retrieve parent vnpaycloud_lb_pool %s: %s", poolID, err)
 	}
+	parentPool := &poolResp.Pool
 
 	// Wait for parent pool to become active before continuing.
 	timeout := d.Timeout(schema.TimeoutCreate)
-	err = shared.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBPool(ctx, tfClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	log.Printf("[DEBUG] vnpaycloud_lb_monitor create options: %#v", createOpts)
-	var monitor *monitors.Monitor
+	hmResp := &dto.CreateMonitorResponse{}
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		monitor, err = monitors.Create(ctx, lbClient, createOpts).Extract()
+		_, err = tfClient.Post(ctx, client.ApiPath.LbaasHealthMonitor, &dto.CreateMonitorRequest{HealthMonitor: createOpts}, hmResp, nil)
 		if err != nil {
 			return util.CheckForRetryableError(err)
 		}
@@ -191,29 +192,33 @@ func resourceMonitorV2Create(ctx context.Context, d *schema.ResourceData, meta i
 	if err != nil {
 		return diag.Errorf("Unable to create vnpaycloud_lb_monitor: %s", err)
 	}
+	monitor := &hmResp.HealthMonitor
 
 	// Wait for monitor to become active before continuing
-	err = shared.WaitForLBV2Monitor(ctx, lbClient, parentPool, monitor, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBMonitor(ctx, tfClient, parentPool, monitor, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	d.SetId(monitor.ID)
 
-	return resourceMonitorV2Read(ctx, d, meta)
+	return resourceMonitorRead(ctx, d, meta)
 }
 
-func resourceMonitorV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceMonitorRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
-	monitor, err := monitors.Get(ctx, lbClient, d.Id()).Extract()
+	hmResp := &dto.GetMonitorResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasHealthMonitorWithId(d.Id()), hmResp, &client.RequestOpts{})
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "monitor"))
 	}
+
+	monitor := hmResp.HealthMonitor
 
 	log.Printf("[DEBUG] Retrieved vnpaycloud_lb_monitor %s: %#v", d.Id(), monitor)
 
@@ -239,149 +244,45 @@ func resourceMonitorV2Read(ctx context.Context, d *schema.ResourceData, meta int
 	return nil
 }
 
-func resourceMonitorV2Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	var hasChange bool
-	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
-	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
-	}
-
-	var opts monitors.UpdateOpts
-
-	if d.HasChange("url_path") {
-		hasChange = true
-		opts.URLPath = d.Get("url_path").(string)
-	}
-	if d.HasChange("expected_codes") {
-		hasChange = true
-		opts.ExpectedCodes = d.Get("expected_codes").(string)
-	}
-	if d.HasChange("delay") {
-		hasChange = true
-		opts.Delay = d.Get("delay").(int)
-	}
-	if d.HasChange("timeout") {
-		hasChange = true
-		opts.Timeout = d.Get("timeout").(int)
-	}
-	if d.HasChange("max_retries") {
-		hasChange = true
-		opts.MaxRetries = d.Get("max_retries").(int)
-	}
-	if d.HasChange("max_retries_down") {
-		hasChange = true
-		opts.MaxRetriesDown = d.Get("max_retries_down").(int)
-	}
-	if d.HasChange("admin_state_up") {
-		hasChange = true
-		asu := d.Get("admin_state_up").(bool)
-		opts.AdminStateUp = &asu
-	}
-	if d.HasChange("name") {
-		hasChange = true
-		name := d.Get("name").(string)
-		opts.Name = &name
-	}
-	if d.HasChange("domain_name") {
-		hasChange = true
-		v := d.Get("domain_name").(string)
-		opts.DomainName = &v
-	}
-	if d.HasChange("http_method") {
-		hasChange = true
-		opts.HTTPMethod = d.Get("http_method").(string)
-	}
-	if d.HasChange("http_version") {
-		hasChange = true
-		v := d.Get("http_version").(string)
-		opts.HTTPVersion = &v
-	}
-
-	if !hasChange {
-		log.Printf("[DEBUG] vnpaycloud_lb_monitor %s: nothing to update", d.Id())
-		return resourceMonitorV2Read(ctx, d, meta)
-	}
-
-	// Get a clean copy of the parent pool.
-	poolID := d.Get("pool_id").(string)
-	parentPool, err := pools.Get(ctx, lbClient, poolID).Extract()
-	if err != nil {
-		return diag.Errorf("Unable to retrieve parent vnpaycloud_lb_pool %s: %s", poolID, err)
-	}
-
-	// Get a clean copy of the monitor.
-	monitor, err := monitors.Get(ctx, lbClient, d.Id()).Extract()
-	if err != nil {
-		return diag.Errorf("Unable to retrieve vnpaycloud_lb_monitor %s: %s", d.Id(), err)
-	}
-
-	// Wait for parent pool to become active before continuing.
-	timeout := d.Timeout(schema.TimeoutUpdate)
-	err = shared.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	// Wait for monitor to become active before continuing.
-	err = shared.WaitForLBV2Monitor(ctx, lbClient, parentPool, monitor, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	log.Printf("[DEBUG] vnpaycloud_lb_monitor %s update options: %#v", d.Id(), opts)
-	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		_, err = monitors.Update(ctx, lbClient, d.Id(), opts).Extract()
-		if err != nil {
-			return util.CheckForRetryableError(err)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return diag.Errorf("Unable to update vnpaycloud_lb_monitor %s: %s", d.Id(), err)
-	}
-
-	// Wait for monitor to become active before continuing
-	err = shared.WaitForLBV2Monitor(ctx, lbClient, parentPool, monitor, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return resourceMonitorV2Read(ctx, d, meta)
+func resourceMonitorUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	return resourceMonitorRead(ctx, d, meta)
 }
 
-func resourceMonitorV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceMonitorDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
 	// Get a clean copy of the parent pool.
 	poolID := d.Get("pool_id").(string)
-	parentPool, err := pools.Get(ctx, lbClient, poolID).Extract()
+	poolResp := &dto.GetPoolResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasPoolWithId(poolID), poolResp, &client.RequestOpts{})
 	if err != nil {
 		return diag.Errorf("Unable to retrieve parent vnpaycloud_lb_pool (%s)"+
 			" for the vnpaycloud_lb_monitor: %s", poolID, err)
 	}
+	parentPool := &poolResp.Pool
 
 	// Get a clean copy of the monitor.
-	monitor, err := monitors.Get(ctx, lbClient, d.Id()).Extract()
+	monitorResp := &dto.GetMonitorResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasHealthMonitorWithId(d.Id()), monitorResp, &client.RequestOpts{})
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Unable to retrieve vnpaycloud_lb_monitor"))
 	}
+	monitor := &monitorResp.HealthMonitor
 
 	// Wait for parent pool to become active before continuing
 	timeout := d.Timeout(schema.TimeoutUpdate)
-	err = shared.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBPool(ctx, tfClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	log.Printf("[DEBUG] Deleting vnpaycloud_lb_monitor %s", d.Id())
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		err = monitors.Delete(ctx, lbClient, d.Id()).ExtractErr()
+		_, err = tfClient.Delete(ctx, client.ApiPath.LbaasHealthMonitorWithId(d.Id()), nil)
 		if err != nil {
 			return util.CheckForRetryableError(err)
 		}
@@ -393,7 +294,7 @@ func resourceMonitorV2Delete(ctx context.Context, d *schema.ResourceData, meta i
 	}
 
 	// Wait for monitor to become DELETED
-	err = shared.WaitForLBV2Monitor(ctx, lbClient, parentPool, monitor, "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
+	err = shared.WaitForLBMonitor(ctx, tfClient, parentPool, monitor, "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -401,7 +302,7 @@ func resourceMonitorV2Delete(ctx context.Context, d *schema.ResourceData, meta i
 	return nil
 }
 
-func resourceMonitorV2Import(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+func resourceMonitorImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	parts := strings.SplitN(d.Id(), "/", 2)
 	monitorID := parts[0]
 

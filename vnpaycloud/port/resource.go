@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"log"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/types"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
@@ -14,22 +15,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/attributestags"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/dns"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/extradhcpopts"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/portsbinding"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/portsecurity"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/qos/policies"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/ports"
 )
 
-func ResourceNetworkingPortV2() *schema.Resource {
+func ResourceNetworkingPort() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceNetworkingPortV2Create,
-		ReadContext:   resourceNetworkingPortV2Read,
-		UpdateContext: resourceNetworkingPortV2Update,
-		DeleteContext: resourceNetworkingPortV2Delete,
+		CreateContext: resourceNetworkingPortCreate,
+		ReadContext:   resourceNetworkingPortRead,
+		UpdateContext: resourceNetworkingPortUpdate,
+		DeleteContext: resourceNetworkingPortDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -143,7 +136,7 @@ func ResourceNetworkingPortV2() *schema.Resource {
 				Type:     schema.TypeSet,
 				Optional: true,
 				ForceNew: false,
-				Set:      resourceNetworkingPortV2AllowedAddressPairsHash,
+				Set:      resourceNetworkingPortAllowedAddressPairsHash,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"ip_address": {
@@ -288,9 +281,9 @@ func ResourceNetworkingPortV2() *schema.Resource {
 	}
 }
 
-func resourceNetworkingPortV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingPortCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
@@ -304,8 +297,8 @@ func resourceNetworkingPortV2Create(ctx context.Context, d *schema.ResourceData,
 	}
 
 	allowedAddressPairs := d.Get("allowed_address_pairs").(*schema.Set)
-	createOpts := types.PortCreateOpts{
-		ports.CreateOpts{
+	createReq := dto.CreatePortRequest{
+		Port: dto.CreatePortOpts{
 			Name:                d.Get("name").(string),
 			Description:         d.Get("description").(string),
 			NetworkID:           d.Get("network_id").(string),
@@ -313,53 +306,42 @@ func resourceNetworkingPortV2Create(ctx context.Context, d *schema.ResourceData,
 			TenantID:            d.Get("tenant_id").(string),
 			DeviceOwner:         d.Get("device_owner").(string),
 			DeviceID:            d.Get("device_id").(string),
-			FixedIPs:            expandNetworkingPortFixedIPV2(d),
-			AllowedAddressPairs: expandNetworkingPortAllowedAddressPairsV2(allowedAddressPairs),
+			FixedIPs:            expandNetworkingPortFixedIP(d),
+			AllowedAddressPairs: expandNetworkingPortAllowedAddressPairs(allowedAddressPairs),
+			ValueSpecs:          util.MapValueSpecs(d),
 		},
-		util.MapValueSpecs(d),
 	}
 
 	if v, ok := util.GetOkExists(d, "admin_state_up"); ok {
 		asu := v.(bool)
-		createOpts.AdminStateUp = &asu
+		createReq.Port.AdminStateUp = &asu
 	}
 
 	if v, ok := util.GetOkExists(d, "virtual_ip"); ok {
 		asu := v.(bool)
-		createOpts.VirtualIp = &asu
+		createReq.Port.VirtualIp = &asu
 	}
 
 	if noSecurityGroups {
 		securityGroups = []string{}
-		createOpts.SecurityGroups = &securityGroups
+		createReq.Port.SecurityGroups = &securityGroups
 	}
 
 	// Only set SecurityGroups if one was specified.
 	// Otherwise this would mimic the no_security_groups action.
 	if len(securityGroups) > 0 {
-		createOpts.SecurityGroups = &securityGroups
+		createReq.Port.SecurityGroups = &securityGroups
 	}
-
-	// Declare a finalCreateOpts interface to hold either the
-	// base create options or the extended DHCP options.
-	var finalCreateOpts ports.CreateOptsBuilder
-	finalCreateOpts = createOpts
 
 	dhcpOpts := d.Get("extra_dhcp_option").(*schema.Set)
 	if dhcpOpts.Len() > 0 {
-		finalCreateOpts = extradhcpopts.CreateOptsExt{
-			CreateOptsBuilder: createOpts,
-			ExtraDHCPOpts:     expandNetworkingPortDHCPOptsV2Create(dhcpOpts),
-		}
+		createReq.Port.ExtraDHCPOpts = expandNetworkingPortDHCPOptsCreate(dhcpOpts)
 	}
 
 	// Add the port security attribute if specified.
 	if v, ok := util.GetOkExists(d, "port_security_enabled"); ok {
 		portSecurityEnabled := v.(bool)
-		finalCreateOpts = portsecurity.PortCreateOptsExt{
-			CreateOptsBuilder:   finalCreateOpts,
-			PortSecurityEnabled: &portSecurityEnabled,
-		}
+		createReq.Port.PortSecurityEnabled = &portSecurityEnabled
 	}
 
 	// Add the port binding parameters if specified.
@@ -377,44 +359,37 @@ func resourceNetworkingPortV2Create(ctx context.Context, d *schema.ResourceData,
 				}
 			}
 
-			finalCreateOpts = portsbinding.CreateOptsExt{
-				CreateOptsBuilder: finalCreateOpts,
-				HostID:            binding["host_id"].(string),
-				Profile:           profile,
-				VNICType:          binding["vnic_type"].(string),
-			}
+			createReq.Port.HostID = binding["host_id"].(string)
+			createReq.Port.Profile = profile
+			createReq.Port.VNICType = binding["vnic_type"].(string)
 		}
 	}
 
 	if dnsName := d.Get("dns_name").(string); dnsName != "" {
-		finalCreateOpts = dns.PortCreateOptsExt{
-			CreateOptsBuilder: finalCreateOpts,
-			DNSName:           dnsName,
-		}
+		createReq.Port.DNSName = dnsName
 	}
 
 	if qosPolicyID := d.Get("qos_policy_id").(string); qosPolicyID != "" {
-		finalCreateOpts = policies.PortCreateOptsExt{
-			CreateOptsBuilder: finalCreateOpts,
-			QoSPolicyID:       qosPolicyID,
-		}
+		createReq.Port.QoSPolicyID = qosPolicyID
 	}
 
-	log.Printf("[DEBUG] vnpaycloud_networking_port create options: %#v", finalCreateOpts)
+	log.Printf("[DEBUG] vnpaycloud_networking_port create options: %#v", createReq)
 
 	// Create a Neutron port and set extra options if they're specified.
-	var port portExtended
+	createResp := dto.CreatePortResponse{}
 
-	err = ports.Create(ctx, networkingClient, finalCreateOpts).ExtractInto(&port)
+	_, err = networkingClient.Post(ctx, client.ApiPath.Port, createReq, &createResp, nil)
 	if err != nil {
 		return diag.Errorf("Error creating vnpaycloud_networking_port: %s", err)
 	}
+
+	port := createResp.Port
 
 	log.Printf("[DEBUG] Waiting for vnpaycloud_networking_port %s to become available.", port.ID)
 
 	stateConf := &retry.StateChangeConf{
 		Target:     []string{"ACTIVE", "DOWN"},
-		Refresh:    resourceNetworkingPortV2StateRefreshFunc(ctx, networkingClient, port.ID),
+		Refresh:    resourceNetworkingPortStateRefreshFunc(ctx, networkingClient, port.ID),
 		Timeout:    d.Timeout(schema.TimeoutCreate),
 		Delay:      5 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -427,32 +402,34 @@ func resourceNetworkingPortV2Create(ctx context.Context, d *schema.ResourceData,
 
 	d.SetId(port.ID)
 
-	tags := util.NetworkingAttributesTags(d)
-	if len(tags) > 0 {
-		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
-		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "ports", port.ID, tagOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error setting tags on vnpaycloud_networking_port %s: %s", port.ID, err)
-		}
-		log.Printf("[DEBUG] Set tags %s on vnpaycloud_networking_port %s", tags, port.ID)
-	}
+	// tags := util.NetworkingAttributesTags(d)
+	// if len(tags) > 0 {
+	// 	tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
+	// 	tags, err := attributestags.ReplaceAll(ctx, networkingClient, "ports", port.ID, tagOpts).Extract()
+	// 	if err != nil {
+	// 		return diag.Errorf("Error setting tags on vnpaycloud_networking_port %s: %s", port.ID, err)
+	// 	}
+	// 	log.Printf("[DEBUG] Set tags %s on vnpaycloud_networking_port %s", tags, port.ID)
+	// }
 
 	log.Printf("[DEBUG] Created vnpaycloud_networking_port %s: %#v", port.ID, port)
-	return resourceNetworkingPortV2Read(ctx, d, meta)
+	return resourceNetworkingPortRead(ctx, d, meta)
 }
 
-func resourceNetworkingPortV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingPortRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
-	var port portExtended
-	err = ports.Get(ctx, networkingClient, d.Id()).ExtractInto(&port)
+	getResp := dto.GetPortResponse{}
+	_, err = networkingClient.Get(ctx, client.ApiPath.PortWithId(d.Id()), &getResp, nil)
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Error getting vnpaycloud_networking_port"))
 	}
+
+	port := getResp.Port
 
 	log.Printf("[DEBUG] Retrieved vnpaycloud_networking_port %s: %#v", d.Id(), port)
 
@@ -477,10 +454,10 @@ func resourceNetworkingPortV2Read(ctx context.Context, d *schema.ResourceData, m
 	// the port can have the "default" group automatically applied.
 	d.Set("all_security_group_ids", port.SecurityGroups)
 
-	d.Set("allowed_address_pairs", flattenNetworkingPortAllowedAddressPairsV2(port.MACAddress, port.AllowedAddressPairs))
-	d.Set("extra_dhcp_option", flattenNetworkingPortDHCPOptsV2(port.ExtraDHCPOptsExt))
+	d.Set("allowed_address_pairs", flattenNetworkingPortAllowedAddressPairs(port.MACAddress, port.AllowedAddressPairs))
+	d.Set("extra_dhcp_option", flattenNetworkingPortDHCPOpts(port.ExtraDHCPOptsExt))
 	d.Set("port_security_enabled", port.PortSecurityEnabled)
-	d.Set("binding", flattenNetworkingPortBindingV2(port))
+	d.Set("binding", flattenNetworkingPortBinding(port))
 	d.Set("dns_name", port.DNSName)
 	d.Set("dns_assignment", port.DNSAssignment)
 	d.Set("qos_policy_id", port.QoSPolicyID)
@@ -490,9 +467,9 @@ func resourceNetworkingPortV2Read(ctx context.Context, d *schema.ResourceData, m
 	return nil
 }
 
-func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingPortUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
@@ -506,12 +483,15 @@ func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData,
 	}
 
 	var hasChange bool
-	var updateOpts ports.UpdateOpts
+	var updateOpts dto.UpdatePortOpts
+	updateReq := dto.UpdatePortRequest{
+		UpdatePortOpts: updateOpts,
+	}
 
 	if d.HasChange("allowed_address_pairs") {
 		hasChange = true
 		allowedAddressPairs := d.Get("allowed_address_pairs").(*schema.Set)
-		aap := expandNetworkingPortAllowedAddressPairsV2(allowedAddressPairs)
+		aap := expandNetworkingPortAllowedAddressPairs(allowedAddressPairs)
 		updateOpts.AllowedAddressPairs = &aap
 	}
 
@@ -565,23 +545,17 @@ func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData,
 	}
 
 	if d.HasChange("fixed_ip") || d.HasChange("no_fixed_ip") {
-		fixedIPs := expandNetworkingPortFixedIPV2(d)
+		fixedIPs := expandNetworkingPortFixedIP(d)
 		if fixedIPs != nil {
 			hasChange = true
 			updateOpts.FixedIPs = fixedIPs
 		}
 	}
 
-	var finalUpdateOpts ports.UpdateOptsBuilder
-	finalUpdateOpts = updateOpts
-
 	if d.HasChange("port_security_enabled") {
 		hasChange = true
 		portSecurityEnabled := d.Get("port_security_enabled").(bool)
-		finalUpdateOpts = portsecurity.PortUpdateOptsExt{
-			UpdateOptsBuilder:   finalUpdateOpts,
-			PortSecurityEnabled: &portSecurityEnabled,
-		}
+		updateReq.PortSecurityEnabled = &portSecurityEnabled
 	}
 
 	// Next, perform any dhcp option changes.
@@ -595,16 +569,12 @@ func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData,
 		deleteDHCPOpts := oldDHCPOpts.Difference(newDHCPOpts)
 		addDHCPOpts := newDHCPOpts.Difference(oldDHCPOpts)
 
-		updateExtraDHCPOpts := expandNetworkingPortDHCPOptsV2Update(deleteDHCPOpts, addDHCPOpts)
-		finalUpdateOpts = extradhcpopts.UpdateOptsExt{
-			UpdateOptsBuilder: finalUpdateOpts,
-			ExtraDHCPOpts:     updateExtraDHCPOpts,
-		}
+		updateExtraDHCPOpts := expandNetworkingPortDHCPOptsUpdate(deleteDHCPOpts, addDHCPOpts)
+		updateReq.ExtraDHCPOpts = updateExtraDHCPOpts
 	}
 
 	// Next, perform port binding option changes.
 	if d.HasChange("binding") {
-		var newOpts portsbinding.UpdateOptsExt
 		var bindingChanged bool
 
 		profile := map[string]interface{}{}
@@ -614,13 +584,13 @@ func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData,
 
 			if d.HasChange("binding.0.vnic_type") {
 				bindingChanged = true
-				newOpts.VNICType = binding["vnic_type"].(string)
+				updateReq.VNICType = binding["vnic_type"].(string)
 			}
 
 			if d.HasChange("binding.0.host_id") {
 				bindingChanged = true
 				hostID := binding["host_id"].(string)
-				newOpts.HostID = &hostID
+				updateReq.HostID = &hostID
 			}
 
 			if d.HasChange("binding.0.profile") {
@@ -636,14 +606,12 @@ func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData,
 						profile = map[string]interface{}{}
 					}
 				}
-				newOpts.Profile = profile
+				updateReq.Profile = profile
 			}
 		}
 
 		if bindingChanged {
 			hasChange = true
-			newOpts.UpdateOptsBuilder = finalUpdateOpts
-			finalUpdateOpts = newOpts
 		}
 	}
 
@@ -651,60 +619,55 @@ func resourceNetworkingPortV2Update(ctx context.Context, d *schema.ResourceData,
 		hasChange = true
 
 		dnsName := d.Get("dns_name").(string)
-		finalUpdateOpts = dns.PortUpdateOptsExt{
-			UpdateOptsBuilder: finalUpdateOpts,
-			DNSName:           &dnsName,
-		}
+		updateReq.DNSName = &dnsName
 	}
 
 	if d.HasChange("qos_policy_id") {
 		hasChange = true
 
 		qosPolicyID := d.Get("qos_policy_id").(string)
-		finalUpdateOpts = policies.PortUpdateOptsExt{
-			UpdateOptsBuilder: finalUpdateOpts,
-			QoSPolicyID:       &qosPolicyID,
-		}
+		updateReq.QoSPolicyID = &qosPolicyID
 	}
 
 	// At this point, perform the update for all "standard" port changes.
 	if hasChange {
-		log.Printf("[DEBUG] vnpaycloud_networking_port %s update options: %#v", d.Id(), finalUpdateOpts)
-		_, err = ports.Update(ctx, networkingClient, d.Id(), finalUpdateOpts).Extract()
+		log.Printf("[DEBUG] vnpaycloud_networking_port %s update options: %#v", d.Id(), updateReq)
+		_, err = networkingClient.Put(ctx, client.ApiPath.PortWithId(d.Id()), updateReq, nil, nil)
 		if err != nil {
 			return diag.Errorf("Error updating VNPAYCLOUD Neutron Port: %s", err)
 		}
 	}
 
 	// Next, perform any required updates to the tags.
-	if d.HasChange("tags") {
-		tags := util.NetworkingUpdateAttributesTags(d)
-		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
-		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "ports", d.Id(), tagOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error setting tags on vnpaycloud_networking_port %s: %s", d.Id(), err)
-		}
-		log.Printf("[DEBUG] Set tags %s on vnpaycloud_networking_port %s", tags, d.Id())
-	}
+	// if d.HasChange("tags") {
+	// 	tags := util.NetworkingUpdateAttributesTags(d)
+	// 	tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
+	// 	tags, err := attributestags.ReplaceAll(ctx, networkingClient, "ports", d.Id(), tagOpts).Extract()
+	// 	if err != nil {
+	// 		return diag.Errorf("Error setting tags on vnpaycloud_networking_port %s: %s", d.Id(), err)
+	// 	}
+	// 	log.Printf("[DEBUG] Set tags %s on vnpaycloud_networking_port %s", tags, d.Id())
+	// }
 
-	return resourceNetworkingPortV2Read(ctx, d, meta)
+	return resourceNetworkingPortRead(ctx, d, meta)
 }
 
-func resourceNetworkingPortV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingPortDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
 	}
 
-	if err := ports.Delete(ctx, networkingClient, d.Id()).ExtractErr(); err != nil {
+	_, err = networkingClient.Delete(ctx, client.ApiPath.PortWithId(d.Id()), nil)
+	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_networking_port"))
 	}
 
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"ACTIVE"},
 		Target:     []string{"DELETED"},
-		Refresh:    resourceNetworkingPortV2StateRefreshFunc(ctx, networkingClient, d.Id()),
+		Refresh:    resourceNetworkingPortStateRefreshFunc(ctx, networkingClient, d.Id()),
 		Timeout:    d.Timeout(schema.TimeoutDelete),
 		Delay:      5 * time.Second,
 		MinTimeout: 3 * time.Second,

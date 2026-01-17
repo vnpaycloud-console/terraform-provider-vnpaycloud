@@ -3,6 +3,7 @@ package vpc
 import (
 	"context"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/vpcs"
 )
 
 func ResourceVpc() *schema.Resource {
@@ -56,7 +56,7 @@ func resourceVpcCreate(ctx context.Context, d *schema.ResourceData, meta interfa
 		return diag.Errorf("Error creating VNPAY Cloud VPC client: %s", err)
 	}
 
-	createOpts := CreateVpcDto{
+	createOpts := dto.CreateVpcRequest{
 		VPC: struct {
 			Name        string "json:\"name,omitempty\""
 			Description string "json:\"description,omitempty\""
@@ -70,7 +70,7 @@ func resourceVpcCreate(ctx context.Context, d *schema.ResourceData, meta interfa
 
 	tflog.Debug(ctx, "vnpaycloud_vpc create options", map[string]interface{}{"create_opts": createOpts})
 
-	createVpcResp := &CreateVpcDtoResponse{}
+	createVpcResp := &dto.CreateVpcResponse{}
 	_, err = vpcClient.Post(ctx, client.ApiPath.VPC, createOpts, createVpcResp, nil)
 
 	if err != nil {
@@ -106,7 +106,7 @@ func resourceVpcRead(ctx context.Context, d *schema.ResourceData, meta interface
 		return diag.Errorf("Error creating VNPAY Cloud VPC client: %s", err)
 	}
 
-	vpcResp := &GetVpcDtoResponse{}
+	vpcResp := &dto.GetVpcResponse{}
 	otps := &client.RequestOpts{}
 	_, err = vpcClient.Get(ctx, client.ApiPath.VPCWithId(d.Id()), vpcResp, otps)
 
@@ -124,27 +124,28 @@ func resourceVpcRead(ctx context.Context, d *schema.ResourceData, meta interface
 }
 
 func resourceVpcUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	config := meta.(*config.Config)
-	vpcClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	return nil
+	// config := meta.(*config.Config)
+	// vpcClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 
-	if err != nil {
-		return diag.Errorf("Error creating VNPAY Cloud VPC client: %s", err)
-	}
+	// if err != nil {
+	// 	return diag.Errorf("Error creating VNPAY Cloud VPC client: %s", err)
+	// }
 
-	name := d.Get("name").(string)
-	description := d.Get("description").(string)
-	updateOpts := vpcs.UpdateOpts{
-		Name:        name,
-		Description: description,
-	}
+	// name := d.Get("name").(string)
+	// description := d.Get("description").(string)
+	// updateOpts := vpcs.UpdateOpts{
+	// 	Name:        name,
+	// 	Description: description,
+	// }
 
-	_, err = vpcs.Update(ctx, vpcClient, d.Id(), updateOpts).Extract()
+	// _, err = vpcs.Update(ctx, vpcClient, d.Id(), updateOpts).Extract()
 
-	if err != nil {
-		return diag.Errorf("Error updating vnpaycloud_vpc %s: %s", d.Id(), err)
-	}
+	// if err != nil {
+	// 	return diag.Errorf("Error updating vnpaycloud_vpc %s: %s", d.Id(), err)
+	// }
 
-	return resourceVpcRead(ctx, d, meta)
+	// return resourceVpcRead(ctx, d, meta)
 }
 
 func resourceVpcDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -155,7 +156,7 @@ func resourceVpcDelete(ctx context.Context, d *schema.ResourceData, meta interfa
 		return diag.Errorf("Error creating VNPAY Cloud VPC client: %s", err)
 	}
 
-	vpcResp := &GetVpcDtoResponse{}
+	vpcResp := &dto.GetVpcResponse{}
 	_, err = vpcClient.Get(ctx, client.ApiPath.VPCWithId(d.Id()), vpcResp, nil)
 
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
@@ -12,7 +13,7 @@ import (
 
 func peeringConnectionRequestStateRefreshFunc(ctx context.Context, consoleClient *client.Client, id string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		getResp := &GetPeeringConnectionRequestResponse{}
+		getResp := &dto.GetPeeringConnectionRequestResponse{}
 		_, err := consoleClient.Get(ctx, client.ApiPath.PeeringConnectionRequestWithId(id), getResp, nil)
 
 		if err != nil {
@@ -35,7 +36,7 @@ func peeringConnectionRequestStateRefreshFunc(ctx context.Context, consoleClient
 
 func peeringConnectionStateRefreshFunc(ctx context.Context, consoleClient *client.Client, id string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		resp := &GetPeeringConnectionResponse{}
+		resp := &dto.GetPeeringConnectionResponse{}
 		_, err := consoleClient.Get(ctx, client.ApiPath.PeeringConnectionWithId(id), resp, nil)
 
 		if err != nil {

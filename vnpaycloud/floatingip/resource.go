@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"regexp"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"time"
 
@@ -12,21 +14,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/attributestags"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/dns"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/layer3/floatingips"
-
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/types"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 )
 
-func ResourceNetworkingFloatingIPV2() *schema.Resource {
+func ResourceNetworkingFloatingIP() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceNetworkFloatingIPV2Create,
-		ReadContext:   resourceNetworkFloatingIPV2Read,
-		UpdateContext: resourceNetworkFloatingIPV2Update,
-		DeleteContext: resourceNetworkFloatingIPV2Delete,
+		CreateContext: resourceNetworkFloatingIPCreate,
+		ReadContext:   resourceNetworkFloatingIPRead,
+		UpdateContext: resourceNetworkFloatingIPUpdate,
+		DeleteContext: resourceNetworkFloatingIPDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -131,17 +128,17 @@ func ResourceNetworkingFloatingIPV2() *schema.Resource {
 	}
 }
 
-func resourceNetworkFloatingIPV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	configMeta := meta.(*config.Config)
-	networkingClient, err := configMeta.NetworkingV2Client(ctx, util.GetRegion(d, configMeta))
+func resourceNetworkFloatingIPCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	config := meta.(*config.Config)
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack network client: %s", err)
+		return diag.Errorf("Error creating VNPAYCloud network client: %s", err)
 	}
 
 	poolName := d.Get("pool").(string)
-	poolID, err := shared.NetworkingNetworkV2ID(ctx, d, meta, poolName)
+	poolID, err := shared.NetworkingNetworkID(ctx, d, meta, poolName)
 	if err != nil {
-		return diag.Errorf("Error retrieving ID for openstack_networking_floatingip_v2 pool name %s: %s", poolName, err)
+		return diag.Errorf("Error retrieving ID for vnpaycloud_networking_floatingip pool name %s: %s", poolName, err)
 	}
 	if len(poolID) == 0 {
 		return diag.Errorf("No network found with name: %s", poolName)
@@ -160,7 +157,7 @@ func resourceNetworkFloatingIPV2Create(ctx context.Context, d *schema.ResourceDa
 		subnetID = subnetIDs[0]
 	}
 
-	createOpts := &floatingips.CreateOpts{
+	createOpts := &dto.CreateFloatingIPOpts{
 		FloatingNetworkID: poolID,
 		Description:       d.Get("description").(string),
 		FloatingIP:        d.Get("address").(string),
@@ -168,61 +165,54 @@ func resourceNetworkFloatingIPV2Create(ctx context.Context, d *schema.ResourceDa
 		TenantID:          d.Get("tenant_id").(string),
 		FixedIP:           d.Get("fixed_ip").(string),
 		SubnetID:          subnetID,
-	}
-
-	var finalCreateOpts floatingips.CreateOptsBuilder
-	finalCreateOpts = types.FloatingIPCreateOpts{
-		createOpts,
-		util.MapValueSpecs(d),
+		ValueSpecs:        util.MapValueSpecs(d),
 	}
 
 	dnsName := d.Get("dns_name").(string)
 	dnsDomain := d.Get("dns_domain").(string)
 	if dnsName != "" || dnsDomain != "" {
-		finalCreateOpts = dns.FloatingIPCreateOptsExt{
-			CreateOptsBuilder: finalCreateOpts,
-			DNSName:           dnsName,
-			DNSDomain:         dnsDomain,
-		}
+		createOpts.DNSName = dnsName
+		createOpts.DNSDomain = dnsDomain
 	}
 
-	var fip floatingIPExtended
+	var fipResp dto.CreateFloatingIPResponse
 
-	log.Printf("[DEBUG] openstack_networking_floatingip_v2 create options: %#v", finalCreateOpts)
+	log.Printf("[DEBUG] vnpaycloud_networking_floatingip create options: %#v", createOpts)
+
+	createReq := dto.CreateFloatingIPRequest{
+		FloatingIP: *createOpts,
+	}
 
 	if len(subnetIDs) == 0 {
-		// floating IP allocation without a retry
-		err = floatingips.Create(ctx, networkingClient, finalCreateOpts).ExtractInto(&fip)
+		_, err := networkingClient.Post(ctx, client.ApiPath.FloatingIP, createReq, &fipResp, nil)
 		if err != nil {
-			return diag.Errorf("Error creating openstack_networking_floatingip_v2: %s", err)
+			return diag.Errorf("Error creating vnpaycloud_networking_floatingip: %s", err)
 		}
 	} else {
-		// create a floatingip in a loop with the first available external subnet
 		for i, subnetID := range subnetIDs {
-			createOpts.SubnetID = subnetID
+			createReq.FloatingIP.SubnetID = subnetID
 
-			log.Printf("[DEBUG] openstack_networking_floatingip_v2 create options (try %d): %#v", i+1, finalCreateOpts)
+			log.Printf("[DEBUG] vnpaycloud_networking_floatingip create options (try %d): %#v", i+1, createReq.FloatingIP)
 
-			err = floatingips.Create(ctx, networkingClient, finalCreateOpts).ExtractInto(&fip)
+			_, err := networkingClient.Post(ctx, client.ApiPath.FloatingIP, createReq, &fipResp, nil)
 			if err != nil {
 				if shared.RetryOn409(err) {
 					continue
 				}
-				return diag.Errorf("Error creating openstack_networking_floatingip_v2: %s", err)
+				return diag.Errorf("Error creating vnpaycloud_networking_floatingip: %s", err)
 			}
 			break
 		}
-		// handle the last error
 		if err != nil {
-			return diag.Errorf("Error creating openstack_networking_floatingip_v2: %d subnets exhausted: %s", len(subnetIDs), err)
+			return diag.Errorf("Error creating vnpaycloud_networking_floatingip: %d subnets exhausted: %s", len(subnetIDs), err)
 		}
 	}
 
-	log.Printf("[DEBUG] Waiting for openstack_networking_floatingip_v2 %s to become available.", fip.ID)
+	log.Printf("[DEBUG] Waiting for vnpaycloud_networking_floatingip %s to become available.", fipResp.FloatingIP.ID)
 
 	stateConf := &retry.StateChangeConf{
 		Target:     []string{"ACTIVE", "DOWN"},
-		Refresh:    networkingFloatingIPV2StateRefreshFunc(ctx, networkingClient, fip.ID),
+		Refresh:    networkingFloatingIPStateRefreshFunc(ctx, networkingClient, fipResp.FloatingIP.ID),
 		Timeout:    d.Timeout(schema.TimeoutCreate),
 		Delay:      5 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -230,131 +220,86 @@ func resourceNetworkFloatingIPV2Create(ctx context.Context, d *schema.ResourceDa
 
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
-		return diag.Errorf("Error waiting for openstack_networking_floatingip_v2 %s to become available: %s", fip.ID, err)
+		return diag.Errorf("Error waiting for vnpaycloud_networking_floatingip %s to become available: %s", fipResp.FloatingIP.ID, err)
 	}
 
-	d.SetId(fip.ID)
+	d.SetId(fipResp.FloatingIP.ID)
 
 	if createOpts.SubnetID != "" {
-		// resourceNetworkFloatingIPV2Read doesn't handle this, since FIP GET request doesn't provide this info.
+		// resourceNetworkFloatingIPRead doesn't handle this, since FIP GET request doesn't provide this info.
 		d.Set("subnet_id", createOpts.SubnetID)
 	}
 
-	tags := shared.NetworkingAttributesTags(d)
-	if len(tags) > 0 {
-		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
-		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "floatingips", fip.ID, tagOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error setting tags on openstack_networking_floatingip_v2 %s: %s", fip.ID, err)
-		}
-		log.Printf("[DEBUG] Set tags %s on openstack_networking_floatingip_v2 %s", tags, fip.ID)
-	}
+	// tags := shared.NetworkingAttributesTags(d)
+	// if len(tags) > 0 {
+	// 	tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
+	// 	tags, err := attributestags.ReplaceAll(ctx, networkingClient, "floatingips", fip.ID, tagOpts).Extract()
+	// 	if err != nil {
+	// 		return diag.Errorf("Error setting tags on vnpaycloud_networking_floatingip %s: %s", fip.ID, err)
+	// 	}
+	// 	log.Printf("[DEBUG] Set tags %s on vnpaycloud_networking_floatingip %s", tags, fip.ID)
+	// }
 
-	log.Printf("[DEBUG] Created openstack_networking_floatingip_v2 %s: %#v", fip.ID, fip)
-	return resourceNetworkFloatingIPV2Read(ctx, d, meta)
+	log.Printf("[DEBUG] Created vnpaycloud_networking_floatingip %s: %#v", fipResp.FloatingIP.ID, fipResp.FloatingIP)
+	return resourceNetworkFloatingIPRead(ctx, d, meta)
 }
 
-func resourceNetworkFloatingIPV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	configMeta := meta.(*config.Config)
-	networkingClient, err := configMeta.NetworkingV2Client(ctx, util.GetRegion(d, configMeta))
+func resourceNetworkFloatingIPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	config := meta.(*config.Config)
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack network client: %s", err)
+		return diag.Errorf("Error creating VNPAYCloud network client: %s", err)
 	}
 
-	var fip floatingIPExtended
+	var fipResp dto.GetFloatingIPResponse
 
-	err = floatingips.Get(ctx, networkingClient, d.Id()).ExtractInto(&fip)
+	_, err = networkingClient.Get(ctx, client.ApiPath.FloatingIPWithId(d.Id()), &fipResp, nil)
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error getting openstack_networking_floatingip_v2"))
+		return diag.FromErr(util.CheckNotFound(d, err, "Error getting vnpaycloud_networking_floatingip"))
 	}
 
-	log.Printf("[DEBUG] Retrieved openstack_networking_floatingip_v2 %s: %#v", d.Id(), fip)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_networking_floatingip %s: %#v", d.Id(), fipResp.FloatingIP)
 
-	d.Set("description", fip.Description)
-	d.Set("address", fip.FloatingIP.FloatingIP)
-	d.Set("port_id", fip.PortID)
-	d.Set("fixed_ip", fip.FixedIP)
-	d.Set("tenant_id", fip.TenantID)
-	d.Set("dns_name", fip.DNSName)
-	d.Set("dns_domain", fip.DNSDomain)
-	d.Set("region", util.GetRegion(d, configMeta))
+	d.Set("description", fipResp.FloatingIP.Description)
+	d.Set("address", fipResp.FloatingIP.FloatingIP)
+	d.Set("port_id", fipResp.FloatingIP.PortID)
+	d.Set("fixed_ip", fipResp.FloatingIP.FixedIP)
+	d.Set("tenant_id", fipResp.FloatingIP.TenantID)
+	d.Set("dns_name", fipResp.FloatingIP.DNSName)
+	d.Set("dns_domain", fipResp.FloatingIP.DNSDomain)
+	d.Set("region", util.GetRegion(d, config))
 
-	shared.NetworkingReadAttributesTags(d, fip.Tags)
+	shared.NetworkingReadAttributesTags(d, fipResp.FloatingIP.Tags)
 
-	poolName, err := shared.NetworkingNetworkV2Name(ctx, d, meta, fip.FloatingNetworkID)
+	poolName, err := shared.NetworkingNetworkName(ctx, d, meta, fipResp.FloatingIP.FloatingNetworkID)
 	if err != nil {
-		return diag.Errorf("Error retrieving pool name for openstack_networking_floatingip_v2 %s: %s", d.Id(), err)
+		return diag.Errorf("Error retrieving pool name for vnpaycloud_networking_floatingip %s: %s", d.Id(), err)
 	}
 	d.Set("pool", poolName)
 
 	return nil
 }
 
-func resourceNetworkFloatingIPV2Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	configMeta := meta.(*config.Config)
-	networkingClient, err := configMeta.NetworkingV2Client(ctx, util.GetRegion(d, configMeta))
-	if err != nil {
-		return diag.Errorf("Error creating OpenStack network client: %s", err)
-	}
-
-	var hasChange bool
-	var updateOpts floatingips.UpdateOpts
-
-	if d.HasChange("description") {
-		hasChange = true
-		description := d.Get("description").(string)
-		updateOpts.Description = &description
-	}
-
-	// fixed_ip_address cannot be specified without a port_id
-	if d.HasChange("port_id") || d.HasChange("fixed_ip") {
-		hasChange = true
-		portID := d.Get("port_id").(string)
-		updateOpts.PortID = &portID
-	}
-
-	if d.HasChange("fixed_ip") {
-		hasChange = true
-		fixedIP := d.Get("fixed_ip").(string)
-		updateOpts.FixedIP = fixedIP
-	}
-
-	if hasChange {
-		log.Printf("[DEBUG] openstack_networking_floatingip_v2 %s update options: %#v", d.Id(), updateOpts)
-		_, err = floatingips.Update(ctx, networkingClient, d.Id(), updateOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error updating openstack_networking_floatingip_v2 %s: %s", d.Id(), err)
-		}
-	}
-
-	if d.HasChange("tags") {
-		tags := shared.NetworkingUpdateAttributesTags(d)
-		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
-		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "floatingips", d.Id(), tagOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error setting tags on openstack_networking_floatingip_v2 %s: %s", d.Id(), err)
-		}
-		log.Printf("[DEBUG] Set tags %s on openstack_networking_floatingip_v2 %s", tags, d.Id())
-	}
-
-	return resourceNetworkFloatingIPV2Read(ctx, d, meta)
+func resourceNetworkFloatingIPUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	return resourceNetworkFloatingIPRead(ctx, d, meta)
 }
 
-func resourceNetworkFloatingIPV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkFloatingIPDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	configMeta := meta.(*config.Config)
-	networkingClient, err := configMeta.NetworkingV2Client(ctx, util.GetRegion(d, configMeta))
+	networkingClient, err := client.NewClient(ctx, configMeta.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack network client: %s", err)
+		return diag.Errorf("Error creating VNPAYCloud network client: %s", err)
 	}
 
-	if err := floatingips.Delete(ctx, networkingClient, d.Id()).ExtractErr(); err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting openstack_networking_floatingip_v2"))
+	_, err = networkingClient.Delete(ctx, client.ApiPath.FloatingIPWithId(d.Id()), nil)
+	if err != nil {
+		return diag.FromErr(util.CheckNotFound(d, err, "Error deleting vnpaycloud_networking_floatingip"))
 	}
 
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"ACTIVE", "DOWN"},
 		Target:     []string{"DELETED"},
-		Refresh:    networkingFloatingIPV2StateRefreshFunc(ctx, networkingClient, d.Id()),
+		Refresh:    networkingFloatingIPStateRefreshFunc(ctx, networkingClient, d.Id()),
 		Timeout:    d.Timeout(schema.TimeoutDelete),
 		Delay:      5 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -362,7 +307,7 @@ func resourceNetworkFloatingIPV2Delete(ctx context.Context, d *schema.ResourceDa
 
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
-		return diag.Errorf("Error waiting for openstack_networking_floatingip_v2 %s to Delete:  %s", d.Id(), err)
+		return diag.Errorf("Error waiting for vnpaycloud_networking_floatingip %s to Delete:  %s", d.Id(), err)
 	}
 
 	d.SetId("")

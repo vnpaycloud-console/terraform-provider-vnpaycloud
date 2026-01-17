@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
@@ -12,16 +14,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/loadbalancer/v2/listeners"
 )
 
-func ResourceListenerV2() *schema.Resource {
+func ResourceListener() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceListenerV2Create,
-		ReadContext:   resourceListenerV2Read,
-		UpdateContext: resourceListenerV2Update,
-		DeleteContext: resourceListenerV2Delete,
+		CreateContext: resourceListenerCreate,
+		ReadContext:   resourceListenerRead,
+		UpdateContext: resourceListenerUpdate,
+		DeleteContext: resourceListenerDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -222,80 +222,81 @@ func ResourceListenerV2() *schema.Resource {
 	}
 }
 
-func resourceListenerV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceListenerCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
 	timeout := d.Timeout(schema.TimeoutCreate)
 
 	// Wait for LoadBalancer to become active before continuing.
-	err = shared.WaitForLBV2LoadBalancer(ctx, lbClient, d.Get("loadbalancer_id").(string), "ACTIVE", shared.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBLoadBalancer(ctx, tfClient, d.Get("loadbalancer_id").(string), "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	adminStateUp := d.Get("admin_state_up").(bool)
-	createOpts := listeners.CreateOpts{
+	//adminStateUp := d.Get("admin_state_up").(bool)
+	createOpts := dto.CreateListenerOpts{
 		// Protocol SCTP requires octavia minor version 2.23
-		Protocol:                listeners.Protocol(d.Get("protocol").(string)),
-		ProtocolPort:            d.Get("protocol_port").(int),
-		ProjectID:               d.Get("tenant_id").(string),
-		LoadbalancerID:          d.Get("loadbalancer_id").(string),
-		Name:                    d.Get("name").(string),
-		DefaultPoolID:           d.Get("default_pool_id").(string),
-		Description:             d.Get("description").(string),
-		DefaultTlsContainerRef:  d.Get("default_tls_container_ref").(string),
-		SniContainerRefs:        util.ExpandToStringSlice(d.Get("sni_container_refs").([]interface{})),
-		ALPNProtocols:           util.ExpandToStringSlice(d.Get("alpn_protocols").(*schema.Set).List()),
-		ClientAuthentication:    listeners.ClientAuthentication(d.Get("client_authentication").(string)),
-		ClientCATLSContainerRef: d.Get("client_ca_tls_container_ref").(string),
-		ClientCRLContainerRef:   d.Get("client_crl_container_ref").(string),
-		HSTSIncludeSubdomains:   d.Get("hsts_include_subdomains").(bool),
-		HSTSMaxAge:              d.Get("hsts_max_age").(int),
-		HSTSPreload:             d.Get("hsts_preload").(bool),
-		TLSCiphers:              d.Get("tls_ciphers").(string),
-		InsertHeaders:           util.ExpandToMapStringString(d.Get("insert_headers").(map[string]interface{})),
-		AllowedCIDRs:            util.ExpandToStringSlice(d.Get("allowed_cidrs").([]interface{})),
-		AdminStateUp:            &adminStateUp,
-		Tags:                    util.ExpandToStringSlice(d.Get("tags").(*schema.Set).List()),
+		Protocol:     dto.Protocol(d.Get("protocol").(string)),
+		ProtocolPort: d.Get("protocol_port").(int),
+		//ProjectID:               d.Get("tenant_id").(string),
+		LoadbalancerID: d.Get("loadbalancer_id").(string),
+		Name:           d.Get("name").(string),
+		//DefaultPoolID:           d.Get("default_pool_id").(string),
+		Description: d.Get("description").(string),
+		//DefaultTlsContainerRef:  d.Get("default_tls_container_ref").(string),
+		//SniContainerRefs:        util.ExpandToStringSlice(d.Get("sni_container_refs").([]interface{})),
+		//ALPNProtocols:           util.ExpandToStringSlice(d.Get("alpn_protocols").(*schema.Set).List()),
+		//ClientAuthentication:    listeners.ClientAuthentication(d.Get("client_authentication").(string)),
+		//ClientCATLSContainerRef: d.Get("client_ca_tls_container_ref").(string),
+		//ClientCRLContainerRef:   d.Get("client_crl_container_ref").(string),
+		//HSTSIncludeSubdomains:   d.Get("hsts_include_subdomains").(bool),
+		//HSTSMaxAge:              d.Get("hsts_max_age").(int),
+		//HSTSPreload:             d.Get("hsts_preload").(bool),
+		//TLSCiphers:              d.Get("tls_ciphers").(string),
+		//InsertHeaders:           util.ExpandToMapStringString(d.Get("insert_headers").(map[string]interface{})),
+		AllowedCIDRs: util.ExpandToStringSlice(d.Get("allowed_cidrs").([]interface{})),
+		//AdminStateUp:            &adminStateUp,
+		//Tags: util.ExpandToStringSlice(d.Get("tags").(*schema.Set).List()),
 	}
 
-	if v, ok := d.GetOk("tls_versions"); ok {
-		createOpts.TLSVersions = shared.ExpandLBListenerTLSVersionV2(v.(*schema.Set).List())
-	}
-
-	if v, ok := d.GetOk("connection_limit"); ok {
-		connectionLimit := v.(int)
-		createOpts.ConnLimit = &connectionLimit
-	}
-
-	if v, ok := d.GetOk("timeout_client_data"); ok {
-		timeoutClientData := v.(int)
-		createOpts.TimeoutClientData = &timeoutClientData
-	}
-
-	if v, ok := d.GetOk("timeout_member_connect"); ok {
-		timeoutMemberConnect := v.(int)
-		createOpts.TimeoutMemberConnect = &timeoutMemberConnect
-	}
-
-	if v, ok := d.GetOk("timeout_member_data"); ok {
-		timeoutMemberData := v.(int)
-		createOpts.TimeoutMemberData = &timeoutMemberData
-	}
-
-	if v, ok := d.GetOk("timeout_tcp_inspect"); ok {
-		timeoutTCPInspect := v.(int)
-		createOpts.TimeoutTCPInspect = &timeoutTCPInspect
-	}
+	//if v, ok := d.GetOk("tls_versions"); ok {
+	//	createOpts.TLSVersions = shared.ExpandLBListenerTLSVersion(v.(*schema.Set).List())
+	//}
+	//
+	//if v, ok := d.GetOk("connection_limit"); ok {
+	//	connectionLimit := v.(int)
+	//	createOpts.ConnLimit = &connectionLimit
+	//}
+	//
+	//if v, ok := d.GetOk("timeout_client_data"); ok {
+	//	timeoutClientData := v.(int)
+	//	createOpts.TimeoutClientData = &timeoutClientData
+	//}
+	//
+	//if v, ok := d.GetOk("timeout_member_connect"); ok {
+	//	timeoutMemberConnect := v.(int)
+	//	createOpts.TimeoutMemberConnect = &timeoutMemberConnect
+	//}
+	//
+	//if v, ok := d.GetOk("timeout_member_data"); ok {
+	//	timeoutMemberData := v.(int)
+	//	createOpts.TimeoutMemberData = &timeoutMemberData
+	//}
+	//
+	//if v, ok := d.GetOk("timeout_tcp_inspect"); ok {
+	//	timeoutTCPInspect := v.(int)
+	//	createOpts.TimeoutTCPInspect = &timeoutTCPInspect
+	//}
 
 	log.Printf("[DEBUG] vnpaycloud_lb_listener create options: %#v", createOpts)
-	var listener *listeners.Listener
+	listenerResp := &dto.CreateListenerResponse{}
+
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		listener, err = listeners.Create(ctx, lbClient, createOpts).Extract()
+		_, err = tfClient.Post(ctx, client.ApiPath.LbaasListener, dto.CreateListenerRequest{Listener: createOpts}, listenerResp, nil)
 		if err != nil {
 			return util.CheckForRetryableError(err)
 		}
@@ -305,30 +306,33 @@ func resourceListenerV2Create(ctx context.Context, d *schema.ResourceData, meta 
 	if err != nil {
 		return diag.Errorf("Error creating vnpaycloud_lb_listener: %s", err)
 	}
+	listener := &listenerResp.Listener
 
 	// Wait for the listener to become ACTIVE.
-	err = shared.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBListener(ctx, tfClient, listener, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	d.SetId(listener.ID)
 
-	return resourceListenerV2Read(ctx, d, meta)
+	return resourceListenerRead(ctx, d, meta)
 }
 
-func resourceListenerV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceListenerRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
-	listener, err := listeners.Get(ctx, lbClient, d.Id()).Extract()
+	listenerResp := &dto.GetListenerResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasListenerWithId(d.Id()), listenerResp, &client.RequestOpts{})
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "vnpaycloud_lb_listener"))
 	}
 
+	listener := &listenerResp.Listener
 	log.Printf("[DEBUG] Retrieved vnpaycloud_lb_listener %s: %#v", d.Id(), listener)
 
 	d.Set("name", listener.Name)
@@ -359,9 +363,9 @@ func resourceListenerV2Read(ctx context.Context, d *schema.ResourceData, meta in
 	d.Set("tags", listener.Tags)
 
 	// Required by import.
-	if len(listener.Loadbalancers) > 0 {
-		d.Set("loadbalancer_id", listener.Loadbalancers[0].ID)
-	}
+	//if len(listener.Loadbalancers) > 0 {
+	//	d.Set("loadbalancer_id", listener.Loadbalancers[0].ID)
+	//}
 
 	if err := d.Set("insert_headers", listener.InsertHeaders); err != nil {
 		return diag.Errorf("Unable to set vnpaycloud_lb_listener insert_headers: %s", err)
@@ -370,220 +374,30 @@ func resourceListenerV2Read(ctx context.Context, d *schema.ResourceData, meta in
 	return nil
 }
 
-func resourceListenerV2Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
-	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
-	}
-
-	// Get a clean copy of the listener.
-	listener, err := listeners.Get(ctx, lbClient, d.Id()).Extract()
-	if err != nil {
-		return diag.Errorf("Unable to retrieve vnpaycloud_lb_listener %s: %s", d.Id(), err)
-	}
-
-	// Wait for the listener to become ACTIVE.
-	timeout := d.Timeout(schema.TimeoutUpdate)
-	err = shared.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	var updateOpts listeners.UpdateOpts
-	var hasChange bool
-
-	if d.HasChange("name") {
-		hasChange = true
-		name := d.Get("name").(string)
-		updateOpts.Name = &name
-	}
-
-	if d.HasChange("description") {
-		hasChange = true
-		description := d.Get("description").(string)
-		updateOpts.Description = &description
-	}
-
-	if d.HasChange("connection_limit") {
-		hasChange = true
-		connLimit := d.Get("connection_limit").(int)
-		updateOpts.ConnLimit = &connLimit
-	}
-
-	if d.HasChange("timeout_client_data") {
-		hasChange = true
-		timeoutClientData := d.Get("timeout_client_data").(int)
-		updateOpts.TimeoutClientData = &timeoutClientData
-	}
-
-	if d.HasChange("timeout_member_connect") {
-		hasChange = true
-		timeoutMemberConnect := d.Get("timeout_member_connect").(int)
-		updateOpts.TimeoutMemberConnect = &timeoutMemberConnect
-	}
-
-	if d.HasChange("timeout_member_data") {
-		hasChange = true
-		timeoutMemberData := d.Get("timeout_member_data").(int)
-		updateOpts.TimeoutMemberData = &timeoutMemberData
-	}
-
-	if d.HasChange("timeout_tcp_inspect") {
-		hasChange = true
-		timeoutTCPInspect := d.Get("timeout_tcp_inspect").(int)
-		updateOpts.TimeoutTCPInspect = &timeoutTCPInspect
-	}
-
-	if d.HasChange("default_pool_id") {
-		hasChange = true
-		defaultPoolID := d.Get("default_pool_id").(string)
-		updateOpts.DefaultPoolID = &defaultPoolID
-	}
-
-	if d.HasChange("default_tls_container_ref") {
-		hasChange = true
-		defaultTLSContainerRef := d.Get("default_tls_container_ref").(string)
-		updateOpts.DefaultTlsContainerRef = &defaultTLSContainerRef
-	}
-
-	if d.HasChange("sni_container_refs") {
-		hasChange = true
-		v := util.ExpandToStringSlice(d.Get("sni_container_refs").([]interface{}))
-		updateOpts.SniContainerRefs = &v
-	}
-
-	if d.HasChange("admin_state_up") {
-		hasChange = true
-		asu := d.Get("admin_state_up").(bool)
-		updateOpts.AdminStateUp = &asu
-	}
-
-	if d.HasChange("insert_headers") {
-		hasChange = true
-		v := util.ExpandToMapStringString(d.Get("insert_headers").(map[string]interface{}))
-		updateOpts.InsertHeaders = &v
-	}
-
-	if d.HasChange("allowed_cidrs") {
-		hasChange = true
-		v := util.ExpandToStringSlice(d.Get("allowed_cidrs").([]interface{}))
-		updateOpts.AllowedCIDRs = &v
-	}
-
-	if d.HasChange("alpn_protocols") {
-		hasChange = true
-		v := util.ExpandToStringSlice(d.Get("alpn_protocols").(*schema.Set).List())
-		updateOpts.ALPNProtocols = &v
-	}
-
-	if d.HasChange("client_authentication") {
-		hasChange = true
-		v := listeners.ClientAuthentication(d.Get("client_authentication").(string))
-		if v == "" {
-			v = listeners.ClientAuthenticationNone
-		}
-		updateOpts.ClientAuthentication = &v
-	}
-
-	if d.HasChange("client_ca_tls_container_ref") {
-		hasChange = true
-		v := d.Get("client_ca_tls_container_ref").(string)
-		updateOpts.ClientCATLSContainerRef = &v
-	}
-
-	if d.HasChange("client_crl_container_ref") {
-		hasChange = true
-		v := d.Get("client_crl_container_ref").(string)
-		updateOpts.ClientCRLContainerRef = &v
-	}
-
-	if d.HasChange("hsts_include_subdomains") {
-		hasChange = true
-		v := d.Get("hsts_include_subdomains").(bool)
-		updateOpts.HSTSIncludeSubdomains = &v
-	}
-
-	if d.HasChange("hsts_max_age") {
-		hasChange = true
-		v := d.Get("hsts_max_age").(int)
-		updateOpts.HSTSMaxAge = &v
-	}
-
-	if d.HasChange("hsts_preload") {
-		hasChange = true
-		v := d.Get("hsts_preload").(bool)
-		updateOpts.HSTSPreload = &v
-	}
-
-	if d.HasChange("tls_ciphers") {
-		hasChange = true
-		v := d.Get("tls_ciphers").(string)
-		updateOpts.TLSCiphers = &v
-	}
-
-	if d.HasChange("tls_versions") {
-		hasChange = true
-		v := shared.ExpandLBListenerTLSVersionV2(d.Get("tls_versions").(*schema.Set).List())
-		updateOpts.TLSVersions = &v
-	}
-
-	if d.HasChange("tags") {
-		hasChange = true
-		if v, ok := d.GetOk("tags"); ok {
-			tags := v.(*schema.Set).List()
-			tagsToUpdate := util.ExpandToStringSlice(tags)
-			updateOpts.Tags = &tagsToUpdate
-		} else {
-			updateOpts.Tags = &[]string{}
-		}
-	}
-
-	if !hasChange {
-		log.Printf("[DEBUG] vnpaycloud_lb_listener %s: nothing to update", d.Id())
-		return resourceListenerV2Read(ctx, d, meta)
-	}
-
-	log.Printf("[DEBUG] vnpaycloud_lb_listener %s update options: %#v", d.Id(), updateOpts)
-	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		_, err = listeners.Update(ctx, lbClient, d.Id(), updateOpts).Extract()
-		if err != nil {
-			return util.CheckForRetryableError(err)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return diag.Errorf("Error updating vnpaycloud_lb_listener %s: %s", d.Id(), err)
-	}
-
-	// Wait for the listener to become ACTIVE.
-	err = shared.WaitForLBV2Listener(ctx, lbClient, listener, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return resourceListenerV2Read(ctx, d, meta)
+func resourceListenerUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	return resourceListenerRead(ctx, d, meta)
 }
 
-func resourceListenerV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceListenerDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
 	// Get a clean copy of the listener.
-	listener, err := listeners.Get(ctx, lbClient, d.Id()).Extract()
+	listenerResp := &dto.GetListenerResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasListenerWithId(d.Id()), listenerResp, &client.RequestOpts{})
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Unable to retrieve vnpaycloud_lb_listener"))
 	}
+	listener := &listenerResp.Listener
 
 	timeout := d.Timeout(schema.TimeoutDelete)
 
 	log.Printf("[DEBUG] Deleting vnpaycloud_lb_listener %s", d.Id())
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		err = listeners.Delete(ctx, lbClient, d.Id()).ExtractErr()
+		_, err = tfClient.Delete(ctx, client.ApiPath.LbaasListenerWithId(d.Id()), nil)
 		if err != nil {
 			return util.CheckForRetryableError(err)
 		}
@@ -595,7 +409,7 @@ func resourceListenerV2Delete(ctx context.Context, d *schema.ResourceData, meta 
 	}
 
 	// Wait for the listener to become DELETED.
-	err = shared.WaitForLBV2Listener(ctx, lbClient, listener, "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
+	err = shared.WaitForLBListener(ctx, tfClient, listener, "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}

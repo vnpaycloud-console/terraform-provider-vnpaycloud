@@ -6,6 +6,8 @@ import (
 	"log"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
@@ -14,18 +16,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/loadbalancer/v2/pools"
 )
 
-func ResourceMemberV2() *schema.Resource {
+func ResourceMember() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceMemberV2Create,
-		ReadContext:   resourceMemberV2Read,
-		UpdateContext: resourceMemberV2Update,
-		DeleteContext: resourceMemberV2Delete,
+		CreateContext: resourceMemberCreate,
+		ReadContext:   resourceMemberRead,
+		UpdateContext: resourceMemberUpdate,
+		DeleteContext: resourceMemberDelete,
 		Importer: &schema.ResourceImporter{
-			State: resourceMemberV2Import,
+			State: resourceMemberImport,
 		},
 
 		Timeouts: &schema.ResourceTimeout{
@@ -122,21 +122,21 @@ func ResourceMemberV2() *schema.Resource {
 	}
 }
 
-func resourceMemberV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceMemberCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
-	adminStateUp := d.Get("admin_state_up").(bool)
+	//adminStateUp := d.Get("admin_state_up").(bool)
 
-	createOpts := pools.CreateMemberOpts{
-		Name:         d.Get("name").(string),
-		ProjectID:    d.Get("tenant_id").(string),
+	createOpts := dto.CreateMemberOpts{
+		Name: d.Get("name").(string),
+		//ProjectID:    d.Get("tenant_id").(string),
 		Address:      d.Get("address").(string),
 		ProtocolPort: d.Get("protocol_port").(int),
-		AdminStateUp: &adminStateUp,
+		//AdminStateUp: &adminStateUp,
 	}
 
 	// Must omit if not set
@@ -148,50 +148,54 @@ func resourceMemberV2Create(ctx context.Context, d *schema.ResourceData, meta in
 	// This prevents all members from being created with a default weight of 0.
 	if v, ok := util.GetOkExists(d, "weight"); ok {
 		weight := v.(int)
-		createOpts.Weight = &weight
+		createOpts.Weight = weight
 	}
 
-	if v, ok := d.GetOk("monitor_address"); ok {
-		createOpts.MonitorAddress = v.(string)
-	}
-
-	if v, ok := d.GetOk("monitor_port"); ok {
-		monitorPort := v.(int)
-		createOpts.MonitorPort = &monitorPort
-	}
+	//if v, ok := d.GetOk("monitor_address"); ok {
+	//	createOpts.MonitorAddress = v.(string)
+	//}
+	//
+	//if v, ok := d.GetOk("monitor_port"); ok {
+	//	monitorPort := v.(int)
+	//	createOpts.MonitorPort = &monitorPort
+	//}
 
 	// Only set backup if it is defined by user as it requires
 	// version 2.1 or later
-	if v, ok := d.GetOk("backup"); ok {
-		backup := v.(bool)
-		createOpts.Backup = &backup
-	}
+	//if v, ok := d.GetOk("backup"); ok {
+	//	backup := v.(bool)
+	//	createOpts.Backup = &backup
+	//}
 
-	if v, ok := d.GetOk("tags"); ok {
-		tags := v.(*schema.Set).List()
-		createOpts.Tags = util.ExpandToStringSlice(tags)
-	}
+	//if v, ok := d.GetOk("tags"); ok {
+	//	tags := v.(*schema.Set).List()
+	//	createOpts.Tags = util.ExpandToStringSlice(tags)
+	//}
 
 	log.Printf("[DEBUG] Create Options: %#v", createOpts)
 
 	// Get a clean copy of the parent pool.
 	poolID := d.Get("pool_id").(string)
-	parentPool, err := pools.Get(ctx, lbClient, poolID).Extract()
+
+	poolResp := &dto.GetPoolResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasPoolWithId(poolID), poolResp, &client.RequestOpts{})
 	if err != nil {
 		return diag.Errorf("Unable to retrieve parent pool %s: %s", poolID, err)
 	}
+	parentPool := &poolResp.Pool
 
 	// Wait for parent pool to become active before continuing
 	timeout := d.Timeout(schema.TimeoutCreate)
-	err = shared.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBPool(ctx, tfClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	log.Printf("[DEBUG] Attempting to create member")
-	var member *pools.Member
+	//var member *pools.Member
+	memberResp := &dto.CreateMemberResponse{}
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		member, err = pools.CreateMember(ctx, lbClient, poolID, createOpts).Extract()
+		_, err = tfClient.Post(ctx, client.ApiPath.LbaasPoolMember(poolID), &dto.CreateMemberRequest{Member: createOpts}, memberResp, nil)
 
 		if err != nil {
 			return util.CheckForRetryableError(err)
@@ -202,31 +206,34 @@ func resourceMemberV2Create(ctx context.Context, d *schema.ResourceData, meta in
 	if err != nil {
 		return diag.Errorf("Error creating member: %s", err)
 	}
+	member := &memberResp.Member
 
 	// Wait for member to become active before continuing
-	err = shared.WaitForLBV2Member(ctx, lbClient, parentPool, member, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBMember(ctx, tfClient, parentPool, member, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	d.SetId(member.ID)
 
-	return resourceMemberV2Read(ctx, d, meta)
+	return resourceMemberRead(ctx, d, meta)
 }
 
-func resourceMemberV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceMemberRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
 	poolID := d.Get("pool_id").(string)
 
-	member, err := pools.GetMember(ctx, lbClient, poolID, d.Id()).Extract()
+	memberResp := &dto.GetMemberResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasPoolMemberWithId(poolID, d.Id()), memberResp, &client.RequestOpts{})
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "member"))
 	}
+	member := &memberResp.Member
 
 	log.Printf("[DEBUG] Retrieved member %s: %#v", d.Id(), member)
 
@@ -246,127 +253,44 @@ func resourceMemberV2Read(ctx context.Context, d *schema.ResourceData, meta inte
 	return nil
 }
 
-func resourceMemberV2Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
-	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
-	}
-
-	var updateOpts pools.UpdateMemberOpts
-	if d.HasChange("name") {
-		name := d.Get("name").(string)
-		updateOpts.Name = &name
-	}
-	if d.HasChange("weight") {
-		weight := d.Get("weight").(int)
-		updateOpts.Weight = &weight
-	}
-	if d.HasChange("admin_state_up") {
-		asu := d.Get("admin_state_up").(bool)
-		updateOpts.AdminStateUp = &asu
-	}
-	if d.HasChange("monitor_address") {
-		monitorAddress := d.Get("monitor_address").(string)
-		updateOpts.MonitorAddress = &monitorAddress
-	}
-	if d.HasChange("monitor_port") {
-		monitorPort := d.Get("monitor_port").(int)
-		updateOpts.MonitorPort = &monitorPort
-	}
-	if d.HasChange("backup") {
-		backup := d.Get("backup").(bool)
-		updateOpts.Backup = &backup
-	}
-
-	if d.HasChange("tags") {
-		if v, ok := d.GetOk("tags"); ok {
-			tags := v.(*schema.Set).List()
-			tagsToUpdate := util.ExpandToStringSlice(tags)
-			updateOpts.Tags = tagsToUpdate
-		} else {
-			updateOpts.Tags = []string{}
-		}
-	}
-
-	// Get a clean copy of the parent pool.
-	poolID := d.Get("pool_id").(string)
-	parentPool, err := pools.Get(ctx, lbClient, poolID).Extract()
-	if err != nil {
-		return diag.Errorf("Unable to retrieve parent pool %s: %s", poolID, err)
-	}
-
-	// Get a clean copy of the member.
-	member, err := pools.GetMember(ctx, lbClient, poolID, d.Id()).Extract()
-	if err != nil {
-		return diag.Errorf("Unable to retrieve member: %s: %s", d.Id(), err)
-	}
-
-	// Wait for parent pool to become active before continuing.
-	timeout := d.Timeout(schema.TimeoutUpdate)
-	err = shared.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	// Wait for the member to become active before continuing.
-	err = shared.WaitForLBV2Member(ctx, lbClient, parentPool, member, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	log.Printf("[DEBUG] Updating member %s with options: %#v", d.Id(), updateOpts)
-	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		_, err = pools.UpdateMember(ctx, lbClient, poolID, d.Id(), updateOpts).Extract()
-		if err != nil {
-			return util.CheckForRetryableError(err)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return diag.Errorf("Unable to update member %s: %s", d.Id(), err)
-	}
-
-	// Wait for the member to become active before continuing.
-	err = shared.WaitForLBV2Member(ctx, lbClient, parentPool, member, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return resourceMemberV2Read(ctx, d, meta)
+func resourceMemberUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	return resourceMemberRead(ctx, d, meta)
 }
 
-func resourceMemberV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceMemberDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
 	// Get a clean copy of the parent pool.
 	poolID := d.Get("pool_id").(string)
-	parentPool, err := pools.Get(ctx, lbClient, poolID).Extract()
+	poolResp := &dto.GetPoolResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasPoolWithId(poolID), poolResp, &client.RequestOpts{})
 	if err != nil {
 		return diag.Errorf("Unable to retrieve parent pool (%s) for the member: %s", poolID, err)
 	}
+	parentPool := &poolResp.Pool
 
 	// Get a clean copy of the member.
-	member, err := pools.GetMember(ctx, lbClient, poolID, d.Id()).Extract()
+	memberResp := &dto.GetMemberResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasPoolMemberWithId(poolID, d.Id()), memberResp, &client.RequestOpts{})
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Unable to retrieve member"))
 	}
+	member := &memberResp.Member
 
 	// Wait for parent pool to become active before continuing.
 	timeout := d.Timeout(schema.TimeoutDelete)
-	err = shared.WaitForLBV2Pool(ctx, lbClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBPool(ctx, tfClient, parentPool, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Error waiting for the members pool status"))
 	}
 
 	log.Printf("[DEBUG] Attempting to delete member %s", d.Id())
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		err = pools.DeleteMember(ctx, lbClient, poolID, d.Id()).ExtractErr()
+		_, err := tfClient.Delete(ctx, client.ApiPath.LbaasPoolMemberWithId(poolID, d.Id()), nil)
 		if err != nil {
 			return util.CheckForRetryableError(err)
 		}
@@ -378,7 +302,7 @@ func resourceMemberV2Delete(ctx context.Context, d *schema.ResourceData, meta in
 	}
 
 	// Wait for the member to become DELETED.
-	err = shared.WaitForLBV2Member(ctx, lbClient, parentPool, member, "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
+	err = shared.WaitForLBMember(ctx, tfClient, parentPool, member, "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -386,7 +310,7 @@ func resourceMemberV2Delete(ctx context.Context, d *schema.ResourceData, meta in
 	return nil
 }
 
-func resourceMemberV2Import(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+func resourceMemberImport(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	parts := strings.SplitN(d.Id(), "/", 2)
 	if len(parts) != 2 {
 		err := fmt.Errorf("Invalid format specified for Member. Format must be <pool id>/<member id>")

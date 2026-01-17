@@ -5,28 +5,25 @@ import (
 	"log"
 	"net"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/types"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
-	"github.com/vnpaycloud-console/gophercloud/v2"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/attributestags"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/subnets"
 )
 
-func ResourceNetworkingSubnetV2() *schema.Resource {
+func ResourceNetworkingSubnet() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceNetworkingSubnetV2Create,
-		ReadContext:   resourceNetworkingSubnetV2Read,
-		UpdateContext: resourceNetworkingSubnetV2Update,
-		DeleteContext: resourceNetworkingSubnetV2Delete,
+		CreateContext: resourceNetworkingSubnetCreate,
+		ReadContext:   resourceNetworkingSubnetRead,
+		UpdateContext: resourceNetworkingSubnetUpdate,
+		DeleteContext: resourceNetworkingSubnetDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -190,15 +187,15 @@ func ResourceNetworkingSubnetV2() *schema.Resource {
 	}
 }
 
-func resourceNetworkingSubnetV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingSubnetCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	subnetClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD Subnet client: %s", err)
 	}
 
 	// Check nameservers.
-	if err := networkingSubnetV2DNSNameserverAreUnique(d.Get("dns_nameservers").([]interface{})); err != nil {
+	if err := networkingSubnetDNSNameserverAreUnique(d.Get("dns_nameservers").([]interface{})); err != nil {
 		return diag.Errorf("vnpaycloud_networking_subnet dns_nameservers argument is invalid: %s", err)
 	}
 
@@ -206,27 +203,27 @@ func resourceNetworkingSubnetV2Create(ctx context.Context, d *schema.ResourceDat
 	allocationPool := d.Get("allocation_pool").(*schema.Set).List()
 
 	// Set basic options.
-	createOpts := types.SubnetCreateOpts{
-		subnets.CreateOpts{
+	createOpts := dto.CreateSubnetRequest{
+		Subnet: dto.SubnetCreateOpts{
 			NetworkID:       d.Get("network_id").(string),
 			Name:            d.Get("name").(string),
 			Description:     d.Get("description").(string),
 			TenantID:        d.Get("tenant_id").(string),
 			IPv6AddressMode: d.Get("ipv6_address_mode").(string),
 			IPv6RAMode:      d.Get("ipv6_ra_mode").(string),
-			AllocationPools: expandNetworkingSubnetV2AllocationPools(allocationPool),
+			AllocationPools: expandNetworkingSubnetAllocationPools(allocationPool),
 			DNSNameservers:  util.ExpandToStringSlice(d.Get("dns_nameservers").([]interface{})),
 			ServiceTypes:    util.ExpandToStringSlice(d.Get("service_types").([]interface{})),
 			SubnetPoolID:    d.Get("subnetpool_id").(string),
-			IPVersion:       gophercloud.IPVersion(d.Get("ip_version").(int)),
+			IPVersion:       types.IPVersion(d.Get("ip_version").(int)),
 			VPCID:           d.Get("vpc_id").(string),
+			ValueSpecs:      util.MapValueSpecs(d),
 		},
-		util.MapValueSpecs(d),
 	}
 
 	if v, ok := d.GetOk("dns_publish_fixed_ip"); ok {
 		v := v.(bool)
-		createOpts.DNSPublishFixedIP = &v
+		createOpts.Subnet.DNSPublishFixedIP = &v
 	}
 
 	// Set CIDR if provided. Check if inferred subnet would match the provided cidr.
@@ -239,19 +236,19 @@ func resourceNetworkingSubnetV2Create(ctx context.Context, d *schema.ResourceDat
 		if netAddr.String() != cidr {
 			return diag.Errorf("cidr %s doesn't match subnet address %s for vnpaycloud_networking_subnet", cidr, netAddr.String())
 		}
-		createOpts.CIDR = cidr
+		createOpts.Subnet.CIDR = cidr
 	}
 
 	// Set gateway options if provided.
 	if v, ok := d.GetOk("gateway_ip"); ok {
 		gatewayIP := v.(string)
-		createOpts.GatewayIP = &gatewayIP
+		createOpts.Subnet.GatewayIP = &gatewayIP
 	}
 
 	noGateway := d.Get("no_gateway").(bool)
 	if noGateway {
 		gatewayIP := ""
-		createOpts.GatewayIP = &gatewayIP
+		createOpts.Subnet.GatewayIP = &gatewayIP
 	}
 
 	// Validate and set prefix options.
@@ -260,23 +257,24 @@ func resourceNetworkingSubnetV2Create(ctx context.Context, d *schema.ResourceDat
 			return diag.Errorf("'prefix_length' is only valid if 'subnetpool_id' is set for vnpaycloud_networking_subnet")
 		}
 		prefixLength := v.(int)
-		createOpts.Prefixlen = prefixLength
+		createOpts.Subnet.Prefixlen = prefixLength
 	}
 
 	// Set DHCP options if provided.
 	enableDHCP := d.Get("enable_dhcp").(bool)
-	createOpts.EnableDHCP = &enableDHCP
+	createOpts.Subnet.EnableDHCP = &enableDHCP
 
 	log.Printf("[DEBUG] vnpaycloud_networking_subnet create options: %#v", createOpts)
-	s, err := subnets.Create(ctx, networkingClient, createOpts).Extract()
+	createResp := &dto.CreateSubnetResponse{}
+	_, err = subnetClient.Post(ctx, client.ApiPath.Subnet, createOpts, createResp, nil)
 	if err != nil {
 		return diag.Errorf("Error creating vnpaycloud_networking_subnet: %s", err)
 	}
 
-	log.Printf("[DEBUG] Waiting for vnpaycloud_networking_subnet %s to become available", s.ID)
+	log.Printf("[DEBUG] Waiting for vnpaycloud_networking_subnet %s to become available", createResp.Subnet.ID)
 	stateConf := &retry.StateChangeConf{
 		Target:     []string{"ACTIVE"},
-		Refresh:    networkingSubnetV2StateRefreshFunc(ctx, networkingClient, s.ID),
+		Refresh:    networkingSubnetStateRefreshFunc(ctx, subnetClient, createResp.Subnet.ID),
 		Timeout:    d.Timeout(schema.TimeoutCreate),
 		Delay:      5 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -284,67 +282,68 @@ func resourceNetworkingSubnetV2Create(ctx context.Context, d *schema.ResourceDat
 
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
-		return diag.Errorf("Error waiting for vnpaycloud_networking_subnet %s to become available: %s", s.ID, err)
+		return diag.Errorf("Error waiting for vnpaycloud_networking_subnet %s to become available: %s", createResp.Subnet.ID, err)
 	}
 
-	d.SetId(s.ID)
+	d.SetId(createResp.Subnet.ID)
 
-	tags := shared.NetworkingAttributesTags(d)
-	if len(tags) > 0 {
-		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
-		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "subnets", s.ID, tagOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error creating tags on vnpaycloud_networking_subnet %s: %s", s.ID, err)
-		}
-		log.Printf("[DEBUG] Set tags %s on vnpaycloud_networking_subnet %s", tags, s.ID)
-	}
+	// tags := shared.NetworkingAttributesTags(d)
+	// if len(tags) > 0 {
+	// 	tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
+	// 	tags, err := attributestags.ReplaceAll(ctx, subnetClient, "subnets", createResp.Subnet.ID, tagOpts).Extract()
+	// 	if err != nil {
+	// 		return diag.Errorf("Error creating tags on vnpaycloud_networking_subnet %s: %s", createResp.Subnet.ID, err)
+	// 	}
+	// 	log.Printf("[DEBUG] Set tags %s on vnpaycloud_networking_subnet %s", tags, createResp.Subnet.ID)
+	// }
 
-	log.Printf("[DEBUG] Created vnpaycloud_networking_subnet %s: %#v", s.ID, s)
-	return resourceNetworkingSubnetV2Read(ctx, d, meta)
+	log.Printf("[DEBUG] Created vnpaycloud_networking_subnet %s: %#v", createResp.Subnet.ID, createResp.Subnet)
+	return resourceNetworkingSubnetRead(ctx, d, meta)
 }
 
-func resourceNetworkingSubnetV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingSubnetRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	subnetClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD Subnet client: %s", err)
 	}
 
-	s, err := subnets.Get(ctx, networkingClient, d.Id()).Extract()
+	subnetResp := &dto.GetSubnetResponse{}
+	_, err = subnetClient.Get(ctx, client.ApiPath.SubnetWithId(d.Id()), subnetResp, nil)
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error getting vnpaycloud_networking_subnet"))
+		return diag.FromErr(util.CheckNotFound(d, err, "Error getting vnpaycloud_networking_subnet"))
 	}
 
-	log.Printf("[DEBUG] Retrieved vnpaycloud_networking_subnet %s: %#v", d.Id(), s)
+	log.Printf("[DEBUG] Retrieved vnpaycloud_networking_subnet %s: %#v", d.Id(), subnetResp.Subnet)
 
-	d.Set("network_id", s.NetworkID)
-	d.Set("cidr", s.CIDR)
-	d.Set("ip_version", s.IPVersion)
-	d.Set("name", s.Name)
-	d.Set("description", s.Description)
-	d.Set("tenant_id", s.TenantID)
-	d.Set("dns_nameservers", s.DNSNameservers)
-	d.Set("service_types", s.ServiceTypes)
-	d.Set("enable_dhcp", s.EnableDHCP)
-	d.Set("network_id", s.NetworkID)
-	d.Set("ipv6_address_mode", s.IPv6AddressMode)
-	d.Set("ipv6_ra_mode", s.IPv6RAMode)
-	d.Set("subnetpool_id", s.SubnetPoolID)
-	d.Set("dns_publish_fixed_ip", s.DNSPublishFixedIP)
-	d.Set("vpc_id", s.VPCID)
+	d.Set("network_id", subnetResp.Subnet.NetworkID)
+	d.Set("cidr", subnetResp.Subnet.CIDR)
+	d.Set("ip_version", subnetResp.Subnet.IPVersion)
+	d.Set("name", subnetResp.Subnet.Name)
+	d.Set("description", subnetResp.Subnet.Description)
+	d.Set("tenant_id", subnetResp.Subnet.TenantID)
+	d.Set("dns_nameservers", subnetResp.Subnet.DNSNameservers)
+	d.Set("service_types", subnetResp.Subnet.ServiceTypes)
+	d.Set("enable_dhcp", subnetResp.Subnet.EnableDHCP)
+	d.Set("network_id", subnetResp.Subnet.NetworkID)
+	d.Set("ipv6_address_mode", subnetResp.Subnet.IPv6AddressMode)
+	d.Set("ipv6_ra_mode", subnetResp.Subnet.IPv6RAMode)
+	d.Set("subnetpool_id", subnetResp.Subnet.SubnetPoolID)
+	d.Set("dns_publish_fixed_ip", subnetResp.Subnet.DNSPublishFixedIP)
+	d.Set("vpc_id", subnetResp.Subnet.VPCID)
 
-	shared.NetworkingReadAttributesTags(d, s.Tags)
+	shared.NetworkingReadAttributesTags(d, subnetResp.Subnet.Tags)
 
 	// Set the allocation_pool attribute
-	allocationPools := flattenNetworkingSubnetV2AllocationPools(s.AllocationPools)
+	allocationPools := flattenNetworkingSubnetAllocationPools(subnetResp.Subnet.AllocationPools)
 	if err := d.Set("allocation_pool", allocationPools); err != nil {
 		log.Printf("[DEBUG] Unable to set vnpaycloud_networking_subnet allocation_pool: %s", err)
 	}
 
 	// Set the subnet's "gateway_ip" and "no_gateway" attributes.
-	d.Set("gateway_ip", s.GatewayIP)
+	d.Set("gateway_ip", subnetResp.Subnet.GatewayIP)
 	d.Set("no_gateway", false)
-	if s.GatewayIP != "" {
+	if subnetResp.Subnet.GatewayIP != "" {
 		d.Set("no_gateway", false)
 	} else {
 		d.Set("no_gateway", true)
@@ -355,109 +354,21 @@ func resourceNetworkingSubnetV2Read(ctx context.Context, d *schema.ResourceData,
 	return nil
 }
 
-func resourceNetworkingSubnetV2Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
-	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
-	}
-
-	var hasChange bool
-	var updateOpts subnets.UpdateOpts
-
-	if d.HasChange("name") {
-		hasChange = true
-		name := d.Get("name").(string)
-		updateOpts.Name = &name
-	}
-
-	if d.HasChange("description") {
-		hasChange = true
-		description := d.Get("description").(string)
-		updateOpts.Description = &description
-	}
-
-	if d.HasChange("gateway_ip") {
-		hasChange = true
-		updateOpts.GatewayIP = nil
-		if v, ok := d.GetOk("gateway_ip"); ok {
-			gatewayIP := v.(string)
-			updateOpts.GatewayIP = &gatewayIP
-		}
-	}
-
-	if d.HasChange("no_gateway") {
-		if d.Get("no_gateway").(bool) {
-			hasChange = true
-			gatewayIP := ""
-			updateOpts.GatewayIP = &gatewayIP
-		}
-	}
-
-	if d.HasChange("dns_nameservers") {
-		if err := networkingSubnetV2DNSNameserverAreUnique(d.Get("dns_nameservers").([]interface{})); err != nil {
-			return diag.Errorf("vnpaycloud_networking_subnet dns_nameservers argument is invalid: %s", err)
-		}
-		hasChange = true
-		nameservers := util.ExpandToStringSlice(d.Get("dns_nameservers").([]interface{}))
-		updateOpts.DNSNameservers = &nameservers
-	}
-
-	if d.HasChange("service_types") {
-		hasChange = true
-		serviceTypes := util.ExpandToStringSlice(d.Get("service_types").([]interface{}))
-		updateOpts.ServiceTypes = &serviceTypes
-	}
-
-	if d.HasChange("enable_dhcp") {
-		hasChange = true
-		v := d.Get("enable_dhcp").(bool)
-		updateOpts.EnableDHCP = &v
-	}
-
-	if d.HasChange("allocation_pool") {
-		hasChange = true
-		updateOpts.AllocationPools = expandNetworkingSubnetV2AllocationPools(d.Get("allocation_pool").(*schema.Set).List())
-	}
-
-	if d.HasChange("dns_publish_fixed_ip") {
-		hasChange = true
-		v := d.Get("dns_publish_fixed_ip").(bool)
-		updateOpts.DNSPublishFixedIP = &v
-	}
-
-	if hasChange {
-		log.Printf("[DEBUG] Updating vnpaycloud_networking_subnet %s with options: %#v", d.Id(), updateOpts)
-		_, err = subnets.Update(ctx, networkingClient, d.Id(), updateOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error updating VNPAYCLOUD Neutron vnpaycloud_networking_subnet %s: %s", d.Id(), err)
-		}
-	}
-
-	if d.HasChange("tags") {
-		tags := shared.NetworkingUpdateAttributesTags(d)
-		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
-		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "subnets", d.Id(), tagOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error updating tags on vnpaycloud_networking_subnet %s: %s", d.Id(), err)
-		}
-		log.Printf("[DEBUG] Updated tags %s on vnpaycloud_networking_subnet %s", tags, d.Id())
-	}
-
-	return resourceNetworkingSubnetV2Read(ctx, d, meta)
+func resourceNetworkingSubnetUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	return nil
 }
 
-func resourceNetworkingSubnetV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceNetworkingSubnetDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	subnetClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+		return diag.Errorf("Error creating VNPAYCLOUD Subnet client: %s", err)
 	}
 
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"ACTIVE"},
 		Target:     []string{"DELETED"},
-		Refresh:    networkingSubnetV2StateRefreshFuncDelete(ctx, networkingClient, d.Id()),
+		Refresh:    networkingSubnetStateRefreshFuncDelete(ctx, subnetClient, d.Id()),
 		Timeout:    d.Timeout(schema.TimeoutDelete),
 		Delay:      5 * time.Second,
 		MinTimeout: 3 * time.Second,

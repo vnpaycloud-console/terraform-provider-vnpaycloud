@@ -3,13 +3,13 @@ package volume
 import (
 	"context"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/blockstorage/v3/volumes"
 )
 
 func DataSourceBlockStorageVolume() *schema.Resource {
@@ -97,27 +97,25 @@ func DataSourceBlockStorageVolume() *schema.Resource {
 
 func dataSourceBlockStorageVolumeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	client, err := config.BlockStorageV3Client(ctx, util.GetRegion(d, config))
+	c, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud block storage client: %s", err)
 	}
 
-	listOpts := volumes.ListOpts{
+	listOpts := dto.ListVolumeParams{
 		Metadata: util.ExpandToMapStringString(d.Get("metadata").(map[string]interface{})),
 		Name:     d.Get("name").(string),
 		Status:   d.Get("status").(string),
 	}
 
-	allPages, err := volumes.List(client, listOpts).AllPages(ctx)
+	listResp := dto.ListVolumeResponse{}
+
+	_, err = c.Get(ctx, client.ApiPath.VolumeWithParams(c.GetProjectID(), listOpts), &listResp, nil)
 	if err != nil {
 		return diag.Errorf("Unable to query vnpaycloud_blockstorage_volume: %s", err)
 	}
 
-	var allVolumes []volumes.Volume
-	err = volumes.ExtractVolumesInto(allPages, &allVolumes)
-	if err != nil {
-		return diag.Errorf("Unable to retrieve vnpaycloud_blockstorage_volume: %s", err)
-	}
+	allVolumes := listResp.Volumes
 
 	if len(allVolumes) > 1 {
 		return diag.Errorf("Your vnpaycloud_blockstorage_volume query returned multiple results")
@@ -132,7 +130,7 @@ func dataSourceBlockStorageVolumeRead(ctx context.Context, d *schema.ResourceDat
 	return nil
 }
 
-func dataSourceBlockStorageVolumeAttributes(ctx context.Context, d *schema.ResourceData, volume volumes.Volume) {
+func dataSourceBlockStorageVolumeAttributes(ctx context.Context, d *schema.ResourceData, volume dto.Volume) {
 	d.SetId(volume.ID)
 	d.Set("name", volume.Name)
 	d.Set("status", volume.Status)

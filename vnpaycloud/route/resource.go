@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
@@ -89,7 +90,7 @@ func resourceRouteTableCreate(ctx context.Context, d *schema.ResourceData, meta 
 	var targetType RouteTableTargetType
 
 	if hasPeering {
-		targetId, err = shared.PeeringConnectionId2PortId(ctx, d, meta, peeringIdRaw.(string))
+		targetId, err = shared.PeeringConnectionIdToPortId(ctx, d, meta, peeringIdRaw.(string))
 
 		if err != nil {
 			if util.ResponseCodeIs(err, http.StatusNotFound) {
@@ -107,8 +108,8 @@ func resourceRouteTableCreate(ctx context.Context, d *schema.ResourceData, meta 
 		return diag.Errorf("Either 'peering_connection_id' or 'internet_gateway_id' must be set")
 	}
 
-	createOpts := CreateRouteTableRequest{
-		RouteTable: CreateRouteTableOpts{
+	createOpts := dto.CreateRouteTableRequest{
+		RouteTable: dto.CreateRouteTableOpts{
 			Cidr:       d.Get("cidr_block").(string),
 			TargetId:   targetId,
 			TargetType: string(targetType),
@@ -118,7 +119,7 @@ func resourceRouteTableCreate(ctx context.Context, d *schema.ResourceData, meta 
 
 	tflog.Debug(ctx, "vnpaycloud_route request options", map[string]interface{}{"create_opts": createOpts})
 
-	createResp := &CreateRouteTableResponse{}
+	createResp := &dto.CreateRouteTableResponse{}
 	_, err = c.Post(ctx, client.ApiPath.RouteTable, createOpts, createResp, nil)
 
 	if err != nil {
@@ -156,7 +157,7 @@ func resourceRouteTableRead(ctx context.Context, d *schema.ResourceData, meta in
 		return diag.Errorf("Error creating VNPAY Cloud Route Table client: %s", err)
 	}
 
-	getRouteTableResp := &GetRouteTableResponse{}
+	getRouteTableResp := &dto.GetRouteTableResponse{}
 	_, err = c.Get(ctx, client.ApiPath.RouteTableWithId(d.Id()), getRouteTableResp, nil)
 
 	if err != nil {
@@ -183,7 +184,7 @@ func resourceRouteTableDelete(ctx context.Context, d *schema.ResourceData, meta 
 		return diag.Errorf("Error creating VNPAY Cloud Route Table client: %s", err)
 	}
 
-	resp := &GetRouteTableResponse{}
+	resp := &dto.GetRouteTableResponse{}
 	_, err = c.Get(ctx, client.ApiPath.RouteTableWithId(d.Id()), resp, nil)
 
 	if err != nil {

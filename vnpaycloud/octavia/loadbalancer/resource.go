@@ -2,25 +2,26 @@ package loadbalancer
 
 import (
 	"context"
+	"fmt"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/shared"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/loadbalancer/v2/loadbalancers"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func ResourceLoadBalancerV2() *schema.Resource {
+func ResourceLoadBalancer() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceLoadBalancerV2Create,
-		ReadContext:   resourceLoadBalancerV2Read,
-		UpdateContext: resourceLoadBalancerV2Update,
-		DeleteContext: resourceLoadBalancerV2Delete,
+		CreateContext: resourceLoadBalancerCreate,
+		ReadContext:   resourceLoadBalancerRead,
+		UpdateContext: resourceLoadBalancerUpdate,
+		DeleteContext: resourceLoadBalancerDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -139,96 +140,97 @@ func ResourceLoadBalancerV2() *schema.Resource {
 	}
 }
 
-func resourceLoadBalancerV2Create(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceLoadBalancerCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
 	var (
-		lbID       string
-		vipPortID  string
-		lbProvider string
+		lbID string
+		//vipPortID  string
+		//lbProvider string
 	)
 
-	if v, ok := d.GetOk("loadbalancer_provider"); ok {
-		lbProvider = v.(string)
-	}
+	//if v, ok := d.GetOk("loadbalancer_provider"); ok {
+	//	lbProvider = v.(string)
+	//}
+	//adminStateUp := d.Get("admin_state_up").(bool)
 
-	adminStateUp := d.Get("admin_state_up").(bool)
-
-	createOpts := loadbalancers.CreateOpts{
-		Name:           d.Get("name").(string),
-		Description:    d.Get("description").(string),
-		VipNetworkID:   d.Get("vip_network_id").(string),
-		VipSubnetID:    d.Get("vip_subnet_id").(string),
-		VipPortID:      d.Get("vip_port_id").(string),
-		ProjectID:      d.Get("tenant_id").(string),
-		VipAddress:     d.Get("vip_address").(string),
-		AdminStateUp:   &adminStateUp,
-		FlavorID:       d.Get("flavor_id").(string),
-		Provider:       lbProvider,
-		VipQosPolicyID: d.Get("vip_qos_policy_id").(string),
+	createOpts := dto.CreateLoadBalancerOpts{
+		Name:        d.Get("name").(string),
+		Description: d.Get("description").(string),
+		VipSubnetID: d.Get("vip_subnet_id").(string),
+		FlavorID:    d.Get("flavor_id").(string),
 	}
 
 	// availability_zone requires octavia minor version 2.14. Only set when specified.
-	if v, ok := d.GetOk("availability_zone"); ok {
-		aZ := v.(string)
-		createOpts.AvailabilityZone = aZ
-	}
+	//if v, ok := d.GetOk("availability_zone"); ok {
+	//	aZ := v.(string)
+	//	createOpts.AvailabilityZone = aZ
+	//}
+	//
+	//if v, ok := d.GetOk("tags"); ok {
+	//	tags := v.(*schema.Set).List()
+	//	createOpts.Tags = util.ExpandToStringSlice(tags)
+	//}
 
-	if v, ok := d.GetOk("tags"); ok {
-		tags := v.(*schema.Set).List()
-		createOpts.Tags = util.ExpandToStringSlice(tags)
-	}
+	tflog.Info(ctx, "Creating vnpaycloud_lb_loadbalancer create options: %+v", map[string]interface{}{"create_opts": createOpts})
 
-	tflog.Info(ctx, "Creating vnpaycloud_lb_loadbalancer_v2 create options: %+v", map[string]interface{}{"create_opts": createOpts})
-	lb, err := loadbalancers.Create(ctx, lbClient, createOpts).Extract()
+	lbResp := &dto.CreateLoadBalancerResponse{}
+	_, err = tfClient.Post(ctx, client.ApiPath.LbaasLoadBalancer, dto.CreateLoadBalancerRequest{LoadBalancer: createOpts}, lbResp, nil)
 	if err != nil {
-		return diag.Errorf("Error creating vnpaycloud_lb_loadbalancer_v2: %s", err)
+		return diag.Errorf("Error creating vnpaycloud_networking_network: %s", err)
 	}
-	lbID = lb.ID
-	vipPortID = lb.VipPortID
+
+	lbID = lbResp.LoadBalancer.ID
+	//vipPortID = lbResp.LoadBalancer.VipPortID
 
 	// Store the ID now
 	d.SetId(lbID)
 
 	// Wait for load-balancer to become active before continuing.
 	timeout := d.Timeout(schema.TimeoutCreate)
-	err = shared.WaitForLBV2LoadBalancer(ctx, lbClient, lbID, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
+	err = shared.WaitForLBLoadBalancer(ctx, tfClient, lbID, "ACTIVE", shared.GetLbPendingStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Once the load-balancer has been created, apply any requested security groups
 	// to the port that was created behind the scenes.
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
-	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
-	}
-	if err := shared.ResourceLoadBalancerV2SetSecurityGroups(ctx, networkingClient, vipPortID, d); err != nil {
-		return diag.Errorf("Error setting vnpaycloud_lb_loadbalancer_v2 security groups: %s", err)
-	}
+	//tfClient, err = client.NewClient(ctx, config.ConsoleClientConfig)
+	//if err != nil {
+	//	return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+	//}
+	//if err := shared.ResourceLoadBalancerSetSecurityGroups(ctx, tfClient, vipPortID, d); err != nil {
+	//	return diag.Errorf("Error setting vnpaycloud_lb_loadbalancer security groups: %s", err)
+	//}
 
-	return resourceLoadBalancerV2Read(ctx, d, meta)
+	return resourceLoadBalancerRead(ctx, d, meta)
 }
 
-func resourceLoadBalancerV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceLoadBalancerRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD loadbalancing client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
+
+	lbResp := &dto.GetLoadBalancerResponse{}
+	_, err = tfClient.Get(ctx, client.ApiPath.LbaasLoadBalancerWithId(d.Id()), lbResp, &client.RequestOpts{})
+	if err != nil {
+		return diag.FromErr(util.CheckNotFound(d, err, "Error retrieving vnpaycloud_network"))
+	}
+	if lbResp == nil || len(lbResp.LoadBalancer.ID) == 0 {
+		d.SetId("")
+		return diag.FromErr(fmt.Errorf("Error retrieving vnpaycloud_loadbalancer"))
+	}
+	lb := &lbResp.LoadBalancer
 
 	var vipPortID string
 
-	lb, err := loadbalancers.Get(ctx, lbClient, d.Id()).Extract()
-	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Unable to retrieve vnpaycloud_lb_loadbalancer_v2"))
-	}
-
-	tflog.Info(ctx, "Retrieving vnpaycloud_lb_loadbalancer_v2 %s: %+v",
+	tflog.Info(ctx, "Retrieving vnpaycloud_lb_loadbalancer %s: %+v",
 		map[string]interface{}{"id": d.Id()},
 		map[string]interface{}{"lb": lb})
 
@@ -241,7 +243,7 @@ func resourceLoadBalancerV2Read(ctx context.Context, d *schema.ResourceData, met
 	d.Set("vip_port_id", lb.VipPortID)
 	d.Set("admin_state_up", lb.AdminStateUp)
 	d.Set("flavor_id", lb.FlavorID)
-	d.Set("loadbalancer_provider", lb.Provider)
+	d.Set("provider", lb.Provider)
 	d.Set("availability_zone", lb.AvailabilityZone)
 	d.Set("region", util.GetRegion(d, config))
 	d.Set("tags", lb.Tags)
@@ -251,117 +253,34 @@ func resourceLoadBalancerV2Read(ctx context.Context, d *schema.ResourceData, met
 
 	// Get any security groups on the VIP Port.
 	if vipPortID != "" {
-		networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+		tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 		if err != nil {
-			return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+			return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 		}
-		if err := shared.ResourceLoadBalancerV2GetSecurityGroups(ctx, networkingClient, vipPortID, d); err != nil {
-			return diag.Errorf("Error getting port security groups for vnpaycloud_lb_loadbalancer_v2: %s", err)
+		if err := shared.ResourceLoadBalancerGetSecurityGroups(ctx, tfClient, vipPortID, d); err != nil {
+			return diag.Errorf("Error getting port security groups for vnpaycloud_lb_loadbalancer: %s", err)
 		}
 	}
 
 	return nil
 }
 
-func resourceLoadBalancerV2Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
-	var hasChange bool
-	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
-	}
-
-	var updateOpts loadbalancers.UpdateOpts
-
-	if d.HasChange("name") {
-		hasChange = true
-		name := d.Get("name").(string)
-		updateOpts.Name = &name
-	}
-	if d.HasChange("description") {
-		hasChange = true
-		description := d.Get("description").(string)
-		updateOpts.Description = &description
-	}
-	if d.HasChange("admin_state_up") {
-		hasChange = true
-		asu := d.Get("admin_state_up").(bool)
-		updateOpts.AdminStateUp = &asu
-	}
-	if d.HasChange("vip_qos_policy_id") {
-		hasChange = true
-		vipQosPolicyID := d.Get("vip_qos_policy_id").(string)
-		updateOpts.Description = &vipQosPolicyID
-	}
-
-	if d.HasChange("tags") {
-		hasChange = true
-		if v, ok := d.GetOk("tags"); ok {
-			tags := v.(*schema.Set).List()
-			tagsToUpdate := util.ExpandToStringSlice(tags)
-			updateOpts.Tags = &tagsToUpdate
-		} else {
-			updateOpts.Tags = &[]string{}
-		}
-	}
-
-	if hasChange {
-		// Wait for load-balancer to become active before continuing.
-		timeout := d.Timeout(schema.TimeoutUpdate)
-		err = shared.WaitForLBV2LoadBalancer(ctx, lbClient, d.Id(), "ACTIVE", shared.GetLbPendingStatuses(), timeout)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		tflog.Info(ctx, "Updating vnpaycloud_lb_loadbalancer_v2 %s with options: %#v",
-			map[string]interface{}{"id": d.Id()},
-			map[string]interface{}{"updateOpts": updateOpts})
-		err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-			_, err = loadbalancers.Update(ctx, lbClient, d.Id(), updateOpts).Extract()
-			if err != nil {
-				return util.CheckForRetryableError(err)
-			}
-			return nil
-		})
-
-		if err != nil {
-			return diag.Errorf("Error updating vnpaycloud_lb_loadbalancer_v2 %s: %s", d.Id(), err)
-		}
-
-		// Wait for load-balancer to become active before continuing.
-		err = shared.WaitForLBV2LoadBalancer(ctx, lbClient, d.Id(), "ACTIVE", shared.GetLbPendingStatuses(), timeout)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-	}
-
-	// Security Groups get updated separately.
-	if d.HasChange("security_group_ids") {
-		networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
-		if err != nil {
-			return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
-		}
-		vipPortID := d.Get("vip_port_id").(string)
-		if err := shared.ResourceLoadBalancerV2SetSecurityGroups(ctx, networkingClient, vipPortID, d); err != nil {
-			return diag.Errorf("Error setting vnpaycloud_lb_loadbalancer_v2 security groups: %s", err)
-		}
-	}
-
-	return resourceLoadBalancerV2Read(ctx, d, meta)
+func resourceLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	return resourceLoadBalancerRead(ctx, d, meta)
 }
 
-func resourceLoadBalancerV2Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceLoadBalancerDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	lbClient, err := config.LoadBalancerV2Client(ctx, util.GetRegion(d, config))
+	tfClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAYCLOUD networking client: %s", err)
+		return diag.Errorf("Error creating VNPAY Cloud Terrform Client: %s", err)
 	}
 
-	tflog.Info(ctx, "Deleting vnpaycloud_lb_loadbalancer_v2 %s",
+	tflog.Info(ctx, "Deleting vnpaycloud_lb_loadbalancer %s",
 		map[string]interface{}{"id": d.Id()})
 	timeout := d.Timeout(schema.TimeoutDelete)
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		err = loadbalancers.Delete(ctx, lbClient, d.Id(), loadbalancers.DeleteOpts{}).ExtractErr()
+		_, err = tfClient.Delete(ctx, client.ApiPath.LbaasLoadBalancerWithId(d.Id()), nil)
 		if err != nil {
 			return util.CheckForRetryableError(err)
 		}
@@ -369,11 +288,12 @@ func resourceLoadBalancerV2Delete(ctx context.Context, d *schema.ResourceData, m
 	})
 
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_lb_loadbalancer_v2"))
+		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_lb_loadbalancer"))
 	}
 
 	// Wait for load-balancer to become deleted.
-	err = shared.WaitForLBV2LoadBalancer(ctx, lbClient, d.Id(), "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
+	tfClient, err = client.NewClient(ctx, config.ConsoleClientConfig)
+	err = shared.WaitForLBLoadBalancer(ctx, tfClient, d.Id(), "DELETED", shared.GetLbPendingDeleteStatuses(), timeout)
 	if err != nil {
 		return diag.FromErr(err)
 	}

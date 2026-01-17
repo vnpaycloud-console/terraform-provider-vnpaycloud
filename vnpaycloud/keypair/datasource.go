@@ -4,17 +4,17 @@ import (
 	"context"
 	"log"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/keypairs"
 )
 
-func DataSourceComputeKeypairV2() *schema.Resource {
+func DataSourceComputeKeypair() *schema.Resource {
 	return &schema.Resource{
-		ReadContext: dataSourceComputeKeypairV2Read,
+		ReadContext: dataSourceComputeKeypairRead,
 
 		Schema: map[string]*schema.Schema{
 			"region": {
@@ -48,16 +48,14 @@ func DataSourceComputeKeypairV2() *schema.Resource {
 	}
 }
 
-func dataSourceComputeKeypairV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func dataSourceComputeKeypairRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	computeClient, err := config.ComputeV2Client(ctx, util.GetRegion(d, config))
+	computeClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAYCLOUD compute client: %s", err)
 	}
 
-	computeClient.Microversion = computeKeyPairV2UserIDMicroversion
-
-	opts := keypairs.GetOpts{}
+	opts := dto.GetKeyPairOpts{}
 
 	// Check if searching for the keypair of another user
 	userID := d.Get("user_id").(string)
@@ -66,7 +64,8 @@ func dataSourceComputeKeypairV2Read(ctx context.Context, d *schema.ResourceData,
 	}
 
 	name := d.Get("name").(string)
-	kp, err := keypairs.Get(ctx, computeClient, name, opts).Extract()
+	kp := &dto.GetKeyPairResponse{}
+	_, err = computeClient.Get(ctx, client.ApiPath.KeyPairWithParams(opts), kp, nil)
 	if err != nil {
 		return diag.Errorf("Error retrieving vnpaycloud_compute_keypair %s: %s", name, err)
 	}
@@ -75,10 +74,10 @@ func dataSourceComputeKeypairV2Read(ctx context.Context, d *schema.ResourceData,
 
 	log.Printf("[DEBUG] Retrieved vnpaycloud_compute_keypair %s: %#v", d.Id(), kp)
 
-	d.Set("fingerprint", kp.Fingerprint)
-	d.Set("public_key", kp.PublicKey)
+	d.Set("fingerprint", kp.KeyPair.Fingerprint)
+	d.Set("public_key", kp.KeyPair.PublicKey)
 	d.Set("region", util.GetRegion(d, config))
-	d.Set("user_id", kp.UserID)
+	d.Set("user_id", kp.KeyPair.UserID)
 
 	return nil
 }

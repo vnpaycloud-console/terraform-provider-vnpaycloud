@@ -5,48 +5,51 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
-	"github.com/vnpaycloud-console/gophercloud/v2"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/compute/v2/attachinterfaces"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 )
 
-func ComputeInterfaceAttachV2AttachFunc(ctx context.Context,
-	computeClient *gophercloud.ServiceClient, instanceID, attachmentID string) retry.StateRefreshFunc {
+func ComputeInterfaceAttachAttachFunc(ctx context.Context,
+	computeClient *client.Client, instanceID, attachmentID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		va, err := attachinterfaces.Get(ctx, computeClient, instanceID, attachmentID).Extract()
+		interfaceResp := &dto.GetInterfaceResponse{}
+		_, err := computeClient.Get(ctx, client.ApiPath.ServerInterfaceAttachWithId(instanceID, attachmentID), interfaceResp, nil)
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				return va, "ATTACHING", nil
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				return interfaceResp.Interface, "ATTACHING", nil
 			}
-			return va, "", err
+			return interfaceResp.Interface, "", err
 		}
 
-		return va, "ATTACHED", nil
+		return interfaceResp.Interface, "ATTACHED", nil
 	}
 }
 
-func ComputeInterfaceAttachV2DetachFunc(ctx context.Context,
-	computeClient *gophercloud.ServiceClient, instanceID, attachmentID string) retry.StateRefreshFunc {
+func ComputeInterfaceAttachDetachFunc(ctx context.Context,
+	computeClient *client.Client, instanceID, attachmentID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
 		log.Printf("[DEBUG] Attempting to detach vnpaycloud_compute_interface_attach %s from instance %s",
 			attachmentID, instanceID)
 
-		va, err := attachinterfaces.Get(ctx, computeClient, instanceID, attachmentID).Extract()
+		interfaceResp := &dto.GetInterfaceResponse{}
+		_, err := computeClient.Get(ctx, client.ApiPath.ServerInterfaceAttachWithId(instanceID, attachmentID), interfaceResp, nil)
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				return va, "DETACHED", nil
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				return interfaceResp.Interface, "DETACHED", nil
 			}
-			return va, "", err
+			return interfaceResp.Interface, "", err
 		}
 
-		err = attachinterfaces.Delete(ctx, computeClient, instanceID, attachmentID).ExtractErr()
+		_, err = computeClient.Delete(ctx, client.ApiPath.ServerInterfaceAttachWithId(instanceID, attachmentID), nil)
 		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				return va, "DETACHED", nil
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				return interfaceResp.Interface, "DETACHED", nil
 			}
 
-			if gophercloud.ResponseCodeIs(err, http.StatusBadRequest) {
+			if util.ResponseCodeIs(err, http.StatusBadRequest) {
 				return nil, "", nil
 			}
 

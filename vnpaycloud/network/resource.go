@@ -2,10 +2,12 @@ package network
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"regexp"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/types"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
@@ -13,15 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/attributestags"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/dns"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/external"
-	mtuext "github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/mtu"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/portsecurity"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/provider"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/qos/policies"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/vlantransparent"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/networks"
 )
 
 func ResourceNetworkingNetwork() *schema.Resource {
@@ -174,21 +167,14 @@ func ResourceNetworkingNetwork() *schema.Resource {
 
 func resourceNetworkingNetworkCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud networking client: %s", err)
 	}
 
-	azHints := d.Get("availability_zone_hints").(*schema.Set)
-
-	createOpts := types.NetworkCreateOpts{
-		networks.CreateOpts{
-			Name:                  d.Get("name").(string),
-			Description:           d.Get("description").(string),
-			TenantID:              d.Get("tenant_id").(string),
-			AvailabilityZoneHints: util.ExpandToStringSlice(azHints.List()),
-		},
-		util.MapValueSpecs(d),
+	createOpts := dto.CreateNetworkOpts{
+		Name:        d.Get("name").(string),
+		Description: d.Get("description").(string),
 	}
 
 	if v, ok := util.GetOkExists(d, "admin_state_up"); ok {
@@ -196,88 +182,19 @@ func resourceNetworkingNetworkCreate(ctx context.Context, d *schema.ResourceData
 		createOpts.AdminStateUp = &asu
 	}
 
-	if v, ok := util.GetOkExists(d, "shared"); ok {
-		shared := v.(bool)
-		createOpts.Shared = &shared
-	}
-
-	// Declare a finalCreateOpts interface.
-	var finalCreateOpts networks.CreateOptsBuilder
-	finalCreateOpts = createOpts
-
-	// Add networking segments if specified.
-	segments := expandNetworkingNetworkSegments(d.Get("segments").(*schema.Set))
-	if len(segments) > 0 {
-		finalCreateOpts = provider.CreateOptsExt{
-			CreateOptsBuilder: finalCreateOpts,
-			Segments:          segments,
-		}
-	}
-
-	// Add the external attribute if specified.
-	isExternal := d.Get("external").(bool)
-	if isExternal {
-		finalCreateOpts = external.CreateOptsExt{
-			CreateOptsBuilder: finalCreateOpts,
-			External:          &isExternal,
-		}
-	}
-
-	// Add the transparent VLAN attribute if specified.
-	isVLANTransparent := d.Get("transparent_vlan").(bool)
-	if isVLANTransparent {
-		finalCreateOpts = vlantransparent.CreateOptsExt{
-			CreateOptsBuilder: finalCreateOpts,
-			VLANTransparent:   &isVLANTransparent,
-		}
-	}
-
-	// Add the port security attribute if specified.
-	if v, ok := util.GetOkExists(d, "port_security_enabled"); ok {
-		portSecurityEnabled := v.(bool)
-		finalCreateOpts = portsecurity.NetworkCreateOptsExt{
-			CreateOptsBuilder:   finalCreateOpts,
-			PortSecurityEnabled: &portSecurityEnabled,
-		}
-	}
-
-	mtu := d.Get("mtu").(int)
-	// Add the MTU attribute if specified.
-	if mtu > 0 {
-		finalCreateOpts = mtuext.CreateOptsExt{
-			CreateOptsBuilder: finalCreateOpts,
-			MTU:               mtu,
-		}
-	}
-
-	// Add the DNS Domain attribute if specified.
-	if dnsDomain := d.Get("dns_domain").(string); dnsDomain != "" {
-		finalCreateOpts = dns.NetworkCreateOptsExt{
-			CreateOptsBuilder: finalCreateOpts,
-			DNSDomain:         dnsDomain,
-		}
-	}
-
-	// Add the QoS policy ID attribute if specified.
-	if qosPolicyID := d.Get("qos_policy_id").(string); qosPolicyID != "" {
-		finalCreateOpts = policies.NetworkCreateOptsExt{
-			CreateOptsBuilder: finalCreateOpts,
-			QoSPolicyID:       qosPolicyID,
-		}
-	}
-
-	log.Printf("[DEBUG] vnpaycloud_networking_network create options: %#v", finalCreateOpts)
-	n, err := networks.Create(ctx, networkingClient, finalCreateOpts).Extract()
+	log.Printf("[DEBUG] vnpaycloud_networking_network create options: %#v", createOpts)
+	networkResp := &dto.CreateNetworkResponse{}
+	_, err = networkingClient.Post(ctx, client.ApiPath.Network, dto.CreateNetworkRequest{Network: createOpts}, networkResp, nil)
 	if err != nil {
 		return diag.Errorf("Error creating vnpaycloud_networking_network: %s", err)
 	}
 
-	log.Printf("[DEBUG] Waiting for vnpaycloud_networking_network %s to become available.", n.ID)
+	log.Printf("[DEBUG] Waiting for vnpaycloud_networking_network %s to become available.", networkResp.Network.ID)
 
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"BUILD"},
 		Target:     []string{"ACTIVE", "DOWN"},
-		Refresh:    resourceNetworkingNetworkStateRefreshFunc(ctx, networkingClient, n.ID),
+		Refresh:    resourceNetworkingNetworkStateRefreshFunc(ctx, networkingClient, networkResp.Network.ID),
 		Timeout:    d.Timeout(schema.TimeoutCreate),
 		Delay:      5 * time.Second,
 		MinTimeout: 3 * time.Second,
@@ -285,38 +202,35 @@ func resourceNetworkingNetworkCreate(ctx context.Context, d *schema.ResourceData
 
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
-		return diag.Errorf("Error waiting for vnpaycloud_networking_network %s to become available: %s", n.ID, err)
+		return diag.Errorf("Error waiting for vnpaycloud_networking_network %s to become available: %s",
+			networkResp.Network.ID, err)
 	}
 
-	d.SetId(n.ID)
+	d.SetId(networkResp.Network.ID)
 
-	tags := util.NetworkingAttributesTags(d)
-	if len(tags) > 0 {
-		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
-		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "networks", n.ID, tagOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error setting tags on vnpaycloud_networking_network %s: %s", n.ID, err)
-		}
-		log.Printf("[DEBUG] Set tags %s on vnpaycloud_networking_network %s", tags, n.ID)
-	}
-
-	log.Printf("[DEBUG] Created vnpaycloud_networking_network %s: %#v", n.ID, n)
+	log.Printf("[DEBUG] Created vnpaycloud_networking_network %s: %#v",
+		networkResp.Network.ID, networkResp.Network)
 	return resourceNetworkingNetworkRead(ctx, d, meta)
 }
 
 func resourceNetworkingNetworkRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud networking client: %s", err)
 	}
 
-	var network networkExtended
-
-	err = networks.Get(ctx, networkingClient, d.Id()).ExtractInto(&network)
+	networkResp := &dto.GetNetworkResponse{}
+	otps := &client.RequestOpts{}
+	_, err = networkingClient.Get(ctx, client.ApiPath.NetworkWithId(d.Id()), networkResp, otps)
 	if err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error getting vnpaycloud_networking_network"))
+		return diag.FromErr(util.CheckNotFound(d, err, "Error retrieving vnpaycloud_network"))
 	}
+	if networkResp == nil || len(networkResp.Network.ID) == 0 {
+		d.SetId("")
+		return diag.FromErr(fmt.Errorf("Error retrieving vnpaycloud_network"))
+	}
+	network := networkResp.Network
 
 	log.Printf("[DEBUG] Retrieved vnpaycloud_networking_network %s: %#v", d.Id(), network)
 
@@ -334,8 +248,6 @@ func resourceNetworkingNetworkRead(ctx context.Context, d *schema.ResourceData, 
 	d.Set("qos_policy_id", network.QoSPolicyID)
 	d.Set("region", util.GetRegion(d, config))
 
-	util.NetworkingReadAttributesTags(d, network.Tags)
-
 	if err := d.Set("availability_zone_hints", network.AvailabilityZoneHints); err != nil {
 		log.Printf("[DEBUG] Unable to set vnpaycloud_networking_network %s availability_zone_hints: %s", d.Id(), err)
 	}
@@ -344,117 +256,17 @@ func resourceNetworkingNetworkRead(ctx context.Context, d *schema.ResourceData, 
 }
 
 func resourceNetworkingNetworkUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
-	if err != nil {
-		return diag.Errorf("Error creating VNPAY Cloud networking client: %s", err)
-	}
-
-	// Declare finalUpdateOpts interface and basic updateOpts structure.
-	var (
-		finalUpdateOpts networks.UpdateOptsBuilder
-		updateOpts      networks.UpdateOpts
-	)
-
-	// Populate basic updateOpts.
-	if d.HasChange("name") {
-		name := d.Get("name").(string)
-		updateOpts.Name = &name
-	}
-	if d.HasChange("description") {
-		description := d.Get("description").(string)
-		updateOpts.Description = &description
-	}
-	if d.HasChange("admin_state_up") {
-		asu := d.Get("admin_state_up").(bool)
-		updateOpts.AdminStateUp = &asu
-	}
-	if d.HasChange("shared") {
-		shared := d.Get("shared").(bool)
-		updateOpts.Shared = &shared
-	}
-
-	// Change tags if needed.
-	if d.HasChange("tags") {
-		tags := util.NetworkingUpdateAttributesTags(d)
-		tagOpts := attributestags.ReplaceAllOpts{Tags: tags}
-		tags, err := attributestags.ReplaceAll(ctx, networkingClient, "networks", d.Id(), tagOpts).Extract()
-		if err != nil {
-			return diag.Errorf("Error setting tags on vnpaycloud_networking_network %s: %s", d.Id(), err)
-		}
-		log.Printf("[DEBUG] Set tags %s on vnpaycloud_networking_network %s", tags, d.Id())
-	}
-
-	// Save basic updateOpts into finalUpdateOpts.
-	finalUpdateOpts = updateOpts
-
-	// Populate extensions options.
-	if d.HasChange("external") {
-		isExternal := d.Get("external").(bool)
-		finalUpdateOpts = external.UpdateOptsExt{
-			UpdateOptsBuilder: finalUpdateOpts,
-			External:          &isExternal,
-		}
-	}
-
-	// Populate port security options.
-	if d.HasChange("port_security_enabled") {
-		portSecurityEnabled := d.Get("port_security_enabled").(bool)
-		finalUpdateOpts = portsecurity.NetworkUpdateOptsExt{
-			UpdateOptsBuilder:   finalUpdateOpts,
-			PortSecurityEnabled: &portSecurityEnabled,
-		}
-	}
-
-	if d.HasChange("mtu") {
-		mtu := d.Get("mtu").(int)
-		finalUpdateOpts = mtuext.UpdateOptsExt{
-			UpdateOptsBuilder: finalUpdateOpts,
-			MTU:               mtu,
-		}
-	}
-
-	if d.HasChange("dns_domain") {
-		dnsDomain := d.Get("dns_domain").(string)
-		finalUpdateOpts = dns.NetworkUpdateOptsExt{
-			UpdateOptsBuilder: finalUpdateOpts,
-			DNSDomain:         &dnsDomain,
-		}
-	}
-
-	if d.HasChange("qos_policy_id") {
-		qosPolicyID := d.Get("qos_policy_id").(string)
-		finalUpdateOpts = policies.NetworkUpdateOptsExt{
-			UpdateOptsBuilder: finalUpdateOpts,
-			QoSPolicyID:       &qosPolicyID,
-		}
-	}
-
-	if d.HasChange("segments") {
-		segments := expandNetworkingNetworkSegments(d.Get("segments").(*schema.Set))
-		finalUpdateOpts = provider.UpdateOptsExt{
-			UpdateOptsBuilder: finalUpdateOpts,
-			Segments:          &segments,
-		}
-	}
-
-	log.Printf("[DEBUG] vnpaycloud_networking_network %s update options: %#v", d.Id(), finalUpdateOpts)
-	_, err = networks.Update(ctx, networkingClient, d.Id(), finalUpdateOpts).Extract()
-	if err != nil {
-		return diag.Errorf("Error updating vnpaycloud_networking_network %s: %s", d.Id(), err)
-	}
-
 	return resourceNetworkingNetworkRead(ctx, d, meta)
 }
 
 func resourceNetworkingNetworkDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	config := meta.(*config.Config)
-	networkingClient, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	networkingClient, err := client.NewClient(ctx, config.ConsoleClientConfig)
 	if err != nil {
 		return diag.Errorf("Error creating VNPAY Cloud networking client: %s", err)
 	}
 
-	if err := networks.Delete(ctx, networkingClient, d.Id()).ExtractErr(); err != nil {
+	if _, err := networkingClient.Delete(ctx, client.ApiPath.NetworkWithId(d.Id()), nil); err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_networking_network"))
 	}
 
