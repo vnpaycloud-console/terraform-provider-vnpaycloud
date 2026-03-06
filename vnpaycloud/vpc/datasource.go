@@ -2,6 +2,7 @@ package vpc
 
 import (
 	"context"
+	"fmt"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
@@ -112,4 +113,63 @@ func setVPCDataSourceAttributes(d *schema.ResourceData, vpc dto.VPC) {
 	d.Set("snat_address", vpc.SnatAddress)
 	d.Set("subnet_ids", vpc.SubnetIDs)
 	d.Set("created_at", vpc.CreatedAt)
+}
+
+func DataSourceVpcs() *schema.Resource {
+	return &schema.Resource{
+		ReadContext: dataSourceVpcsRead,
+		Schema: map[string]*schema.Schema{
+			"vpcs": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"id":           {Type: schema.TypeString, Computed: true},
+						"name":         {Type: schema.TypeString, Computed: true},
+						"description":  {Type: schema.TypeString, Computed: true},
+						"cidr":         {Type: schema.TypeString, Computed: true},
+						"status":       {Type: schema.TypeString, Computed: true},
+						"enable_snat":  {Type: schema.TypeBool, Computed: true},
+						"snat_address": {Type: schema.TypeString, Computed: true},
+						"subnet_ids": {
+							Type:     schema.TypeList,
+							Computed: true,
+							Elem:     &schema.Schema{Type: schema.TypeString},
+						},
+						"created_at": {Type: schema.TypeString, Computed: true},
+					},
+				},
+			},
+		},
+	}
+}
+
+func dataSourceVpcsRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	cfg := meta.(*config.Config)
+
+	listResp := &dto.ListVPCsResponse{}
+	_, err := cfg.Client.Get(ctx, client.ApiPath.VPCs(cfg.ProjectID), listResp, nil)
+	if err != nil {
+		return diag.Errorf("Error listing vnpaycloud_vpcs: %s", err)
+	}
+
+	var vpcs []map[string]interface{}
+	for _, v := range listResp.VPCs {
+		vpcs = append(vpcs, map[string]interface{}{
+			"id":           v.ID,
+			"name":         v.Name,
+			"description":  v.Description,
+			"cidr":         v.CIDR,
+			"status":       v.Status,
+			"enable_snat":  v.EnableSnat,
+			"snat_address": v.SnatAddress,
+			"subnet_ids":   v.SubnetIDs,
+			"created_at":   v.CreatedAt,
+		})
+	}
+
+	d.SetId(fmt.Sprintf("vpcs-%s", cfg.ProjectID))
+	d.Set("vpcs", vpcs)
+
+	return nil
 }

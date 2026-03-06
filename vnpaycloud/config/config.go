@@ -8,5 +8,6 @@ import (
 type Config struct {
 	*mutexkv.MutexKV
 	Client    *client.Client
-	ProjectID string
+	ProjectID string // Resolved from zone_id at provider init
+	ZoneID    string // User-provided zone_id
 }
