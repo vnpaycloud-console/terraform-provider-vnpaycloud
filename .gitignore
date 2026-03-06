@@ -4,4 +4,11 @@ terraform.tfstate
 terraform.tfstate.backup
 terraform-provider-vnpaycloud
 **.terraform**
+.terraform.lock.hcl
 main.tf
+.DS_Store
+
+# Sensitive folders
+testdata/
+tests/
+examples/
