@@ -2,166 +2,142 @@ package floatingip
 
 import (
 	"context"
-	"log"
-	"strings"
+	"fmt"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/shared"
-	"terraform-provider-vnpaycloud/vnpaycloud/util"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/extensions/layer3/floatingips"
 )
 
-func DataSourceNetworkingFloatingIPV2() *schema.Resource {
+func DataSourceFloatingIP() *schema.Resource {
 	return &schema.Resource{
-		ReadContext: dataSourceNetworkingFloatingIPV2Read,
-
+		ReadContext: dataSourceFloatingIPRead,
 		Schema: map[string]*schema.Schema{
-			"region": {
+			"id": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-
-			"description": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-
 			"address": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
-
-			"pool": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-
-			"port_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-
-			"tenant_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-
-			"fixed_ip": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-
 			"status": {
 				Type:     schema.TypeString,
-				Optional: true,
+				Computed: true,
 			},
-
-			"tags": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
-			},
-
-			"dns_name": {
+			"port_id": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-
-			"dns_domain": {
+			"instance_id": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-
-			"all_tags": {
-				Type:     schema.TypeSet,
+			"instance_name": {
+				Type:     schema.TypeString,
 				Computed: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"created_at": {
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 		},
 	}
 }
 
-func dataSourceNetworkingFloatingIPV2Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	configMeta := meta.(*config.Config)
-	networkingClient, err := configMeta.NetworkingV2Client(ctx, util.GetRegion(d, configMeta))
+func dataSourceFloatingIPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	cfg := meta.(*config.Config)
+
+	if id, ok := d.GetOk("id"); ok {
+		fipResp := &dto.FloatingIPResponse{}
+		_, err := cfg.Client.Get(ctx, client.ApiPath.FloatingIPWithID(cfg.ProjectID, id.(string)), fipResp, nil)
+		if err != nil {
+			return diag.Errorf("Error fetching vnpaycloud_floating_ip %s: %s", id, err)
+		}
+		return setFloatingIPData(d, &fipResp.FloatingIP)
+	}
+
+	// List and filter client-side
+	listResp := &dto.ListFloatingIPsResponse{}
+	_, err := cfg.Client.Get(ctx, client.ApiPath.FloatingIPs(cfg.ProjectID), listResp, nil)
 	if err != nil {
-		return diag.Errorf("Error creating OpenStack networking client: %s", err)
+		return diag.Errorf("Error listing vnpaycloud_floating_ip: %s", err)
 	}
 
-	listOpts := floatingips.ListOpts{}
+	addressFilter, addressOk := d.GetOk("address")
 
-	if v, ok := d.GetOk("description"); ok {
-		listOpts.Description = v.(string)
+	for _, fip := range listResp.FloatingIPs {
+		if addressOk && fip.Address != addressFilter.(string) {
+			continue
+		}
+		return setFloatingIPData(d, &fip)
 	}
 
-	if v, ok := d.GetOk("address"); ok {
-		listOpts.FloatingIP = v.(string)
-	}
+	return diag.Errorf("No vnpaycloud_floating_ip found matching the criteria")
+}
 
-	if v, ok := d.GetOk("tenant_id"); ok {
-		listOpts.TenantID = v.(string)
-	}
-
-	if v, ok := d.GetOk("pool"); ok {
-		listOpts.FloatingNetworkID = v.(string)
-	}
-
-	if v, ok := d.GetOk("port_id"); ok {
-		listOpts.PortID = v.(string)
-	}
-
-	if v, ok := d.GetOk("fixed_ip"); ok {
-		listOpts.FixedIP = v.(string)
-	}
-
-	if v, ok := d.GetOk("status"); ok {
-		listOpts.Status = v.(string)
-	}
-
-	tags := shared.NetworkingAttributesTags(d)
-	if len(tags) > 0 {
-		listOpts.Tags = strings.Join(tags, ",")
-	}
-
-	pages, err := floatingips.List(networkingClient, listOpts).AllPages(ctx)
-	if err != nil {
-		return diag.Errorf("Unable to list openstack_networking_floatingips_v2: %s", err)
-	}
-
-	var allFloatingIPs []floatingIPExtended
-
-	err = floatingips.ExtractFloatingIPsInto(pages, &allFloatingIPs)
-	if err != nil {
-		return diag.Errorf("Unable to retrieve openstack_networking_floatingips_v2: %s", err)
-	}
-
-	if len(allFloatingIPs) < 1 {
-		return diag.Errorf("No openstack_networking_floatingip_v2 found")
-	}
-
-	if len(allFloatingIPs) > 1 {
-		return diag.Errorf("More than one openstack_networking_floatingip_v2 found")
-	}
-
-	fip := allFloatingIPs[0]
-
-	log.Printf("[DEBUG] Retrieved openstack_networking_floatingip_v2 %s: %+v", fip.ID, fip)
+func setFloatingIPData(d *schema.ResourceData, fip *dto.FloatingIP) diag.Diagnostics {
 	d.SetId(fip.ID)
-
-	d.Set("description", fip.Description)
-	d.Set("address", fip.FloatingIP.FloatingIP)
-	d.Set("pool", fip.FloatingNetworkID)
-	d.Set("port_id", fip.PortID)
-	d.Set("fixed_ip", fip.FixedIP)
-	d.Set("tenant_id", fip.TenantID)
+	d.Set("address", fip.Address)
 	d.Set("status", fip.Status)
-	d.Set("all_tags", fip.Tags)
-	d.Set("dns_name", fip.DNSName)
-	d.Set("dns_domain", fip.DNSDomain)
-	d.Set("region", util.GetRegion(d, configMeta))
+	d.Set("port_id", fip.PortID)
+	d.Set("instance_id", fip.InstanceID)
+	d.Set("instance_name", fip.InstanceName)
+	d.Set("created_at", fip.CreatedAt)
+	return nil
+}
+
+func DataSourceFloatingIPs() *schema.Resource {
+	return &schema.Resource{
+		ReadContext: dataSourceFloatingIPsRead,
+		Schema: map[string]*schema.Schema{
+			"floating_ips": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"id":            {Type: schema.TypeString, Computed: true},
+						"address":       {Type: schema.TypeString, Computed: true},
+						"status":        {Type: schema.TypeString, Computed: true},
+						"port_id":       {Type: schema.TypeString, Computed: true},
+						"instance_id":   {Type: schema.TypeString, Computed: true},
+						"instance_name": {Type: schema.TypeString, Computed: true},
+						"created_at":    {Type: schema.TypeString, Computed: true},
+					},
+				},
+			},
+		},
+	}
+}
+
+func dataSourceFloatingIPsRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	cfg := meta.(*config.Config)
+
+	listResp := &dto.ListFloatingIPsResponse{}
+	_, err := cfg.Client.Get(ctx, client.ApiPath.FloatingIPs(cfg.ProjectID), listResp, nil)
+	if err != nil {
+		return diag.Errorf("Error listing vnpaycloud_floating_ips: %s", err)
+	}
+
+	var floatingIPs []map[string]interface{}
+	for _, fip := range listResp.FloatingIPs {
+		floatingIPs = append(floatingIPs, map[string]interface{}{
+			"id":            fip.ID,
+			"address":       fip.Address,
+			"status":        fip.Status,
+			"port_id":       fip.PortID,
+			"instance_id":   fip.InstanceID,
+			"instance_name": fip.InstanceName,
+			"created_at":    fip.CreatedAt,
+		})
+	}
+
+	d.SetId(fmt.Sprintf("floating-ips-%s", cfg.ProjectID))
+	d.Set("floating_ips", floatingIPs)
 
 	return nil
 }

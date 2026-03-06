@@ -2,157 +2,190 @@ package volume
 
 import (
 	"context"
+	"fmt"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/util"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/blockstorage/v3/volumes"
 )
 
-func DataSourceBlockStorageVolume() *schema.Resource {
+func DataSourceVolume() *schema.Resource {
 	return &schema.Resource{
-		ReadContext: dataSourceBlockStorageVolumeRead,
-
+		ReadContext: dataSourceVolumeRead,
 		Schema: map[string]*schema.Schema{
-			"region": {
+			"id": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
 			},
-
 			"name": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
 			},
-
-			"status": {
+			"description": {
 				Type:     schema.TypeString,
-				Optional: true,
 				Computed: true,
 			},
-
-			"metadata": {
-				Type:     schema.TypeMap,
-				Optional: true,
-				Computed: true,
-			},
-
-			// Computed values
-			"bootable": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
-			},
-
-			"volume_type": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
-			},
-
 			"size": {
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
-
-			"source_volume_id": {
+			"volume_type": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-
-			"host": {
+			"zone": {
 				Type:     schema.TypeString,
-				Optional: true,
 				Computed: true,
 			},
-
-			"attachment": {
-				Type:     schema.TypeSet,
+			"status": {
+				Type:     schema.TypeString,
 				Computed: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"id": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"instance_id": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"device": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-					},
-				},
-				Set: blockStorageVolumeAttachmentHash,
+			},
+			"iops": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"is_encrypted": {
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
+			"is_multiattach": {
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
+			"is_bootable": {
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
+			"attached_server_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"attached_server_name": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"created_at": {
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 		},
 	}
 }
 
-func dataSourceBlockStorageVolumeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	config := meta.(*config.Config)
-	client, err := config.BlockStorageV3Client(ctx, util.GetRegion(d, config))
+func dataSourceVolumeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	cfg := meta.(*config.Config)
+
+	if id, ok := d.GetOk("id"); ok {
+		volResp := &dto.VolumeResponse{}
+		_, err := cfg.Client.Get(ctx, client.ApiPath.VolumeWithID(cfg.ProjectID, id.(string)), volResp, nil)
+		if err != nil {
+			return diag.Errorf("Error fetching vnpaycloud_volume %s: %s", id, err)
+		}
+		return setVolumeData(d, &volResp.Volume)
+	}
+
+	listResp := &dto.ListVolumesResponse{}
+	_, err := cfg.Client.Get(ctx, client.ApiPath.Volumes(cfg.ProjectID), listResp, nil)
 	if err != nil {
-		return diag.Errorf("Error creating VNPAY Cloud block storage client: %s", err)
+		return diag.Errorf("Error listing vnpaycloud_volume: %s", err)
 	}
 
-	listOpts := volumes.ListOpts{
-		Metadata: util.ExpandToMapStringString(d.Get("metadata").(map[string]interface{})),
-		Name:     d.Get("name").(string),
-		Status:   d.Get("status").(string),
+	nameFilter, nameOk := d.GetOk("name")
+
+	for _, vol := range listResp.Volumes {
+		if nameOk && vol.Name != nameFilter.(string) {
+			continue
+		}
+		return setVolumeData(d, &vol)
 	}
 
-	allPages, err := volumes.List(client, listOpts).AllPages(ctx)
-	if err != nil {
-		return diag.Errorf("Unable to query vnpaycloud_blockstorage_volume: %s", err)
-	}
+	return diag.Errorf("No vnpaycloud_volume found matching the criteria")
+}
 
-	var allVolumes []volumes.Volume
-	err = volumes.ExtractVolumesInto(allPages, &allVolumes)
-	if err != nil {
-		return diag.Errorf("Unable to retrieve vnpaycloud_blockstorage_volume: %s", err)
-	}
-
-	if len(allVolumes) > 1 {
-		return diag.Errorf("Your vnpaycloud_blockstorage_volume query returned multiple results")
-	}
-
-	if len(allVolumes) < 1 {
-		return diag.Errorf("Your vnpaycloud_blockstorage_volume query returned no results")
-	}
-
-	dataSourceBlockStorageVolumeAttributes(ctx, d, allVolumes[0])
-
+func setVolumeData(d *schema.ResourceData, vol *dto.Volume) diag.Diagnostics {
+	d.SetId(vol.ID)
+	d.Set("name", vol.Name)
+	d.Set("description", vol.Description)
+	d.Set("size", vol.SizeGB)
+	d.Set("volume_type", vol.VolumeType)
+	d.Set("zone", vol.Zone)
+	d.Set("status", vol.Status)
+	d.Set("iops", vol.IOPS)
+	d.Set("is_encrypted", vol.IsEncrypted)
+	d.Set("is_multiattach", vol.IsMultiattach)
+	d.Set("is_bootable", vol.IsBootable)
+	d.Set("attached_server_id", vol.AttachedServerID)
+	d.Set("attached_server_name", vol.AttachedServerName)
+	d.Set("created_at", vol.CreatedAt)
 	return nil
 }
 
-func dataSourceBlockStorageVolumeAttributes(ctx context.Context, d *schema.ResourceData, volume volumes.Volume) {
-	d.SetId(volume.ID)
-	d.Set("name", volume.Name)
-	d.Set("status", volume.Status)
-	d.Set("bootable", volume.Bootable)
-	d.Set("volume_type", volume.VolumeType)
-	d.Set("size", volume.Size)
-	d.Set("source_volume_id", volume.SourceVolID)
-	d.Set("host", volume.Host)
+func DataSourceVolumes() *schema.Resource {
+	return &schema.Resource{
+		ReadContext: dataSourceVolumesRead,
+		Schema: map[string]*schema.Schema{
+			"volumes": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"id":                   {Type: schema.TypeString, Computed: true},
+						"name":                 {Type: schema.TypeString, Computed: true},
+						"description":          {Type: schema.TypeString, Computed: true},
+						"size":                 {Type: schema.TypeInt, Computed: true},
+						"volume_type":          {Type: schema.TypeString, Computed: true},
+						"zone":                 {Type: schema.TypeString, Computed: true},
+						"status":               {Type: schema.TypeString, Computed: true},
+						"iops":                 {Type: schema.TypeInt, Computed: true},
+						"is_encrypted":         {Type: schema.TypeBool, Computed: true},
+						"is_multiattach":       {Type: schema.TypeBool, Computed: true},
+						"is_bootable":          {Type: schema.TypeBool, Computed: true},
+						"attached_server_id":   {Type: schema.TypeString, Computed: true},
+						"attached_server_name": {Type: schema.TypeString, Computed: true},
+						"created_at":           {Type: schema.TypeString, Computed: true},
+					},
+				},
+			},
+		},
+	}
+}
 
-	if err := d.Set("metadata", volume.Metadata); err != nil {
-		tflog.Error(ctx, "Unable to set metadata for vnpaycloud_blockstorage_volume "+volume.ID, map[string]interface{}{"error": err})
+func dataSourceVolumesRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	cfg := meta.(*config.Config)
+
+	listResp := &dto.ListVolumesResponse{}
+	_, err := cfg.Client.Get(ctx, client.ApiPath.Volumes(cfg.ProjectID), listResp, nil)
+	if err != nil {
+		return diag.Errorf("Error listing vnpaycloud_volumes: %s", err)
 	}
 
-	attachments := flattenBlockStorageVolumeAttachments(volume.Attachments)
-	tflog.Debug(ctx, "vnpaycloud_blockstorage_volume %"+d.Id()+" attachments", map[string]interface{}{"attachments": attachments})
-	if err := d.Set("attachment", attachments); err != nil {
-		tflog.Error(
-			ctx,
-			"unable to set vnpaycloud_blockstorage_volume "+d.Id()+" attachments",
-			map[string]interface{}{"error": err},
-		)
+	var volumes []map[string]interface{}
+	for _, vol := range listResp.Volumes {
+		volumes = append(volumes, map[string]interface{}{
+			"id":                   vol.ID,
+			"name":                 vol.Name,
+			"description":          vol.Description,
+			"size":                 vol.SizeGB,
+			"volume_type":          vol.VolumeType,
+			"zone":                 vol.Zone,
+			"status":               vol.Status,
+			"iops":                 vol.IOPS,
+			"is_encrypted":         vol.IsEncrypted,
+			"is_multiattach":       vol.IsMultiattach,
+			"is_bootable":          vol.IsBootable,
+			"attached_server_id":   vol.AttachedServerID,
+			"attached_server_name": vol.AttachedServerName,
+			"created_at":           vol.CreatedAt,
+		})
 	}
+
+	d.SetId(fmt.Sprintf("volumes-%s", cfg.ProjectID))
+	d.Set("volumes", volumes)
+
+	return nil
 }

@@ -3,11 +3,12 @@ package vpc
 import (
 	"context"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
-	"terraform-provider-vnpaycloud/vnpaycloud/util"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/networking/v2/vpcs"
 )
 
 func DataSourceVpc() *schema.Resource {
@@ -28,13 +29,29 @@ func DataSourceVpc() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"cidr_block": {
+			"cidr": {
 				Type:     schema.TypeString,
-				Optional: true,
+				Computed: true,
+			},
+			"status": {
+				Type:     schema.TypeString,
 				Computed: true,
 			},
 			"enable_snat": {
 				Type:     schema.TypeBool,
+				Computed: true,
+			},
+			"snat_address": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"subnet_ids": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"created_at": {
+				Type:     schema.TypeString,
 				Computed: true,
 			},
 		},
@@ -42,49 +59,57 @@ func DataSourceVpc() *schema.Resource {
 }
 
 func dataSourceVpcRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	config := meta.(*config.Config)
-	client, err := config.NetworkingV2Client(ctx, util.GetRegion(d, config))
+	cfg := meta.(*config.Config)
 
-	if err != nil {
-		return diag.Errorf("Error creating VNPAY Cloud VPC client: %s", err)
+	// If ID is provided, fetch directly
+	if id, ok := d.GetOk("id"); ok && id.(string) != "" {
+		vpcResp := &dto.VPCResponse{}
+		_, err := cfg.Client.Get(ctx, client.ApiPath.VPCWithID(cfg.ProjectID, id.(string)), vpcResp, nil)
+		if err != nil {
+			return diag.Errorf("Error retrieving vnpaycloud_vpc %s: %s", id, err)
+		}
+		setVPCDataSourceAttributes(d, vpcResp.VPC)
+		return nil
 	}
 
-	listOpts := vpcs.ListOpts{
-		ID:   d.Get("id").(string),
-		Name: d.Get("name").(string),
-		CIDR: d.Get("cidr_block").(string),
-	}
-
-	allPages, err := vpcs.List(client, listOpts).AllPages(ctx)
-
+	// Otherwise, list and filter by name
+	listResp := &dto.ListVPCsResponse{}
+	_, err := cfg.Client.Get(ctx, client.ApiPath.VPCs(cfg.ProjectID), listResp, nil)
 	if err != nil {
 		return diag.Errorf("Unable to query vnpaycloud_vpc: %s", err)
 	}
 
-	var allVpcs []vpcs.VPC
-	err = vpcs.ExtractVPCsInto(allPages, &allVpcs)
-
-	if err != nil {
-		return diag.Errorf("Unable to retrieve vnpaycloud_vpc: %s", err)
+	name := d.Get("name").(string)
+	var matched []dto.VPC
+	for _, v := range listResp.VPCs {
+		if name != "" && v.Name != name {
+			continue
+		}
+		matched = append(matched, v)
 	}
 
-	if len(allVpcs) > 1 {
-		return diag.Errorf("Your vnpaycloud_vpc query returned multiple results")
-	}
-
-	if len(allVpcs) < 1 {
+	if len(matched) < 1 {
 		return diag.Errorf("Your vnpaycloud_vpc query returned no results")
 	}
 
-	dataSourceVPCAttributes(ctx, d, allVpcs[0])
+	if len(matched) > 1 {
+		return diag.Errorf("Your vnpaycloud_vpc query returned multiple results")
+	}
+
+	tflog.Debug(ctx, "Retrieved vnpaycloud_vpc datasource", map[string]interface{}{"vpc": matched[0]})
+	setVPCDataSourceAttributes(d, matched[0])
 
 	return nil
 }
 
-func dataSourceVPCAttributes(ctx context.Context, d *schema.ResourceData, volume vpcs.VPC) {
-	d.SetId(volume.ID)
-	d.Set("name", volume.Name)
-	d.Set("description", volume.Name)
-	d.Set("cidr_block", volume.CIDR)
-	d.Set("enable_snat", volume.EnableSNAT)
+func setVPCDataSourceAttributes(d *schema.ResourceData, vpc dto.VPC) {
+	d.SetId(vpc.ID)
+	d.Set("name", vpc.Name)
+	d.Set("description", vpc.Description)
+	d.Set("cidr", vpc.CIDR)
+	d.Set("status", vpc.Status)
+	d.Set("enable_snat", vpc.EnableSnat)
+	d.Set("snat_address", vpc.SnatAddress)
+	d.Set("subnet_ids", vpc.SubnetIDs)
+	d.Set("created_at", vpc.CreatedAt)
 }

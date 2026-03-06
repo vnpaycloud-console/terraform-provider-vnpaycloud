@@ -1,134 +1,33 @@
 package volume
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/util"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
-
-	"github.com/vnpaycloud-console/gophercloud-utils/v2/terraform/hashcode"
-	"github.com/vnpaycloud-console/gophercloud/v2"
-	"github.com/vnpaycloud-console/gophercloud/v2/openstack/blockstorage/v3/volumes"
 )
 
-const blockstorageV3VolumeFromBackupMicroversion = "3.47"
-const blockstorageV3ResizeOnlineInUse = "3.42"
-
-func flattenBlockStorageVolumeAttachments(v []volumes.Attachment) []map[string]interface{} {
-	attachments := make([]map[string]interface{}, len(v))
-	for i, attachment := range v {
-		attachments[i] = make(map[string]interface{})
-		attachments[i]["id"] = attachment.ID
-		attachments[i]["instance_id"] = attachment.ServerID
-		attachments[i]["device"] = attachment.Device
-	}
-
-	return attachments
-}
-
-func blockStorageVolumeStateRefreshFunc(ctx context.Context, client *gophercloud.ServiceClient, volumeID string) retry.StateRefreshFunc {
+func volumeStateRefreshFunc(ctx context.Context, c *client.Client, projectID, volumeID string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		v, err := volumes.Get(ctx, client, volumeID).Extract()
-		if err != nil {
-			if gophercloud.ResponseCodeIs(err, http.StatusNotFound) {
-				return v, "deleted", nil
-			}
+		volResp := &dto.VolumeResponse{}
+		_, err := c.Get(ctx, client.ApiPath.VolumeWithID(projectID, volumeID), volResp, nil)
 
+		if err != nil {
+			if util.ResponseCodeIs(err, http.StatusNotFound) {
+				return volResp.Volume, "deleted", nil
+			}
 			return nil, "", err
 		}
 
-		if v.Status == "error" {
-			return v, v.Status, fmt.Errorf("The volume is in error status. " +
-				"Please check with your cloud admin or check the Block Storage " +
-				"API logs to see why this error occurred.")
+		if volResp.Volume.Status == "failed" {
+			return volResp.Volume, volResp.Volume.Status, fmt.Errorf("The volume is in error status. " +
+				"Please check with your cloud admin or check the API logs.")
 		}
 
-		return v, v.Status, nil
+		return volResp.Volume, volResp.Volume.Status, nil
 	}
-}
-
-func blockStorageVolumeAttachmentHash(v interface{}) int {
-	var buf bytes.Buffer
-	m := v.(map[string]interface{})
-	if m["instance_id"] != nil {
-		buf.WriteString(fmt.Sprintf("%s-", m["instance_id"].(string)))
-	}
-	return hashcode.String(buf.String())
-}
-
-func expandBlockStorageVolumeSchedulerHints(v volumes.SchedulerHintOpts) map[string]interface{} {
-	schedulerHints := make(map[string]interface{})
-
-	differentHost := make([]interface{}, len(v.DifferentHost))
-	for i, dh := range v.DifferentHost {
-		differentHost[i] = dh
-	}
-
-	sameHost := make([]interface{}, len(v.SameHost))
-	for i, sh := range v.SameHost {
-		sameHost[i] = sh
-	}
-
-	schedulerHints["different_host"] = differentHost
-	schedulerHints["same_host"] = sameHost
-	schedulerHints["local_to_instance"] = v.LocalToInstance
-	schedulerHints["query"] = v.Query
-	schedulerHints["additional_properties"] = v.AdditionalProperties
-	return schedulerHints
-}
-
-func blockStorageVolumeSchedulerHintsHash(v interface{}) int {
-	var buf bytes.Buffer
-	m := v.(map[string]interface{})
-
-	if m["query"] != nil {
-		buf.WriteString(fmt.Sprintf("%s-", m["query"].(string)))
-	}
-
-	if m["local_to_instance"] != nil {
-		buf.WriteString(fmt.Sprintf("%s-", m["local_to_instance"].(string)))
-	}
-
-	if m["additional_properties"] != nil {
-		for _, v := range m["additional_properties"].(map[string]interface{}) {
-			buf.WriteString(fmt.Sprintf("%s-", v))
-		}
-	}
-
-	buf.WriteString(fmt.Sprintf("%s-", m["different_host"].([]interface{})))
-	buf.WriteString(fmt.Sprintf("%s-", m["same_host"].([]interface{})))
-
-	return hashcode.String(buf.String())
-}
-
-func resourceBlockStorageVolumeSchedulerHints(schedulerHintsRaw map[string]interface{}) volumes.SchedulerHintOpts {
-	schedulerHints := volumes.SchedulerHintOpts{
-		Query:                schedulerHintsRaw["query"].(string),
-		LocalToInstance:      schedulerHintsRaw["local_to_instance"].(string),
-		AdditionalProperties: schedulerHintsRaw["additional_properties"].(map[string]interface{}),
-	}
-
-	if v, ok := schedulerHintsRaw["different_host"].([]interface{}); ok {
-		differentHost := make([]string, len(v))
-
-		for i, dh := range v {
-			differentHost[i] = dh.(string)
-		}
-
-		schedulerHints.DifferentHost = differentHost
-	}
-
-	if v, ok := schedulerHintsRaw["same_host"].([]interface{}); ok {
-		sameHost := make([]string, len(v))
-
-		for i, sh := range v {
-			sameHost[i] = sh.(string)
-		}
-
-		schedulerHints.SameHost = sameHost
-	}
-
-	return schedulerHints
 }

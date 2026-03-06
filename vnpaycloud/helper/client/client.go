@@ -3,16 +3,21 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 const (
-	DefaultUserAgent = "vnpaycloud-console-gophercloud/v2.0.0"
+	DefaultUserAgent = "terraform-provider-vnpaycloud/v2"
 )
 
 var applicationJSON = "application/json"
@@ -24,19 +29,38 @@ type Client struct {
 }
 
 type ClientConfig struct {
-	BaseURL       string
-	AppCredID     string
-	AppCredSecret string
+	BaseURL  string
+	Token    string
+	Insecure bool
 }
 
-func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
-	c := &Client{baseURL: cfg.BaseURL}
-
-	if err := c.Authenticate(ctx, cfg.AppCredID, cfg.AppCredSecret); err != nil {
-		return nil, err
+func NewClient(_ context.Context, cfg *ClientConfig) (*Client, error) {
+	if cfg.Token == "" {
+		return nil, errors.New("token is required")
+	}
+	if cfg.BaseURL == "" {
+		return nil, errors.New("base_url is required")
 	}
 
-	return c, nil
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+	if cfg.Insecure {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
+	}
+
+	return &Client{
+		baseURL: strings.TrimRight(cfg.BaseURL, "/"),
+		token:   cfg.Token,
+		httpClient: http.Client{
+			Transport: transport,
+			Timeout:   60 * time.Second,
+		},
+	}, nil
 }
 
 type RequestOpts struct {
@@ -47,48 +71,6 @@ type RequestOpts struct {
 	MoreHeaders      map[string]string
 	OmitHeaders      []string
 	KeepResponseBody bool
-}
-
-func (client *Client) Authenticate(ctx context.Context, appCredID, appCredSecret string) error {
-	type AuthPayload struct {
-		Auth struct {
-			Identity struct {
-				Methods               []string `json:"methods"`
-				ApplicationCredential struct {
-					ID     string `json:"id,omitempty"`
-					Name   string `json:"name,omitempty"`
-					Secret string `json:"secret"`
-				} `json:"application_credential"`
-			} `json:"identity"`
-		} `json:"auth"`
-	}
-
-	payload := AuthPayload{}
-	payload.Auth.Identity.Methods = []string{"application_credential"}
-	payload.Auth.Identity.ApplicationCredential.ID = appCredID
-	payload.Auth.Identity.ApplicationCredential.Secret = appCredSecret
-
-	var respBody map[string]interface{}
-	opts := &RequestOpts{
-		JSONBody:     payload,
-		JSONResponse: &respBody,
-		OkCodes:      []int{201},
-		OmitHeaders:  []string{"X-Auth-Token"},
-	}
-
-	resp, err := client.Post(ctx, ApiPath.Auth, payload, &respBody, opts)
-	if err != nil {
-		return err
-	}
-
-	token := resp.Header.Get("X-Subject-Token")
-
-	if token == "" {
-		return errors.New("no token found in X-Subject-Token header")
-	}
-
-	client.token = token
-	return nil
 }
 
 func (client *Client) Get(ctx context.Context, path string, JSONResponse any, opts *RequestOpts) (*http.Response, error) {
@@ -158,7 +140,6 @@ func (client *Client) doRequest(ctx context.Context, method, url string, options
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +150,7 @@ func (client *Client) doRequest(ctx context.Context, method, url string, options
 
 	req.Header.Set("Accept", applicationJSON)
 	req.Header.Set("User-Agent", DefaultUserAgent)
-	req.Header.Set("X-Auth-Token", client.token)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", client.token))
 
 	if options.MoreHeaders != nil {
 		for k, v := range options.MoreHeaders {
@@ -182,19 +163,16 @@ func (client *Client) doRequest(ctx context.Context, method, url string, options
 	}
 
 	resp, err := client.httpClient.Do(req)
-
 	if err != nil {
 		return nil, err
 	}
 
 	okc := options.OkCodes
-
 	if okc == nil {
 		okc = defaultOkCodes(method)
 	}
 
 	var ok bool
-
 	for _, code := range okc {
 		if resp.StatusCode == code {
 			ok = true
@@ -205,7 +183,7 @@ func (client *Client) doRequest(ctx context.Context, method, url string, options
 	if !ok {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		err := ErrUnexpectedResponseCode{
+		respErr := ErrUnexpectedResponseCode{
 			URL:            url,
 			Method:         method,
 			Expected:       okc,
@@ -213,17 +191,17 @@ func (client *Client) doRequest(ctx context.Context, method, url string, options
 			Body:           body,
 			ResponseHeader: resp.Header,
 		}
-		err.Info = string(err.Body)
+		respErr.Info = string(respErr.Body)
 
 		tflog.Error(ctx, "An error occurred while executing a request.", map[string]interface{}{
-			"status":          err.Actual,
-			"url":             err.URL,
-			"method":          err.Method,
-			"body":            string(err.Body),
-			"response_header": err.ResponseHeader,
+			"status":          respErr.Actual,
+			"url":             respErr.URL,
+			"method":          respErr.Method,
+			"body":            string(respErr.Body),
+			"response_header": respErr.ResponseHeader,
 		})
 
-		return resp, err
+		return resp, respErr
 	}
 
 	if options.JSONResponse != nil {
@@ -255,13 +233,13 @@ func defaultOkCodes(method string) []int {
 	case "GET", "HEAD":
 		return []int{200}
 	case "POST":
-		return []int{201, 202}
+		return []int{200, 201, 202}
 	case "PUT":
-		return []int{201, 202}
+		return []int{200, 201, 202}
 	case "PATCH":
 		return []int{200, 202, 204}
 	case "DELETE":
-		return []int{202, 204}
+		return []int{200, 202, 204}
 	}
 
 	return []int{}
