@@ -2,8 +2,10 @@ package vnpaycloud
 
 import (
 	"context"
+	"fmt"
 	"terraform-provider-vnpaycloud/vnpaycloud/bucket"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/mutexkv"
 	"terraform-provider-vnpaycloud/vnpaycloud/floatingip"
@@ -23,6 +25,7 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/routetable"
 	"terraform-provider-vnpaycloud/vnpaycloud/securitygroup"
 	"terraform-provider-vnpaycloud/vnpaycloud/securitygrouprule"
+	"terraform-provider-vnpaycloud/vnpaycloud/servergroup"
 	"terraform-provider-vnpaycloud/vnpaycloud/snapshot"
 	"terraform-provider-vnpaycloud/vnpaycloud/subnet"
 	"terraform-provider-vnpaycloud/vnpaycloud/subnetsnat"
@@ -53,25 +56,23 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("VNPAYCLOUD_TOKEN", nil),
 				Description: "Authentication token (e.g. vtx_pat_xxx).",
 			},
-			"project_id": {
+			"zone_id": {
 				Type:        schema.TypeString,
 				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("VNPAYCLOUD_PROJECT_ID", nil),
-				Description: "The project ID to scope API requests to.",
-			},
-			"insecure": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				DefaultFunc: schema.EnvDefaultFunc("VNPAYCLOUD_INSECURE", false),
-				Description: "Skip TLS certificate verification.",
+				DefaultFunc: schema.EnvDefaultFunc("VNPAYCLOUD_ZONE_ID", nil),
+				Description: "The availability zone ID. The provider resolves the project for your account in this zone.",
 			},
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{
+			"vnpaycloud_server_group":  servergroup.DataSourceServerGroup(),
+			"vnpaycloud_server_groups": servergroup.DataSourceServerGroups(),
 			"vnpaycloud_vpc":            vpc.DataSourceVpc(),
+			"vnpaycloud_vpcs":           vpc.DataSourceVpcs(),
 			"vnpaycloud_subnet":         subnet.DataSourceSubnet(),
 			"vnpaycloud_subnets":        subnet.DataSourceSubnets(),
 			"vnpaycloud_security_group":    securitygroup.DataSourceSecurityGroup(),
+			"vnpaycloud_security_groups":   securitygroup.DataSourceSecurityGroups(),
 			"vnpaycloud_floating_ip":       floatingip.DataSourceFloatingIP(),
 			"vnpaycloud_floating_ips":      floatingip.DataSourceFloatingIPs(),
 			"vnpaycloud_network_interface": networkinterface.DataSourceNetworkInterface(),
@@ -104,6 +105,7 @@ func Provider() *schema.Provider {
 		},
 
 		ResourcesMap: map[string]*schema.Resource{
+			"vnpaycloud_server_group":        servergroup.ResourceServerGroup(),
 			"vnpaycloud_vpc":                 vpc.ResourceVpc(),
 			"vnpaycloud_subnet":              subnet.ResourceSubnet(),
 			"vnpaycloud_subnet_snat":         subnetsnat.ResourceSubnetSNAT(),
@@ -142,18 +144,32 @@ func Provider() *schema.Provider {
 
 func configureProvider(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	c, err := client.NewClient(ctx, &client.ClientConfig{
-		BaseURL:  d.Get("base_url").(string),
-		Token:    d.Get("token").(string),
-		Insecure: d.Get("insecure").(bool),
+		BaseURL: d.Get("base_url").(string),
+		Token:   d.Get("token").(string),
 	})
 	if err != nil {
 		return nil, diag.FromErr(err)
 	}
 
+	// Resolve project_id from zone_id via backend API
+	zoneID := d.Get("zone_id").(string)
+	var resolveResp dto.ResolveProjectByZoneResponse
+	_, err = c.Get(ctx, client.ApiPath.ResolveProjectByZone(zoneID), &resolveResp, nil)
+	if err != nil {
+		return nil, diag.Diagnostics{
+			{
+				Severity: diag.Error,
+				Summary:  "Failed to resolve project for zone",
+				Detail:   fmt.Sprintf("Could not resolve project_id for zone_id=%s: %s", zoneID, err),
+			},
+		}
+	}
+
 	cfg := &config.Config{
 		MutexKV:   mutexkv.NewMutexKV(),
 		Client:    c,
-		ProjectID: d.Get("project_id").(string),
+		ProjectID: resolveResp.ProjectID,
+		ZoneID:    zoneID,
 	}
 
 	return cfg, nil
