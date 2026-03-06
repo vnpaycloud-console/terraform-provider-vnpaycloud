@@ -118,6 +118,9 @@ var ApiPath = struct {
 	Buckets      func(projectID string) string
 	BucketUsage  func(projectID, bucketName string) string
 	BucketDelete func(projectID, bucketName, region string) string
+
+	// Zone → Project Resolution (not project-scoped)
+	ResolveProjectByZone func(zoneID string) string
 }{
 	VPCs: func(projectID string) string {
 		return fmt.Sprintf("/v2/projects/%s/vpcs", projectID)
@@ -310,5 +313,8 @@ var ApiPath = struct {
 	},
 	BucketDelete: func(projectID, bucketName, region string) string {
 		return fmt.Sprintf("/v2/projects/%s/buckets/%s?region=%s", projectID, bucketName, region)
+	},
+	ResolveProjectByZone: func(zoneID string) string {
+		return fmt.Sprintf("/v2/zones/%s/project", zoneID)
 	},
 }

@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,9 +28,8 @@ type Client struct {
 }
 
 type ClientConfig struct {
-	BaseURL  string
-	Token    string
-	Insecure bool
+	BaseURL string
+	Token   string
 }
 
 func NewClient(_ context.Context, cfg *ClientConfig) (*Client, error) {
@@ -48,9 +46,6 @@ func NewClient(_ context.Context, cfg *ClientConfig) (*Client, error) {
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
 		TLSHandshakeTimeout: 10 * time.Second,
-	}
-	if cfg.Insecure {
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
 	}
 
 	return &Client{
