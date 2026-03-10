@@ -8,6 +8,7 @@ type Flavor struct {
 	RAMMB    int32  `json:"ramMb"`
 	DiskGB   int32  `json:"diskGb"`
 	IsPublic bool   `json:"isPublic"`
+	Zone     string `json:"zone"`
 }
 
 // FlavorResponse matches the iac-proxy-v2 FlavorResponse proto message.

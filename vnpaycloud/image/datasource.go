@@ -41,6 +41,10 @@ func DataSourceImage() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"zone": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 	}
 }
@@ -82,6 +86,7 @@ func setImageData(d *schema.ResourceData, img *dto.Image) diag.Diagnostics {
 	d.Set("os_version", img.OsVersion)
 	d.Set("min_disk_gb", img.MinDiskGB)
 	d.Set("status", img.Status)
+	d.Set("zone", img.Zone)
 	return nil
 }
 
@@ -100,6 +105,7 @@ func DataSourceImages() *schema.Resource {
 						"os_version":  {Type: schema.TypeString, Computed: true},
 						"min_disk_gb": {Type: schema.TypeInt, Computed: true},
 						"status":      {Type: schema.TypeString, Computed: true},
+						"zone":        {Type: schema.TypeString, Computed: true},
 					},
 				},
 			},
@@ -125,6 +131,7 @@ func dataSourceImagesRead(ctx context.Context, d *schema.ResourceData, meta inte
 			"os_version":  img.OsVersion,
 			"min_disk_gb": img.MinDiskGB,
 			"status":      img.Status,
+			"zone":        img.Zone,
 		})
 	}
 

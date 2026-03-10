@@ -8,6 +8,7 @@ type Image struct {
 	OsVersion string `json:"osVersion"`
 	MinDiskGB int32  `json:"minDiskGb"`
 	Status    string `json:"status"`
+	Zone      string `json:"zone"`
 }
 
 // ImageResponse matches the iac-proxy-v2 ImageResponse proto message.

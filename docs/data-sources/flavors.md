@@ -37,3 +37,4 @@ output "high_cpu_flavors" {
   - `ram_mb` (Number) The amount of RAM in megabytes (MB).
   - `disk_gb` (Number) The root disk size in gigabytes (GB).
   - `is_public` (Boolean) Whether the flavor is publicly available.
+  - `zone` (String) The availability zone where this flavor is available.
