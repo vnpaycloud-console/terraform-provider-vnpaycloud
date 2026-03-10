@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,9 +28,8 @@ type Client struct {
 }
 
 type ClientConfig struct {
-	BaseURL  string
-	Token    string
-	Insecure bool
+	BaseURL string
+	Token   string
 }
 
 func NewClient(_ context.Context, cfg *ClientConfig) (*Client, error) {
@@ -48,9 +46,6 @@ func NewClient(_ context.Context, cfg *ClientConfig) (*Client, error) {
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
 		TLSHandshakeTimeout: 10 * time.Second,
-	}
-	if cfg.Insecure {
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
 	}
 
 	return &Client{
@@ -114,6 +109,48 @@ func (client *Client) Delete(ctx context.Context, path string, opts *RequestOpts
 }
 
 func (client *Client) doRequest(ctx context.Context, method, url string, options *RequestOpts) (*http.Response, error) {
+	const maxRetries = 3
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		resp, err := client.doRequestOnce(ctx, method, url, options)
+		if err == nil {
+			return resp, nil
+		}
+
+		// Retry on 429 Too Many Requests or 503 Service Unavailable
+		var respErr ErrUnexpectedResponseCode
+		if !errors.As(err, &respErr) {
+			return resp, err
+		}
+		if respErr.Actual != http.StatusTooManyRequests && respErr.Actual != http.StatusServiceUnavailable {
+			// Also check if the body contains "Too Many Requests" (gRPC error forwarded as 200 with error body)
+			if !strings.Contains(string(respErr.Body), "Too Many Requests") {
+				return resp, err
+			}
+		}
+
+		if attempt == maxRetries {
+			return resp, err
+		}
+
+		backoff := time.Duration(1<<uint(attempt)) * time.Second // 1s, 2s, 4s
+		tflog.Warn(ctx, fmt.Sprintf("Rate limited (attempt %d/%d), retrying in %s...", attempt+1, maxRetries+1, backoff), map[string]interface{}{
+			"url":    url,
+			"method": method,
+			"status": respErr.Actual,
+		})
+
+		select {
+		case <-ctx.Done():
+			return resp, ctx.Err()
+		case <-time.After(backoff):
+		}
+	}
+
+	return nil, errors.New("unreachable")
+}
+
+func (client *Client) doRequestOnce(ctx context.Context, method, url string, options *RequestOpts) (*http.Response, error) {
 	var body io.Reader
 	var contentType *string
 
