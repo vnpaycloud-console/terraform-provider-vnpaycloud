@@ -41,6 +41,10 @@ func DataSourceFlavor() *schema.Resource {
 				Type:     schema.TypeBool,
 				Computed: true,
 			},
+			"zone": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 	}
 }
@@ -82,6 +86,7 @@ func setFlavorData(d *schema.ResourceData, f *dto.Flavor) diag.Diagnostics {
 	d.Set("ram_mb", f.RAMMB)
 	d.Set("disk_gb", f.DiskGB)
 	d.Set("is_public", f.IsPublic)
+	d.Set("zone", f.Zone)
 	return nil
 }
 
@@ -100,6 +105,7 @@ func DataSourceFlavors() *schema.Resource {
 						"ram_mb":  {Type: schema.TypeInt, Computed: true},
 						"disk_gb":   {Type: schema.TypeInt, Computed: true},
 						"is_public": {Type: schema.TypeBool, Computed: true},
+						"zone":      {Type: schema.TypeString, Computed: true},
 					},
 				},
 			},
@@ -125,6 +131,7 @@ func dataSourceFlavorsRead(ctx context.Context, d *schema.ResourceData, meta int
 			"ram_mb":  f.RAMMB,
 			"disk_gb":   f.DiskGB,
 			"is_public": f.IsPublic,
+			"zone":      f.Zone,
 		})
 	}
 

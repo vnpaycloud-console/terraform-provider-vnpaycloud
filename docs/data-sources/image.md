@@ -40,3 +40,4 @@ data "vnpaycloud_image" "by_id" {
 - `os_version` (String) The operating system version (e.g., `Ubuntu 22.04 LTS`).
 - `min_disk_gb` (Number) The minimum disk size in gigabytes (GB) required to use this image.
 - `status` (String) The current status of the image (e.g., `active`).
+- `zone` (String) The availability zone where this image is available.

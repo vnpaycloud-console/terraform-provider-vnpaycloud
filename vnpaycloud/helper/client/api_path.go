@@ -139,222 +139,222 @@ var ApiPath = struct {
 	ResolveProjectByZone func(zoneID string) string
 }{
 	VPCs: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/vpcs", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/vpcs", projectID)
 	},
 	VPCWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/vpcs/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/vpcs/%s", projectID, id)
 	},
 	VPCSetSNAT: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/vpcs/%s/snat", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/vpcs/%s/snat", projectID, id)
 	},
 	Subnets: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/subnets", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/subnets", projectID)
 	},
 	SubnetWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/subnets/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/subnets/%s", projectID, id)
 	},
 	SubnetEnableSNAT: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/subnets/%s/enable-snat", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/subnets/%s/enable-snat", projectID, id)
 	},
 	SubnetDisableSNAT: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/subnets/%s/disable-snat", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/subnets/%s/disable-snat", projectID, id)
 	},
 	SecurityGroups: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/security-groups", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/security-groups", projectID)
 	},
 	SecurityGroupWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/security-groups/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/security-groups/%s", projectID, id)
 	},
 	SecurityGroupRules: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/security-group-rules", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/security-group-rules", projectID)
 	},
 	SecurityGroupRuleWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/security-group-rules/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/security-group-rules/%s", projectID, id)
 	},
 	FloatingIPs: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/floating-ips", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/floating-ips", projectID)
 	},
 	FloatingIPWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/floating-ips/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/floating-ips/%s", projectID, id)
 	},
 	FloatingIPAssociate: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/floating-ips/%s/associate", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/floating-ips/%s/associate", projectID, id)
 	},
 	FloatingIPDisassociate: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/floating-ips/%s/disassociate", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/floating-ips/%s/disassociate", projectID, id)
 	},
 	NetworkInterfaces: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/network-interfaces", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/network-interfaces", projectID)
 	},
 	NetworkInterfaceWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/network-interfaces/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/network-interfaces/%s", projectID, id)
 	},
 	NetworkInterfaceAttach: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/network-interfaces/%s/attach", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/network-interfaces/%s/attach", projectID, id)
 	},
 	NetworkInterfaceDetach: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/network-interfaces/%s/detach", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/network-interfaces/%s/detach", projectID, id)
 	},
 	Volumes: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/volumes", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/volumes", projectID)
 	},
 	VolumeWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/volumes/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/volumes/%s", projectID, id)
 	},
 	VolumeResize: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/volumes/%s/resize", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/volumes/%s/resize", projectID, id)
 	},
 	VolumeAttach: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/volumes/%s/attach", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/volumes/%s/attach", projectID, id)
 	},
 	VolumeDetach: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/volumes/%s/detach", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/volumes/%s/detach", projectID, id)
 	},
 	VolumeAttachments: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/volume-attachments", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/volume-attachments", projectID)
 	},
 	VolumeAttachmentWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/volume-attachments/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/volume-attachments/%s", projectID, id)
 	},
 	Instances: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/instances", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/instances", projectID)
 	},
 	InstanceWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/instances/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/instances/%s", projectID, id)
 	},
 	InstanceResize: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/instances/%s/resize", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/instances/%s/resize", projectID, id)
 	},
 	ServerGroups: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/server-groups", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/server-groups", projectID)
 	},
 	ServerGroupWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/server-groups/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/server-groups/%s", projectID, id)
 	},
 	CreateKeyPair: func() string {
-		return "/v2/key-pairs"
+		return "/v2/iac/key-pairs"
 	},
 	KeyPairs: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/key-pairs", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/key-pairs", projectID)
 	},
 	KeyPairWithName: func(projectID, name string) string {
-		return fmt.Sprintf("/v2/projects/%s/key-pairs/%s", projectID, name)
+		return fmt.Sprintf("/v2/iac/projects/%s/key-pairs/%s", projectID, name)
 	},
 	InternetGateways: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/internet-gateways", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/internet-gateways", projectID)
 	},
 	InternetGatewayWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/internet-gateways/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/internet-gateways/%s", projectID, id)
 	},
 	InternetGatewayAttachVPC: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/internet-gateways/%s/attach-vpc", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/internet-gateways/%s/attach-vpc", projectID, id)
 	},
 	InternetGatewayDetachVPC: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/internet-gateways/%s/detach-vpc", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/internet-gateways/%s/detach-vpc", projectID, id)
 	},
 	Snapshots: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/snapshots", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/snapshots", projectID)
 	},
 	SnapshotWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/snapshots/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/snapshots/%s", projectID, id)
 	},
 	LoadBalancers: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/load-balancers", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/load-balancers", projectID)
 	},
 	LoadBalancerWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/load-balancers/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/load-balancers/%s", projectID, id)
 	},
 	Listeners: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/listeners", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/listeners", projectID)
 	},
 	ListenerWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/listeners/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/listeners/%s", projectID, id)
 	},
 	Pools: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/pools", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/pools", projectID)
 	},
 	PoolWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/pools/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/pools/%s", projectID, id)
 	},
 	HealthMonitors: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/health-monitors", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/health-monitors", projectID)
 	},
 	HealthMonitorWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/health-monitors/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/health-monitors/%s", projectID, id)
 	},
 	RegistryProjects: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/registries", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/registries", projectID)
 	},
 	RegistryProjectWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/registries/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/registries/%s", projectID, id)
 	},
 	RobotAccounts: func(projectID, registryID string) string {
-		return fmt.Sprintf("/v2/projects/%s/registries/%s/robot-accounts", projectID, registryID)
+		return fmt.Sprintf("/v2/iac/projects/%s/registries/%s/robot-accounts", projectID, registryID)
 	},
 	RobotAccountWithID: func(projectID, registryID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/registries/%s/robot-accounts/%s", projectID, registryID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/registries/%s/robot-accounts/%s", projectID, registryID, id)
 	},
 	Clusters: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/clusters", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters", projectID)
 	},
 	ClusterWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/clusters/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s", projectID, id)
 	},
 	ClusterKubeconfig: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/clusters/%s/kubeconfig", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/kubeconfig", projectID, id)
 	},
 	WorkerGroups: func(projectID, clusterID string) string {
-		return fmt.Sprintf("/v2/projects/%s/clusters/%s/worker-groups", projectID, clusterID)
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/worker-groups", projectID, clusterID)
 	},
 	WorkerGroupWithID: func(projectID, clusterID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/clusters/%s/worker-groups/%s", projectID, clusterID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/worker-groups/%s", projectID, clusterID, id)
 	},
 	RouteTables: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/route-tables", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/route-tables", projectID)
 	},
 	RouteTableWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/route-tables/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/route-tables/%s", projectID, id)
 	},
 	PrivateGateways: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/private-gateways", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/private-gateways", projectID)
 	},
 	PrivateGatewayWithID: func(projectID, id string) string {
-		return fmt.Sprintf("/v2/projects/%s/private-gateways/%s", projectID, id)
+		return fmt.Sprintf("/v2/iac/projects/%s/private-gateways/%s", projectID, id)
 	},
 	PeeringConnections: func() string {
-		return "/v2/peering-connections"
+		return "/v2/iac/peering-connections"
 	},
 	PeeringConnectionWithID: func(id string) string {
-		return fmt.Sprintf("/v2/peering-connections/%s", id)
+		return fmt.Sprintf("/v2/iac/peering-connections/%s", id)
 	},
 	Flavors: func(zone string) string {
-		return fmt.Sprintf("/v2/flavors?zone=%s", zone)
+		return fmt.Sprintf("/v2/iac/flavors?zone=%s", zone)
 	},
 	FlavorWithID: func(id string) string {
-		return fmt.Sprintf("/v2/flavors/%s", id)
+		return fmt.Sprintf("/v2/iac/flavors/%s", id)
 	},
 	Images: func(zone string) string {
-		return fmt.Sprintf("/v2/images?zone=%s", zone)
+		return fmt.Sprintf("/v2/iac/images?zone=%s", zone)
 	},
 	ImageWithID: func(id string) string {
-		return fmt.Sprintf("/v2/images/%s", id)
+		return fmt.Sprintf("/v2/iac/images/%s", id)
 	},
 	VolumeTypes: func(zone string) string {
-		return fmt.Sprintf("/v2/volume-types?zone=%s", zone)
+		return fmt.Sprintf("/v2/iac/volume-types?zone=%s", zone)
 	},
 	VolumeTypeWithID: func(id string) string {
-		return fmt.Sprintf("/v2/volume-types/%s", id)
+		return fmt.Sprintf("/v2/iac/volume-types/%s", id)
 	},
 	Buckets: func(projectID string) string {
-		return fmt.Sprintf("/v2/projects/%s/buckets", projectID)
+		return fmt.Sprintf("/v2/iac/projects/%s/buckets", projectID)
 	},
 	BucketUsage: func(projectID, bucketName string) string {
-		return fmt.Sprintf("/v2/projects/%s/buckets/%s/usage", projectID, bucketName)
+		return fmt.Sprintf("/v2/iac/projects/%s/buckets/%s/usage", projectID, bucketName)
 	},
 	BucketDelete: func(projectID, bucketName, region string) string {
-		return fmt.Sprintf("/v2/projects/%s/buckets/%s?region=%s", projectID, bucketName, region)
+		return fmt.Sprintf("/v2/iac/projects/%s/buckets/%s?region=%s", projectID, bucketName, region)
 	},
 	ResolveProjectByZone: func(zoneID string) string {
-		return fmt.Sprintf("/v2/zones/%s/project", zoneID)
+		return fmt.Sprintf("/v2/iac/zones/%s/project", zoneID)
 	},
 }
