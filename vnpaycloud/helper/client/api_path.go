@@ -13,8 +13,8 @@ var ApiPath = struct {
 	VPCSetSNAT func(projectID, id string) string
 
 	// Subnet
-	Subnets          func(projectID string) string
-	SubnetWithID     func(projectID, id string) string
+	Subnets           func(projectID string) string
+	SubnetWithID      func(projectID, id string) string
 	SubnetEnableSNAT  func(projectID, id string) string
 	SubnetDisableSNAT func(projectID, id string) string
 
@@ -39,25 +39,29 @@ var ApiPath = struct {
 	NetworkInterfaceDetach func(projectID, id string) string
 
 	// Volume
-	Volumes        func(projectID string) string
-	VolumeWithID   func(projectID, id string) string
-	VolumeResize   func(projectID, id string) string
-	VolumeAttach   func(projectID, id string) string
-	VolumeDetach   func(projectID, id string) string
+	Volumes      func(projectID string) string
+	VolumeWithID func(projectID, id string) string
+	VolumeResize func(projectID, id string) string
+	VolumeAttach func(projectID, id string) string
+	VolumeDetach func(projectID, id string) string
 
 	// Volume Attachment
 	VolumeAttachments      func(projectID string) string
 	VolumeAttachmentWithID func(projectID, id string) string
 
 	// Instance
-	Instances        func(projectID string) string
-	InstanceWithID   func(projectID, id string) string
-	InstanceResize   func(projectID, id string) string
+	Instances      func(projectID string) string
+	InstanceWithID func(projectID, id string) string
+	InstanceResize func(projectID, id string) string
+
+	// Server Group
+	ServerGroups      func(projectID string) string
+	ServerGroupWithID func(projectID, id string) string
 
 	// KeyPair (global resource — uses name, not ID)
-	CreateKeyPair     func() string
-	KeyPairs          func(projectID string) string
-	KeyPairWithName   func(projectID, name string) string
+	CreateKeyPair   func() string
+	KeyPairs        func(projectID string) string
+	KeyPairWithName func(projectID, name string) string
 
 	// Internet Gateway
 	InternetGateways         func(projectID string) string
@@ -114,10 +118,25 @@ var ApiPath = struct {
 	PeeringConnections      func() string
 	PeeringConnectionWithID func(id string) string
 
+	// Flavor (not project-scoped, filtered by zone)
+	Flavors      func(zone string) string
+	FlavorWithID func(id string) string
+
+	// Image (not project-scoped, filtered by zone)
+	Images      func(zone string) string
+	ImageWithID func(id string) string
+
+	// Volume Type (not project-scoped, filtered by zone)
+	VolumeTypes      func(zone string) string
+	VolumeTypeWithID func(id string) string
+
 	// S3 Bucket
 	Buckets      func(projectID string) string
 	BucketUsage  func(projectID, bucketName string) string
 	BucketDelete func(projectID, bucketName, region string) string
+
+	// Zone → Project Resolution (not project-scoped)
+	ResolveProjectByZone func(zoneID string) string
 }{
 	VPCs: func(projectID string) string {
 		return fmt.Sprintf("/v2/projects/%s/vpcs", projectID)
@@ -205,6 +224,12 @@ var ApiPath = struct {
 	},
 	InstanceResize: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/projects/%s/instances/%s/resize", projectID, id)
+	},
+	ServerGroups: func(projectID string) string {
+		return fmt.Sprintf("/v2/projects/%s/server-groups", projectID)
+	},
+	ServerGroupWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/projects/%s/server-groups/%s", projectID, id)
 	},
 	CreateKeyPair: func() string {
 		return "/v2/key-pairs"
@@ -302,6 +327,24 @@ var ApiPath = struct {
 	PeeringConnectionWithID: func(id string) string {
 		return fmt.Sprintf("/v2/peering-connections/%s", id)
 	},
+	Flavors: func(zone string) string {
+		return fmt.Sprintf("/v2/flavors?zone=%s", zone)
+	},
+	FlavorWithID: func(id string) string {
+		return fmt.Sprintf("/v2/flavors/%s", id)
+	},
+	Images: func(zone string) string {
+		return fmt.Sprintf("/v2/images?zone=%s", zone)
+	},
+	ImageWithID: func(id string) string {
+		return fmt.Sprintf("/v2/images/%s", id)
+	},
+	VolumeTypes: func(zone string) string {
+		return fmt.Sprintf("/v2/volume-types?zone=%s", zone)
+	},
+	VolumeTypeWithID: func(id string) string {
+		return fmt.Sprintf("/v2/volume-types/%s", id)
+	},
 	Buckets: func(projectID string) string {
 		return fmt.Sprintf("/v2/projects/%s/buckets", projectID)
 	},
@@ -310,5 +353,8 @@ var ApiPath = struct {
 	},
 	BucketDelete: func(projectID, bucketName, region string) string {
 		return fmt.Sprintf("/v2/projects/%s/buckets/%s?region=%s", projectID, bucketName, region)
+	},
+	ResolveProjectByZone: func(zoneID string) string {
+		return fmt.Sprintf("/v2/zones/%s/project", zoneID)
 	},
 }

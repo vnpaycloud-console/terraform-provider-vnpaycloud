@@ -2,6 +2,7 @@ package securitygroup
 
 import (
 	"context"
+	"fmt"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
@@ -110,6 +111,53 @@ func setSecurityGroupData(d *schema.ResourceData, sg *dto.SecurityGroup) diag.Di
 		}
 	}
 	d.Set("rules", rules)
+
+	return nil
+}
+
+func DataSourceSecurityGroups() *schema.Resource {
+	return &schema.Resource{
+		ReadContext: dataSourceSecurityGroupsRead,
+		Schema: map[string]*schema.Schema{
+			"security_groups": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"id":          {Type: schema.TypeString, Computed: true},
+						"name":        {Type: schema.TypeString, Computed: true},
+						"description": {Type: schema.TypeString, Computed: true},
+						"status":      {Type: schema.TypeString, Computed: true},
+						"created_at":  {Type: schema.TypeString, Computed: true},
+					},
+				},
+			},
+		},
+	}
+}
+
+func dataSourceSecurityGroupsRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	cfg := meta.(*config.Config)
+
+	listResp := &dto.ListSecurityGroupsResponse{}
+	_, err := cfg.Client.Get(ctx, client.ApiPath.SecurityGroups(cfg.ProjectID), listResp, nil)
+	if err != nil {
+		return diag.Errorf("Error listing vnpaycloud_security_groups: %s", err)
+	}
+
+	var sgs []map[string]interface{}
+	for _, sg := range listResp.SecurityGroups {
+		sgs = append(sgs, map[string]interface{}{
+			"id":          sg.ID,
+			"name":        sg.Name,
+			"description": sg.Description,
+			"status":      sg.Status,
+			"created_at":  sg.CreatedAt,
+		})
+	}
+
+	d.SetId(fmt.Sprintf("security-groups-%s", cfg.ProjectID))
+	d.Set("security_groups", sgs)
 
 	return nil
 }
