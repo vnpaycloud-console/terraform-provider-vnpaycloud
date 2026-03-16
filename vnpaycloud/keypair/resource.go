@@ -58,7 +58,7 @@ func resourceKeyPairCreate(ctx context.Context, d *schema.ResourceData, meta int
 
 	createOpts := dto.CreateKeyPairRequest{
 		Name:      d.Get("name").(string),
-		PublicKey:  d.Get("public_key").(string),
+		PublicKey: d.Get("public_key").(string),
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_keypair create options", map[string]interface{}{"name": createOpts.Name})
