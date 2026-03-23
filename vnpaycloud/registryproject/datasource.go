@@ -27,7 +27,7 @@ func DataSourceRegistryProject() *schema.Resource {
 				Computed: true,
 			},
 			"storage_limit": {
-				Type:     schema.TypeInt,
+				Type:     schema.TypeString,
 				Computed: true,
 			},
 			"storage_used": {
@@ -95,7 +95,7 @@ func DataSourceRegistryProjects() *schema.Resource {
 							Computed: true,
 						},
 						"storage_limit": {
-							Type:     schema.TypeInt,
+							Type:     schema.TypeString,
 							Computed: true,
 						},
 						"storage_used": {

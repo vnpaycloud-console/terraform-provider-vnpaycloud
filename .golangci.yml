@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.v1.jsonschema.json
+linters:
+  enable:
+    - errcheck
+    - staticcheck
+    - unused
+    - gofmt
+    - govet
+    - ineffassign
+    - misspell
+    - gosimple
+
+linters-settings:
+  errcheck:
+    check-type-assertions: false
+    exclude-functions:
+      - (*github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).Set
+  govet:
+    enable-all: false
+  misspell:
+    locale: US
+
+run:
+  timeout: 5m
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

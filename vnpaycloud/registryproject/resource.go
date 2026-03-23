@@ -39,7 +39,7 @@ func ResourceRegistryProject() *schema.Resource {
 				Default:  false,
 			},
 			"storage_limit": {
-				Type:     schema.TypeInt,
+				Type:     schema.TypeString,
 				Optional: true,
 				ForceNew: true,
 				Computed: true,
@@ -73,7 +73,7 @@ func resourceRegistryProjectCreate(ctx context.Context, d *schema.ResourceData, 
 	}
 
 	if v, ok := d.GetOk("storage_limit"); ok {
-		createOpts.StorageLimit = int64(v.(int))
+		createOpts.StorageLimit = v.(string)
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_registry_project create options", map[string]interface{}{"create_opts": createOpts})
