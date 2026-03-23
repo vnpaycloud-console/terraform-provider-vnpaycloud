@@ -99,10 +99,10 @@ func DataSourceFlavors() *schema.Resource {
 				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"id":      {Type: schema.TypeString, Computed: true},
-						"name":    {Type: schema.TypeString, Computed: true},
-						"vcpus":   {Type: schema.TypeInt, Computed: true},
-						"ram_mb":  {Type: schema.TypeInt, Computed: true},
+						"id":        {Type: schema.TypeString, Computed: true},
+						"name":      {Type: schema.TypeString, Computed: true},
+						"vcpus":     {Type: schema.TypeInt, Computed: true},
+						"ram_mb":    {Type: schema.TypeInt, Computed: true},
 						"disk_gb":   {Type: schema.TypeInt, Computed: true},
 						"is_public": {Type: schema.TypeBool, Computed: true},
 						"zone":      {Type: schema.TypeString, Computed: true},
@@ -125,10 +125,10 @@ func dataSourceFlavorsRead(ctx context.Context, d *schema.ResourceData, meta int
 	var flavors []map[string]interface{}
 	for _, f := range listResp.Flavors {
 		flavors = append(flavors, map[string]interface{}{
-			"id":      f.ID,
-			"name":    f.Name,
-			"vcpus":   f.VCPUs,
-			"ram_mb":  f.RAMMB,
+			"id":        f.ID,
+			"name":      f.Name,
+			"vcpus":     f.VCPUs,
+			"ram_mb":    f.RAMMB,
 			"disk_gb":   f.DiskGB,
 			"is_public": f.IsPublic,
 			"zone":      f.Zone,
