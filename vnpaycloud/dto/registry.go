@@ -5,7 +5,7 @@ type RegistryProject struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
 	IsPublic     bool   `json:"isPublic"`
-	StorageLimit int64  `json:"storageLimit,string"`
+	StorageLimit string `json:"storageLimit"`
 	StorageUsed  int64  `json:"storageUsed,string"`
 	RepoCount    int32  `json:"repoCount"`
 	Status       string `json:"status"`
@@ -17,7 +17,7 @@ type RegistryProject struct {
 type CreateRegistryProjectRequest struct {
 	Name         string `json:"name"`
 	IsPublic     bool   `json:"isPublic"`
-	StorageLimit int64  `json:"storageLimit,omitempty"`
+	StorageLimit string `json:"storageLimit,omitempty"`
 }
 
 // RegistryProjectResponse matches the iac-proxy-v2 RegistryProjectResponse proto message.

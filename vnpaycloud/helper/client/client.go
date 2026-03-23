@@ -219,7 +219,7 @@ func (client *Client) doRequestOnce(ctx context.Context, method, url string, opt
 
 	if !ok {
 		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		respErr := ErrUnexpectedResponseCode{
 			URL:            url,
 			Method:         method,
@@ -242,7 +242,7 @@ func (client *Client) doRequestOnce(ctx context.Context, method, url string, opt
 	}
 
 	if options.JSONResponse != nil {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode == http.StatusNoContent {
 			_, err = io.Copy(io.Discard, resp.Body)
@@ -255,7 +255,7 @@ func (client *Client) doRequestOnce(ctx context.Context, method, url string, opt
 	}
 
 	if !options.KeepResponseBody && options.JSONResponse == nil {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
 			return nil, err

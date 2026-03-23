@@ -6,9 +6,11 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -20,6 +22,10 @@ func ResourceSecurityGroup() *schema.Resource {
 		DeleteContext: resourceSecurityGroupDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
+		},
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(30 * time.Minute),
+			Delete: schema.DefaultTimeout(10 * time.Minute),
 		},
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -72,6 +78,20 @@ func resourceSecurityGroupCreate(ctx context.Context, d *schema.ResourceData, me
 	}
 
 	d.SetId(createResp.SecurityGroup.ID)
+
+	stateConf := &retry.StateChangeConf{
+		Pending:    []string{"initiating", "creating", "build", "building", "unknown"},
+		Target:     []string{"active"},
+		Refresh:    securityGroupStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, createResp.SecurityGroup.ID),
+		Timeout:    d.Timeout(schema.TimeoutCreate),
+		Delay:      10 * time.Second,
+		MinTimeout: 5 * time.Second,
+	}
+
+	_, err = stateConf.WaitForStateContext(ctx)
+	if err != nil {
+		return diag.Errorf("Error waiting for vnpaycloud_security_group %s to become active: %s", createResp.SecurityGroup.ID, err)
+	}
 
 	return resourceSecurityGroupRead(ctx, d, meta)
 }
@@ -135,6 +155,20 @@ func resourceSecurityGroupDelete(ctx context.Context, d *schema.ResourceData, me
 
 	if _, err := cfg.Client.Delete(ctx, client.ApiPath.SecurityGroupWithID(cfg.ProjectID, d.Id()), nil); err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_security_group"))
+	}
+
+	stateConf := &retry.StateChangeConf{
+		Pending:    []string{"deleting", "active"},
+		Target:     []string{"deleted"},
+		Refresh:    securityGroupStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, d.Id()),
+		Timeout:    d.Timeout(schema.TimeoutDelete),
+		Delay:      10 * time.Second,
+		MinTimeout: 5 * time.Second,
+	}
+
+	_, err := stateConf.WaitForStateContext(ctx)
+	if err != nil {
+		return diag.Errorf("Error waiting for vnpaycloud_security_group %s to delete: %s", d.Id(), err)
 	}
 
 	return nil

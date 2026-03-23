@@ -94,12 +94,12 @@ func DataSourceVolumeTypes() *schema.Resource {
 				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"id":              {Type: schema.TypeString, Computed: true},
-						"name":            {Type: schema.TypeString, Computed: true},
-						"iops":            {Type: schema.TypeInt, Computed: true},
-						"is_encrypted":    {Type: schema.TypeBool, Computed: true},
-						"is_multiattach":  {Type: schema.TypeBool, Computed: true},
-						"zone":            {Type: schema.TypeString, Computed: true},
+						"id":             {Type: schema.TypeString, Computed: true},
+						"name":           {Type: schema.TypeString, Computed: true},
+						"iops":           {Type: schema.TypeInt, Computed: true},
+						"is_encrypted":   {Type: schema.TypeBool, Computed: true},
+						"is_multiattach": {Type: schema.TypeBool, Computed: true},
+						"zone":           {Type: schema.TypeString, Computed: true},
 					},
 				},
 			},
@@ -119,12 +119,12 @@ func dataSourceVolumeTypesRead(ctx context.Context, d *schema.ResourceData, meta
 	var volumeTypes []map[string]interface{}
 	for _, vt := range listResp.VolumeTypes {
 		volumeTypes = append(volumeTypes, map[string]interface{}{
-			"id":              vt.ID,
-			"name":            vt.Name,
-			"iops":            vt.IOPS,
-			"is_encrypted":    vt.IsEncrypted,
-			"is_multiattach":  vt.IsMultiattach,
-			"zone":            vt.Zone,
+			"id":             vt.ID,
+			"name":           vt.Name,
+			"iops":           vt.IOPS,
+			"is_encrypted":   vt.IsEncrypted,
+			"is_multiattach": vt.IsMultiattach,
+			"zone":           vt.Zone,
 		})
 	}
 

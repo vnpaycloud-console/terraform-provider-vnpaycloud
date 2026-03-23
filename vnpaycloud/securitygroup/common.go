@@ -23,7 +23,7 @@ func securityGroupStateRefreshFunc(ctx context.Context, c *client.Client, projec
 			return nil, "", err
 		}
 
-		if sgResp.SecurityGroup.Status == "failed" {
+		if sgResp.SecurityGroup.Status == "error" || sgResp.SecurityGroup.Status == "failed" {
 			return sgResp.SecurityGroup, sgResp.SecurityGroup.Status, fmt.Errorf("The security group is in error status. " +
 				"Please check with your cloud admin or check the API logs.")
 		}
