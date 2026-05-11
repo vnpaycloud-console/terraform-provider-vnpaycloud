@@ -30,23 +30,28 @@ type ListRegistryProjectsResponse struct {
 	Registries []RegistryProject `json:"registries"`
 }
 
+// RobotAccountPermission represents per-project permissions for a robot account.
+type RobotAccountPermission struct {
+	RegistryID string   `json:"registryId"`
+	Actions    []string `json:"actions"`
+}
+
 // RobotAccount matches the iac-proxy-v2 RobotAccount proto message.
 type RobotAccount struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	RegistryID  string   `json:"registryId"`
-	Permissions []string `json:"permissions"`
-	ExpiresAt   string   `json:"expiresAt"`
-	Enabled     bool     `json:"enabled"`
-	CreatedAt   string   `json:"createdAt"`
+	ID          string                   `json:"id"`
+	Name        string                   `json:"name"`
+	Permissions []RobotAccountPermission `json:"permissions"`
+	ExpiresAt   string                   `json:"expiresAt"`
+	Enabled     bool                     `json:"enabled"`
+	CreatedAt   string                   `json:"createdAt"`
 }
 
 // CreateRobotAccountRequest matches the iac-proxy-v2 CreateRobotAccountRequest proto message.
-// project_id and registry_id are passed via URL path.
+// project_id is passed via URL path.
 type CreateRobotAccountRequest struct {
-	Name          string   `json:"name"`
-	Permissions   []string `json:"permissions"`
-	ExpiresInDays int      `json:"expiresInDays,omitempty"`
+	Name          string                   `json:"name"`
+	Permissions   []RobotAccountPermission `json:"permissions"`
+	ExpiresInDays int                      `json:"expiresInDays,omitempty"`
 }
 
 // RobotAccountResponse matches the iac-proxy-v2 RobotAccountResponse proto message.

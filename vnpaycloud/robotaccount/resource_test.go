@@ -14,13 +14,21 @@ import (
 // testRobotAccount returns a fully populated dto.RobotAccount for use in tests.
 func testRobotAccount() dto.RobotAccount {
 	return dto.RobotAccount{
-		ID:          "robot-001",
-		Name:        "robot$my-registry+robot-test",
-		RegistryID:  "reg-001",
-		Permissions: []string{"push", "pull"},
-		ExpiresAt:   "2026-06-01T10:00:00Z",
-		Enabled:     true,
-		CreatedAt:   "2025-06-01T10:00:00Z",
+		ID:   "robot-001",
+		Name: "robot$my-registry+robot-test",
+		Permissions: []dto.RobotAccountPermission{
+			{
+				RegistryID: "reg-001",
+				Actions:    []string{"push", "pull"},
+			},
+			{
+				RegistryID: "reg-002",
+				Actions:    []string{"pull"},
+			},
+		},
+		ExpiresAt: "2026-06-01T10:00:00Z",
+		Enabled:   true,
+		CreatedAt: "2025-06-01T10:00:00Z",
 	}
 }
 
@@ -31,7 +39,7 @@ func TestResourceRobotAccountCreate(t *testing.T) {
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
 		{
 			Method:  "POST",
-			Pattern: "/v2/iac/projects/test-project-id/registries/reg-001/robot-accounts",
+			Pattern: "/v2/iac/projects/test-project-id/robot-accounts",
 			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.RobotAccountResponse{
 				RobotAccount: robot,
 				Secret:       secret,
@@ -39,7 +47,7 @@ func TestResourceRobotAccountCreate(t *testing.T) {
 		},
 		{
 			Method:  "GET",
-			Pattern: "/v2/iac/projects/test-project-id/registries/reg-001/robot-accounts/robot-001",
+			Pattern: "/v2/iac/projects/test-project-id/robot-accounts/robot-001",
 			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.RobotAccountResponse{
 				RobotAccount: robot,
 			}),
@@ -49,9 +57,17 @@ func TestResourceRobotAccountCreate(t *testing.T) {
 
 	res := ResourceRobotAccount()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"registry_id":     "reg-001",
-		"name":            "robot-test",
-		"permissions":     []interface{}{"push", "pull"},
+		"name": "robot-test",
+		"permission": []interface{}{
+			map[string]interface{}{
+				"registry_id": "reg-001",
+				"actions":     []interface{}{"push", "pull"},
+			},
+			map[string]interface{}{
+				"registry_id": "reg-002",
+				"actions":     []interface{}{"pull"},
+			},
+		},
 		"expires_in_days": 365,
 	})
 
@@ -75,6 +91,20 @@ func TestResourceRobotAccountCreate(t *testing.T) {
 	if v := d.Get("created_at").(string); v != "2025-06-01T10:00:00Z" {
 		t.Errorf("expected created_at 2025-06-01T10:00:00Z, got %s", v)
 	}
+
+	// Verify permissions
+	perms := d.Get("permission").([]interface{})
+	if len(perms) != 2 {
+		t.Fatalf("expected 2 permission blocks, got %d", len(perms))
+	}
+	perm0 := perms[0].(map[string]interface{})
+	if perm0["registry_id"].(string) != "reg-001" {
+		t.Errorf("expected first permission registry_id reg-001, got %s", perm0["registry_id"])
+	}
+	actions0 := perm0["actions"].([]interface{})
+	if len(actions0) != 2 {
+		t.Fatalf("expected 2 actions in first permission, got %d", len(actions0))
+	}
 }
 
 func TestResourceRobotAccountRead(t *testing.T) {
@@ -83,7 +113,7 @@ func TestResourceRobotAccountRead(t *testing.T) {
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
 		{
 			Method:  "GET",
-			Pattern: "/v2/iac/projects/test-project-id/registries/reg-001/robot-accounts/robot-001",
+			Pattern: "/v2/iac/projects/test-project-id/robot-accounts/robot-001",
 			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.RobotAccountResponse{
 				RobotAccount: robot,
 			}),
@@ -93,9 +123,13 @@ func TestResourceRobotAccountRead(t *testing.T) {
 
 	res := ResourceRobotAccount()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"registry_id":     "reg-001",
-		"name":            "robot-test",
-		"permissions":     []interface{}{},
+		"name": "robot-test",
+		"permission": []interface{}{
+			map[string]interface{}{
+				"registry_id": "reg-001",
+				"actions":     []interface{}{},
+			},
+		},
 		"expires_in_days": 0,
 	})
 	d.SetId("robot-001")
@@ -115,15 +149,23 @@ func TestResourceRobotAccountRead(t *testing.T) {
 		t.Errorf("expected created_at 2025-06-01T10:00:00Z, got %s", v)
 	}
 
-	perms := d.Get("permissions").([]interface{})
+	perms := d.Get("permission").([]interface{})
 	if len(perms) != 2 {
-		t.Fatalf("expected 2 permissions, got %d", len(perms))
+		t.Fatalf("expected 2 permission blocks, got %d", len(perms))
 	}
-	if perms[0].(string) != "push" {
-		t.Errorf("expected first permission push, got %s", perms[0])
+	perm0 := perms[0].(map[string]interface{})
+	if perm0["registry_id"].(string) != "reg-001" {
+		t.Errorf("expected first permission registry_id reg-001, got %s", perm0["registry_id"])
 	}
-	if perms[1].(string) != "pull" {
-		t.Errorf("expected second permission pull, got %s", perms[1])
+	actions0 := perm0["actions"].([]interface{})
+	if len(actions0) != 2 {
+		t.Fatalf("expected 2 actions in first permission, got %d", len(actions0))
+	}
+	if actions0[0].(string) != "push" {
+		t.Errorf("expected first action push, got %s", actions0[0])
+	}
+	if actions0[1].(string) != "pull" {
+		t.Errorf("expected second action pull, got %s", actions0[1])
 	}
 }
 
@@ -131,7 +173,7 @@ func TestResourceRobotAccountRead_NotFound(t *testing.T) {
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
 		{
 			Method:  "GET",
-			Pattern: "/v2/iac/projects/test-project-id/registries/reg-001/robot-accounts/robot-gone",
+			Pattern: "/v2/iac/projects/test-project-id/robot-accounts/robot-gone",
 			Handler: testhelpers.EmptyHandler(http.StatusNotFound),
 		},
 	})
@@ -139,9 +181,13 @@ func TestResourceRobotAccountRead_NotFound(t *testing.T) {
 
 	res := ResourceRobotAccount()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"registry_id":     "reg-001",
-		"name":            "",
-		"permissions":     []interface{}{},
+		"name": "",
+		"permission": []interface{}{
+			map[string]interface{}{
+				"registry_id": "reg-001",
+				"actions":     []interface{}{},
+			},
+		},
 		"expires_in_days": 0,
 	})
 	d.SetId("robot-gone")
@@ -162,7 +208,7 @@ func TestResourceRobotAccountDelete(t *testing.T) {
 
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
 		{
-			Pattern: "/v2/iac/projects/test-project-id/registries/reg-001/robot-accounts/robot-001",
+			Pattern: "/v2/iac/projects/test-project-id/robot-accounts/robot-001",
 			Handler: func(w http.ResponseWriter, r *http.Request) {
 				switch r.Method {
 				case "GET":
@@ -186,9 +232,13 @@ func TestResourceRobotAccountDelete(t *testing.T) {
 
 	res := ResourceRobotAccount()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"registry_id":     "reg-001",
-		"name":            "robot-test",
-		"permissions":     []interface{}{"push", "pull"},
+		"name": "robot-test",
+		"permission": []interface{}{
+			map[string]interface{}{
+				"registry_id": "reg-001",
+				"actions":     []interface{}{"push", "pull"},
+			},
+		},
 		"expires_in_days": 365,
 	})
 	d.SetId("robot-001")

@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"terraform-provider-vnpaycloud/vnpaycloud/bucket"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/databaseflavor"
+	"terraform-provider-vnpaycloud/vnpaycloud/databasepostgres"
+	"terraform-provider-vnpaycloud/vnpaycloud/databaseredis"
+	"terraform-provider-vnpaycloud/vnpaycloud/databaseredissentinel"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/flavor"
 	"terraform-provider-vnpaycloud/vnpaycloud/floatingip"
@@ -101,8 +105,16 @@ func Provider() *schema.Provider {
 			"vnpaycloud_kubernetes_clusters":      kubernetescluster.DataSourceKubernetesClusters(),
 			"vnpaycloud_kubernetes_worker_group":  workergroup.DataSourceWorkerGroup(),
 			"vnpaycloud_kubernetes_worker_groups": workergroup.DataSourceWorkerGroups(),
-			"vnpaycloud_bucket":                   bucket.DataSourceBucket(),
-			"vnpaycloud_buckets":                  bucket.DataSourceBuckets(),
+			"vnpaycloud_bucket":                              bucket.DataSourceBucket(),
+			"vnpaycloud_buckets":                             bucket.DataSourceBuckets(),
+			"vnpaycloud_database_postgres_instance":          databasepostgres.DataSourceDatabasePostgresInstance(),
+			"vnpaycloud_database_postgres_instances":         databasepostgres.DataSourceDatabasePostgresInstances(),
+			"vnpaycloud_database_redis_instance":             databaseredis.DataSourceDatabaseRedisInstance(),
+			"vnpaycloud_database_redis_instances":            databaseredis.DataSourceDatabaseRedisInstances(),
+			"vnpaycloud_database_redis_sentinel_instance":    databaseredissentinel.DataSourceDatabaseRedisSentinelInstance(),
+			"vnpaycloud_database_redis_sentinel_instances":   databaseredissentinel.DataSourceDatabaseRedisSentinelInstances(),
+			"vnpaycloud_database_flavor":                     databaseflavor.DataSourceDatabaseFlavor(),
+			"vnpaycloud_database_flavors":                    databaseflavor.DataSourceDatabaseFlavors(),
 			"vnpaycloud_vpc_peering":              vpcpeering.DataSourceVPCPeering(),
 			"vnpaycloud_vpc_peerings":             vpcpeering.DataSourceVPCPeerings(),
 			"vnpaycloud_flavor":                   flavor.DataSourceFlavor(),
@@ -139,8 +151,11 @@ func Provider() *schema.Provider {
 			"vnpaycloud_kubernetes_worker_group":      workergroup.ResourceWorkerGroup(),
 			"vnpaycloud_route_table":                  routetable.ResourceRouteTable(),
 			"vnpaycloud_private_gateway":              privategateway.ResourcePrivateGateway(),
-			"vnpaycloud_bucket":                       bucket.ResourceBucket(),
-			"vnpaycloud_vpc_peering":                  vpcpeering.ResourceVPCPeering(),
+			"vnpaycloud_bucket":                              bucket.ResourceBucket(),
+			"vnpaycloud_vpc_peering":                         vpcpeering.ResourceVPCPeering(),
+			"vnpaycloud_database_postgres_instance":          databasepostgres.ResourceDatabasePostgresInstance(),
+			"vnpaycloud_database_redis_instance":             databaseredis.ResourceDatabaseRedisInstance(),
+			"vnpaycloud_database_redis_sentinel_instance":    databaseredissentinel.ResourceDatabaseRedisSentinelInstance(),
 		},
 	}
 

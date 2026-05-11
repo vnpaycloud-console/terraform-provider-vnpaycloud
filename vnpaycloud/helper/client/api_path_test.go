@@ -107,8 +107,8 @@ func TestApiPathBuilders(t *testing.T) {
 		// Registry
 		{"RegistryProjects", ApiPath.RegistryProjects(projectID), "/v2/iac/projects/proj-123", "", ""},
 		{"RegistryProjectWithID", ApiPath.RegistryProjectWithID(projectID, resourceID), "", resourceID, ""},
-		{"RobotAccounts", ApiPath.RobotAccounts(projectID, resourceID), "", "/robot-accounts", ""},
-		{"RobotAccountWithID", ApiPath.RobotAccountWithID(projectID, resourceID, "robot-1"), "", "robot-1", ""},
+		{"RobotAccounts", ApiPath.RobotAccounts(projectID), "/v2/iac/projects/proj-123", "/robot-accounts", ""},
+		{"RobotAccountWithID", ApiPath.RobotAccountWithID(projectID, "robot-1"), "", "robot-1", ""},
 
 		// Route Table
 		{"RouteTables", ApiPath.RouteTables(projectID), "/v2/iac/projects/proj-123", "", ""},
@@ -138,6 +138,43 @@ func TestApiPathBuilders(t *testing.T) {
 		{"Buckets", ApiPath.Buckets(projectID), "/v2/iac/projects/proj-123", "", ""},
 		{"BucketUsage", ApiPath.BucketUsage(projectID, "my-bucket"), "", "/usage", ""},
 		{"BucketDelete", ApiPath.BucketDelete(projectID, "my-bucket", "us-east-1"), "", "us-east-1", ""},
+
+		// Database Postgres Instance
+		{"DatabasePostgresInstances", ApiPath.DatabasePostgresInstances(projectID), "/v2/iac/projects/proj-123", "/database/postgres-instances", ""},
+		{"DatabasePostgresInstanceWithID", ApiPath.DatabasePostgresInstanceWithID(projectID, resourceID), "", "", "/v2/iac/projects/proj-123/database/postgres-instances/res-456"},
+		{"DatabasePostgresInstanceScale", ApiPath.DatabasePostgresInstanceScale(projectID, resourceID), "", "/scale", ""},
+		{"DatabasePostgresInstanceChangeFlavor", ApiPath.DatabasePostgresInstanceChangeFlavor(projectID, resourceID), "", "/change-flavor", ""},
+		{"DatabasePostgresInstanceExpandVolume", ApiPath.DatabasePostgresInstanceExpandVolume(projectID, resourceID), "", "/expand-volume", ""},
+		{"DatabasePostgresInstanceEnableAutoExpandVolume", ApiPath.DatabasePostgresInstanceEnableAutoExpandVolume(projectID, resourceID), "", "/enable-auto-expand-volume", ""},
+		{"DatabasePostgresInstanceDisableAutoExpandVolume", ApiPath.DatabasePostgresInstanceDisableAutoExpandVolume(projectID, resourceID), "", "/disable-auto-expand-volume", ""},
+		{"DatabasePostgresInstanceEnableTls", ApiPath.DatabasePostgresInstanceEnableTls(projectID, resourceID), "", "/enable-tls", ""},
+		{"DatabasePostgresInstanceDisableTls", ApiPath.DatabasePostgresInstanceDisableTls(projectID, resourceID), "", "/disable-tls", ""},
+
+		// Database Redis Instance
+		{"DatabaseRedisInstances", ApiPath.DatabaseRedisInstances(projectID), "/v2/iac/projects/proj-123", "/database/redis-instances", ""},
+		{"DatabaseRedisInstanceWithID", ApiPath.DatabaseRedisInstanceWithID(projectID, resourceID), "", "", "/v2/iac/projects/proj-123/database/redis-instances/res-456"},
+		{"DatabaseRedisInstanceChangeFlavor", ApiPath.DatabaseRedisInstanceChangeFlavor(projectID, resourceID), "", "/change-flavor", ""},
+		{"DatabaseRedisInstanceExpandVolume", ApiPath.DatabaseRedisInstanceExpandVolume(projectID, resourceID), "", "/expand-volume", ""},
+		{"DatabaseRedisInstanceEnableAutoExpandVolume", ApiPath.DatabaseRedisInstanceEnableAutoExpandVolume(projectID, resourceID), "", "/enable-auto-expand-volume", ""},
+		{"DatabaseRedisInstanceDisableAutoExpandVolume", ApiPath.DatabaseRedisInstanceDisableAutoExpandVolume(projectID, resourceID), "", "/disable-auto-expand-volume", ""},
+		{"DatabaseRedisInstanceEnableTls", ApiPath.DatabaseRedisInstanceEnableTls(projectID, resourceID), "", "/enable-tls", ""},
+		{"DatabaseRedisInstanceDisableTls", ApiPath.DatabaseRedisInstanceDisableTls(projectID, resourceID), "", "/disable-tls", ""},
+
+		// Database Redis Sentinel Instance
+		{"DatabaseRedisSentinelInstances", ApiPath.DatabaseRedisSentinelInstances(projectID), "/v2/iac/projects/proj-123", "/database/redis-sentinel-instances", ""},
+		{"DatabaseRedisSentinelInstanceWithID", ApiPath.DatabaseRedisSentinelInstanceWithID(projectID, resourceID), "", "", "/v2/iac/projects/proj-123/database/redis-sentinel-instances/res-456"},
+		{"DatabaseRedisSentinelInstanceScale", ApiPath.DatabaseRedisSentinelInstanceScale(projectID, resourceID), "", "/scale", ""},
+		{"DatabaseRedisSentinelInstanceChangeFlavor", ApiPath.DatabaseRedisSentinelInstanceChangeFlavor(projectID, resourceID), "", "/change-flavor", ""},
+		{"DatabaseRedisSentinelInstanceExpandVolume", ApiPath.DatabaseRedisSentinelInstanceExpandVolume(projectID, resourceID), "", "/expand-volume", ""},
+		{"DatabaseRedisSentinelInstanceEnableAutoExpandVolume", ApiPath.DatabaseRedisSentinelInstanceEnableAutoExpandVolume(projectID, resourceID), "", "/enable-auto-expand-volume", ""},
+		{"DatabaseRedisSentinelInstanceDisableAutoExpandVolume", ApiPath.DatabaseRedisSentinelInstanceDisableAutoExpandVolume(projectID, resourceID), "", "/disable-auto-expand-volume", ""},
+		{"DatabaseRedisSentinelInstanceSentinelScale", ApiPath.DatabaseRedisSentinelInstanceSentinelScale(projectID, resourceID), "", "/sentinel-scale", ""},
+		{"DatabaseRedisSentinelInstanceSentinelChangeFlavor", ApiPath.DatabaseRedisSentinelInstanceSentinelChangeFlavor(projectID, resourceID), "", "/sentinel-change-flavor", ""},
+		{"DatabaseRedisSentinelInstanceEnableTls", ApiPath.DatabaseRedisSentinelInstanceEnableTls(projectID, resourceID), "", "/enable-tls", ""},
+		{"DatabaseRedisSentinelInstanceDisableTls", ApiPath.DatabaseRedisSentinelInstanceDisableTls(projectID, resourceID), "", "/disable-tls", ""},
+
+		// Database Flavor
+		{"DatabaseFlavors", ApiPath.DatabaseFlavors(projectID), "/v2/iac/projects/proj-123", "/database/flavor-databases", ""},
 
 		// Zone resolution
 		{"ResolveProjectByZone", ApiPath.ResolveProjectByZone("zone-1"), "/v2/iac/", "/project", ""},

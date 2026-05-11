@@ -27,21 +27,28 @@ func ResourceRobotAccount() *schema.Resource {
 			Delete: schema.DefaultTimeout(10 * time.Minute),
 		},
 		Schema: map[string]*schema.Schema{
-			"registry_id": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
-			},
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			"permissions": {
+			"permission": {
 				Type:     schema.TypeList,
-				Optional: true,
+				Required: true,
 				ForceNew: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"registry_id": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"actions": {
+							Type:     schema.TypeList,
+							Required: true,
+							Elem:     &schema.Schema{Type: schema.TypeString},
+						},
+					},
+				},
 			},
 			"expires_in_days": {
 				Type:     schema.TypeInt,
@@ -72,16 +79,9 @@ func ResourceRobotAccount() *schema.Resource {
 func resourceRobotAccountCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
-	registryID := d.Get("registry_id").(string)
-
 	createOpts := dto.CreateRobotAccountRequest{
-		Name: d.Get("name").(string),
-	}
-
-	if v, ok := d.GetOk("permissions"); ok {
-		for _, p := range v.([]interface{}) {
-			createOpts.Permissions = append(createOpts.Permissions, p.(string))
-		}
+		Name:        d.Get("name").(string),
+		Permissions: expandPermissions(d.Get("permission").([]interface{})),
 	}
 
 	if v, ok := d.GetOk("expires_in_days"); ok {
@@ -91,7 +91,7 @@ func resourceRobotAccountCreate(ctx context.Context, d *schema.ResourceData, met
 	tflog.Debug(ctx, "vnpaycloud_registry_robot_account create options", map[string]interface{}{"create_opts": createOpts})
 
 	createResp := &dto.RobotAccountResponse{}
-	_, err := cfg.Client.Post(ctx, client.ApiPath.RobotAccounts(cfg.ProjectID, registryID), createOpts, createResp, nil)
+	_, err := cfg.Client.Post(ctx, client.ApiPath.RobotAccounts(cfg.ProjectID), createOpts, createResp, nil)
 	if err != nil {
 		return diag.Errorf("Error creating vnpaycloud_registry_robot_account: %s", err)
 	}
@@ -104,7 +104,7 @@ func resourceRobotAccountCreate(ctx context.Context, d *schema.ResourceData, met
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"creating", "unknown"},
 		Target:     []string{"active"},
-		Refresh:    robotAccountStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, registryID, createResp.RobotAccount.ID),
+		Refresh:    robotAccountStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, createResp.RobotAccount.ID),
 		Timeout:    d.Timeout(schema.TimeoutCreate),
 		Delay:      3 * time.Second,
 		MinTimeout: 2 * time.Second,
@@ -122,20 +122,15 @@ func resourceRobotAccountCreate(ctx context.Context, d *schema.ResourceData, met
 func resourceRobotAccountRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
-	registryID := d.Get("registry_id").(string)
-
 	resp := &dto.RobotAccountResponse{}
-	_, err := cfg.Client.Get(ctx, client.ApiPath.RobotAccountWithID(cfg.ProjectID, registryID, d.Id()), resp, nil)
+	_, err := cfg.Client.Get(ctx, client.ApiPath.RobotAccountWithID(cfg.ProjectID, d.Id()), resp, nil)
 	if err != nil {
 		return diag.FromErr(util.CheckNotFound(d, err, "Error retrieving vnpaycloud_registry_robot_account"))
 	}
 
 	tflog.Debug(ctx, "Retrieved vnpaycloud_registry_robot_account "+d.Id(), map[string]interface{}{"robot_account": resp.RobotAccount})
 
-	// Note: registry_id and name are NOT updated from response because the server
-	// transforms them (registry_id: name→Vertix ID, name: simple→full harbor bot name).
-	// Keeping user-provided values prevents perpetual drift.
-	d.Set("permissions", resp.RobotAccount.Permissions)
+	d.Set("permission", flattenPermissions(resp.RobotAccount.Permissions))
 	d.Set("expires_at", resp.RobotAccount.ExpiresAt)
 	d.Set("enabled", resp.RobotAccount.Enabled)
 	d.Set("created_at", resp.RobotAccount.CreatedAt)
@@ -159,16 +154,14 @@ func resourceRobotAccountReadPreserveSecret(ctx context.Context, d *schema.Resou
 func resourceRobotAccountDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
-	registryID := d.Get("registry_id").(string)
-
-	if _, err := cfg.Client.Delete(ctx, client.ApiPath.RobotAccountWithID(cfg.ProjectID, registryID, d.Id()), nil); err != nil {
+	if _, err := cfg.Client.Delete(ctx, client.ApiPath.RobotAccountWithID(cfg.ProjectID, d.Id()), nil); err != nil {
 		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_registry_robot_account"))
 	}
 
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"deleting", "active", "disabled", "unknown"},
 		Target:     []string{"deleted"},
-		Refresh:    robotAccountStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, registryID, d.Id()),
+		Refresh:    robotAccountStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, d.Id()),
 		Timeout:    d.Timeout(schema.TimeoutDelete),
 		Delay:      3 * time.Second,
 		MinTimeout: 2 * time.Second,
@@ -180,4 +173,33 @@ func resourceRobotAccountDelete(ctx context.Context, d *schema.ResourceData, met
 	}
 
 	return nil
+}
+
+// expandPermissions converts Terraform permission blocks to DTO.
+func expandPermissions(raw []interface{}) []dto.RobotAccountPermission {
+	perms := make([]dto.RobotAccountPermission, 0, len(raw))
+	for _, v := range raw {
+		m := v.(map[string]interface{})
+		actions := make([]string, 0)
+		for _, a := range m["actions"].([]interface{}) {
+			actions = append(actions, a.(string))
+		}
+		perms = append(perms, dto.RobotAccountPermission{
+			RegistryID: m["registry_id"].(string),
+			Actions:    actions,
+		})
+	}
+	return perms
+}
+
+// flattenPermissions converts DTO permissions to Terraform state.
+func flattenPermissions(perms []dto.RobotAccountPermission) []map[string]interface{} {
+	result := make([]map[string]interface{}, 0, len(perms))
+	for _, p := range perms {
+		result = append(result, map[string]interface{}{
+			"registry_id": p.RegistryID,
+			"actions":     p.Actions,
+		})
+	}
+	return result
 }
