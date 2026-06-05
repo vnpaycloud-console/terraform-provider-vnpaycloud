@@ -20,7 +20,6 @@ func testLoadBalancer() dto.LoadBalancer {
 		VipAddress:  "10.0.0.100",
 		VipSubnetID: "subnet-001",
 		Status:      "active",
-		ListenerIDs: []string{"listener-001"},
 		CreatedAt:   "2025-01-15T10:00:00Z",
 	}
 }

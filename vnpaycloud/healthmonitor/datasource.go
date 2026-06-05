@@ -18,6 +18,10 @@ func DataSourceHealthMonitor() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
+			"name": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"pool_id": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -35,6 +39,10 @@ func DataSourceHealthMonitor() *schema.Resource {
 				Computed: true,
 			},
 			"max_retries": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"max_retries_down": {
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
@@ -70,11 +78,13 @@ func dataSourceHealthMonitorRead(ctx context.Context, d *schema.ResourceData, me
 	}
 
 	d.SetId(resp.HealthMonitor.ID)
+	d.Set("name", resp.HealthMonitor.Name)
 	d.Set("pool_id", resp.HealthMonitor.PoolID)
 	d.Set("type", resp.HealthMonitor.Type)
 	d.Set("delay", resp.HealthMonitor.Delay)
 	d.Set("timeout", resp.HealthMonitor.Timeout)
 	d.Set("max_retries", resp.HealthMonitor.MaxRetries)
+	d.Set("max_retries_down", resp.HealthMonitor.MaxRetriesDown)
 	d.Set("http_method", resp.HealthMonitor.HTTPMethod)
 	d.Set("url_path", resp.HealthMonitor.URLPath)
 	d.Set("expected_codes", resp.HealthMonitor.ExpectedCodes)

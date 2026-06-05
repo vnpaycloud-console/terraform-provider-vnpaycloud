@@ -74,8 +74,13 @@ var ApiPath = struct {
 	SnapshotWithID func(projectID, id string) string
 
 	// Load Balancer
-	LoadBalancers      func(projectID string) string
-	LoadBalancerWithID func(projectID, id string) string
+	LoadBalancers             func(projectID string) string
+	LoadBalancerWithID        func(projectID, id string) string
+	LoadBalancerChangeFlavor  func(projectID, id string) string
+	LBFlavors                 func(projectID string) string
+
+	// Certificate (shared — not LB-specific)
+	Certificates func(projectID string) string
 
 	// Listener
 	Listeners      func(projectID string) string
@@ -89,13 +94,24 @@ var ApiPath = struct {
 	HealthMonitors      func(projectID string) string
 	HealthMonitorWithID func(projectID, id string) string
 
+	// L7 Policy
+	L7Policies      func(projectID string) string
+	L7PolicyWithID  func(projectID, id string) string
+
+	// L7 Rule (nested under l7policy)
+	L7Rules      func(projectID, l7policyID string) string
+	L7RuleWithID func(projectID, l7policyID, id string) string
+
 	// Registry Project
 	RegistryProjects      func(projectID string) string
 	RegistryProjectWithID func(projectID, id string) string
 
 	// Robot Account
-	RobotAccounts      func(projectID, registryID string) string
-	RobotAccountWithID func(projectID, registryID, id string) string
+	RobotAccounts      func(projectID string) string
+	RobotAccountWithID func(projectID, id string) string
+
+	// Registry Permissions catalogue
+	RegistryPermissions func(projectID string) string
 
 	// Kubernetes Cluster
 	Clusters          func(projectID string) string
@@ -134,6 +150,43 @@ var ApiPath = struct {
 	Buckets      func(projectID string) string
 	BucketUsage  func(projectID, bucketName string) string
 	BucketDelete func(projectID, bucketName, region string) string
+
+	// Database Postgres Instance
+	DatabasePostgresInstances                       func(projectID string) string
+	DatabasePostgresInstanceWithID                  func(projectID, id string) string
+	DatabasePostgresInstanceScale                   func(projectID, id string) string
+	DatabasePostgresInstanceChangeFlavor            func(projectID, id string) string
+	DatabasePostgresInstanceExpandVolume            func(projectID, id string) string
+	DatabasePostgresInstanceEnableAutoExpandVolume  func(projectID, id string) string
+	DatabasePostgresInstanceDisableAutoExpandVolume func(projectID, id string) string
+	DatabasePostgresInstanceEnableTls               func(projectID, id string) string
+	DatabasePostgresInstanceDisableTls              func(projectID, id string) string
+
+	// Database Redis Instance
+	DatabaseRedisInstances                       func(projectID string) string
+	DatabaseRedisInstanceWithID                  func(projectID, id string) string
+	DatabaseRedisInstanceChangeFlavor            func(projectID, id string) string
+	DatabaseRedisInstanceExpandVolume            func(projectID, id string) string
+	DatabaseRedisInstanceEnableAutoExpandVolume  func(projectID, id string) string
+	DatabaseRedisInstanceDisableAutoExpandVolume func(projectID, id string) string
+	DatabaseRedisInstanceEnableTls               func(projectID, id string) string
+	DatabaseRedisInstanceDisableTls              func(projectID, id string) string
+
+	// Database Redis Sentinel Instance
+	DatabaseRedisSentinelInstances                       func(projectID string) string
+	DatabaseRedisSentinelInstanceWithID                  func(projectID, id string) string
+	DatabaseRedisSentinelInstanceScale                   func(projectID, id string) string
+	DatabaseRedisSentinelInstanceChangeFlavor            func(projectID, id string) string
+	DatabaseRedisSentinelInstanceExpandVolume            func(projectID, id string) string
+	DatabaseRedisSentinelInstanceEnableAutoExpandVolume  func(projectID, id string) string
+	DatabaseRedisSentinelInstanceDisableAutoExpandVolume func(projectID, id string) string
+	DatabaseRedisSentinelInstanceSentinelScale           func(projectID, id string) string
+	DatabaseRedisSentinelInstanceSentinelChangeFlavor    func(projectID, id string) string
+	DatabaseRedisSentinelInstanceEnableTls               func(projectID, id string) string
+	DatabaseRedisSentinelInstanceDisableTls              func(projectID, id string) string
+
+	// Database Flavor
+	DatabaseFlavors func(projectID string) string
 
 	// Zone → Project Resolution (not project-scoped)
 	ResolveProjectByZone func(zoneID string) string
@@ -264,6 +317,15 @@ var ApiPath = struct {
 	LoadBalancerWithID: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/load-balancers/%s", projectID, id)
 	},
+	LoadBalancerChangeFlavor: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/load-balancers/%s/change-flavor", projectID, id)
+	},
+	LBFlavors: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/lb-flavors", projectID)
+	},
+	Certificates: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/certificates", projectID)
+	},
 	Listeners: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/listeners", projectID)
 	},
@@ -282,17 +344,32 @@ var ApiPath = struct {
 	HealthMonitorWithID: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/health-monitors/%s", projectID, id)
 	},
+	L7Policies: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/l7policies", projectID)
+	},
+	L7PolicyWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/l7policies/%s", projectID, id)
+	},
+	L7Rules: func(projectID, l7policyID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/l7policies/%s/l7rules", projectID, l7policyID)
+	},
+	L7RuleWithID: func(projectID, l7policyID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/l7policies/%s/l7rules/%s", projectID, l7policyID, id)
+	},
 	RegistryProjects: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/registries", projectID)
 	},
 	RegistryProjectWithID: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/registries/%s", projectID, id)
 	},
-	RobotAccounts: func(projectID, registryID string) string {
-		return fmt.Sprintf("/v2/iac/projects/%s/registries/%s/robot-accounts", projectID, registryID)
+	RobotAccounts: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/robot-accounts", projectID)
 	},
-	RobotAccountWithID: func(projectID, registryID, id string) string {
-		return fmt.Sprintf("/v2/iac/projects/%s/registries/%s/robot-accounts/%s", projectID, registryID, id)
+	RobotAccountWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/robot-accounts/%s", projectID, id)
+	},
+	RegistryPermissions: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/registry-permissions", projectID)
 	},
 	Clusters: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/clusters", projectID)
@@ -354,6 +431,101 @@ var ApiPath = struct {
 	BucketDelete: func(projectID, bucketName, region string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/buckets/%s?region=%s", projectID, bucketName, region)
 	},
+	// Database Postgres Instance
+	DatabasePostgresInstances: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-instances", projectID)
+	},
+	DatabasePostgresInstanceWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-instances/%s", projectID, id)
+	},
+	DatabasePostgresInstanceScale: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-instances/%s/scale", projectID, id)
+	},
+	DatabasePostgresInstanceChangeFlavor: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-instances/%s/change-flavor", projectID, id)
+	},
+	DatabasePostgresInstanceExpandVolume: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-instances/%s/expand-volume", projectID, id)
+	},
+	DatabasePostgresInstanceEnableAutoExpandVolume: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-instances/%s/enable-auto-expand-volume", projectID, id)
+	},
+	DatabasePostgresInstanceDisableAutoExpandVolume: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-instances/%s/disable-auto-expand-volume", projectID, id)
+	},
+	DatabasePostgresInstanceEnableTls: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-instances/%s/enable-tls", projectID, id)
+	},
+	DatabasePostgresInstanceDisableTls: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-instances/%s/disable-tls", projectID, id)
+	},
+
+	// Database Redis Instance
+	DatabaseRedisInstances: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-instances", projectID)
+	},
+	DatabaseRedisInstanceWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-instances/%s", projectID, id)
+	},
+	DatabaseRedisInstanceChangeFlavor: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-instances/%s/change-flavor", projectID, id)
+	},
+	DatabaseRedisInstanceExpandVolume: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-instances/%s/expand-volume", projectID, id)
+	},
+	DatabaseRedisInstanceEnableAutoExpandVolume: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-instances/%s/enable-auto-expand-volume", projectID, id)
+	},
+	DatabaseRedisInstanceDisableAutoExpandVolume: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-instances/%s/disable-auto-expand-volume", projectID, id)
+	},
+	DatabaseRedisInstanceEnableTls: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-instances/%s/enable-tls", projectID, id)
+	},
+	DatabaseRedisInstanceDisableTls: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-instances/%s/disable-tls", projectID, id)
+	},
+
+	// Database Redis Sentinel Instance
+	DatabaseRedisSentinelInstances: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances", projectID)
+	},
+	DatabaseRedisSentinelInstanceWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances/%s", projectID, id)
+	},
+	DatabaseRedisSentinelInstanceScale: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances/%s/scale", projectID, id)
+	},
+	DatabaseRedisSentinelInstanceChangeFlavor: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances/%s/change-flavor", projectID, id)
+	},
+	DatabaseRedisSentinelInstanceExpandVolume: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances/%s/expand-volume", projectID, id)
+	},
+	DatabaseRedisSentinelInstanceEnableAutoExpandVolume: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances/%s/enable-auto-expand-volume", projectID, id)
+	},
+	DatabaseRedisSentinelInstanceDisableAutoExpandVolume: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances/%s/disable-auto-expand-volume", projectID, id)
+	},
+	DatabaseRedisSentinelInstanceSentinelScale: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances/%s/sentinel-scale", projectID, id)
+	},
+	DatabaseRedisSentinelInstanceSentinelChangeFlavor: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances/%s/sentinel-change-flavor", projectID, id)
+	},
+	DatabaseRedisSentinelInstanceEnableTls: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances/%s/enable-tls", projectID, id)
+	},
+	DatabaseRedisSentinelInstanceDisableTls: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances/%s/disable-tls", projectID, id)
+	},
+
+	// Database Flavor
+	DatabaseFlavors: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/flavor-databases", projectID)
+	},
+
 	ResolveProjectByZone: func(zoneID string) string {
 		return fmt.Sprintf("/v2/iac/zones/%s/project", zoneID)
 	},

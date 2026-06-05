@@ -8,12 +8,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// robotAccountExists checks if a robot account still exists.
+// robotAccountStateRefreshFunc checks if a robot account still exists.
 // Returns "active" if found, "deleted" if 404, or error.
-func robotAccountStateRefreshFunc(ctx context.Context, c *client.Client, projectID, registryID, id string) func() (interface{}, string, error) {
+func robotAccountStateRefreshFunc(ctx context.Context, c *client.Client, projectID, id string) func() (interface{}, string, error) {
 	return func() (interface{}, string, error) {
 		resp := &dto.RobotAccountResponse{}
-		httpResp, err := c.Get(ctx, client.ApiPath.RobotAccountWithID(projectID, registryID, id), resp, nil)
+		httpResp, err := c.Get(ctx, client.ApiPath.RobotAccountWithID(projectID, id), resp, nil)
 		if err != nil {
 			if httpResp != nil && httpResp.StatusCode == 404 {
 				return resp, "deleted", nil

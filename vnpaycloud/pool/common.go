@@ -23,8 +23,14 @@ func poolStateRefreshFunc(ctx context.Context, c *client.Client, projectID, pool
 			return nil, "", err
 		}
 
-		if resp.Pool.Status == "failed" || resp.Pool.Status == "error" {
-			return resp.Pool, resp.Pool.Status, fmt.Errorf("The pool is in error status. " +
+		prov := resp.Pool.ProvisioningStatus
+		if prov == "" {
+			if resp.Pool.Status == "failed" || resp.Pool.Status == "error" {
+				return resp.Pool, resp.Pool.Status, fmt.Errorf("The pool is in error status. " +
+					"Please check with your cloud admin or check the API logs.")
+			}
+		} else if prov == "ERROR" {
+			return resp.Pool, "error", fmt.Errorf("The pool is in error status. " +
 				"Please check with your cloud admin or check the API logs.")
 		}
 

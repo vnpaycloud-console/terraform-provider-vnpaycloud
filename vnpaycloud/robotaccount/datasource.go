@@ -18,18 +18,38 @@ func DataSourceRobotAccount() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"registry_id": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
 			"name": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"permissions": {
+			"username": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"description": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"expires_in_days": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"permission": {
 				Type:     schema.TypeList,
 				Computed: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"registry_id": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"actions": {
+							Type:     schema.TypeList,
+							Computed: true,
+							Elem:     &schema.Schema{Type: schema.TypeString},
+						},
+					},
+				},
 			},
 			"expires_at": {
 				Type:     schema.TypeString,
@@ -51,19 +71,20 @@ func dataSourceRobotAccountRead(ctx context.Context, d *schema.ResourceData, met
 	cfg := meta.(*config.Config)
 
 	id := d.Get("id").(string)
-	registryID := d.Get("registry_id").(string)
 
 	resp := &dto.RobotAccountResponse{}
-	_, err := cfg.Client.Get(ctx, client.ApiPath.RobotAccountWithID(cfg.ProjectID, registryID, id), resp, nil)
+	_, err := cfg.Client.Get(ctx, client.ApiPath.RobotAccountWithID(cfg.ProjectID, id), resp, nil)
 	if err != nil {
 		return diag.Errorf("Error retrieving vnpaycloud_registry_robot_account %s: %s", id, err)
 	}
 
 	d.SetId(resp.RobotAccount.ID)
-	d.Set("registry_id", resp.RobotAccount.RegistryID)
 	d.Set("name", resp.RobotAccount.Name)
-	d.Set("permissions", resp.RobotAccount.Permissions)
+	d.Set("username", resp.RobotAccount.Username)
+	d.Set("description", resp.RobotAccount.Description)
+	d.Set("permission", flattenPermissions(resp.RobotAccount.Permissions))
 	d.Set("expires_at", resp.RobotAccount.ExpiresAt)
+	d.Set("expires_in_days", resp.RobotAccount.ExpiresInDays)
 	d.Set("enabled", resp.RobotAccount.Enabled)
 	d.Set("created_at", resp.RobotAccount.CreatedAt)
 

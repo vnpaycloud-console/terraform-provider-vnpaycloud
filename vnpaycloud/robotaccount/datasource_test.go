@@ -17,7 +17,7 @@ func TestDataSourceRobotAccountRead_ByID(t *testing.T) {
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
 		{
 			Method:  "GET",
-			Pattern: "/v2/iac/projects/test-project-id/registries/reg-001/robot-accounts/robot-001",
+			Pattern: "/v2/iac/projects/test-project-id/robot-accounts/robot-001",
 			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.RobotAccountResponse{
 				RobotAccount: robot,
 			}),
@@ -27,8 +27,7 @@ func TestDataSourceRobotAccountRead_ByID(t *testing.T) {
 
 	res := DataSourceRobotAccount()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"id":          "robot-001",
-		"registry_id": "reg-001",
+		"id": "robot-001",
 	})
 
 	diags := res.ReadContext(context.Background(), d, cfg)
@@ -42,9 +41,6 @@ func TestDataSourceRobotAccountRead_ByID(t *testing.T) {
 	if v := d.Get("name").(string); v != "robot$my-registry+robot-test" {
 		t.Errorf("expected name 'robot$my-registry+robot-test', got %s", v)
 	}
-	if v := d.Get("registry_id").(string); v != "reg-001" {
-		t.Errorf("expected registry_id reg-001, got %s", v)
-	}
 	if v := d.Get("enabled").(bool); !v {
 		t.Error("expected enabled true, got false")
 	}
@@ -55,14 +51,22 @@ func TestDataSourceRobotAccountRead_ByID(t *testing.T) {
 		t.Errorf("expected created_at 2025-06-01T10:00:00Z, got %s", v)
 	}
 
-	perms := d.Get("permissions").([]interface{})
+	perms := d.Get("permission").([]interface{})
 	if len(perms) != 2 {
-		t.Fatalf("expected 2 permissions, got %d", len(perms))
+		t.Fatalf("expected 2 permission blocks, got %d", len(perms))
 	}
-	if perms[0].(string) != "push" {
-		t.Errorf("expected first permission push, got %s", perms[0])
+	perm0 := perms[0].(map[string]interface{})
+	if perm0["registry_id"].(string) != "reg-001" {
+		t.Errorf("expected first permission registry_id reg-001, got %s", perm0["registry_id"])
 	}
-	if perms[1].(string) != "pull" {
-		t.Errorf("expected second permission pull, got %s", perms[1])
+	actions0 := perm0["actions"].([]interface{})
+	if len(actions0) != 2 {
+		t.Fatalf("expected 2 actions in first permission, got %d", len(actions0))
+	}
+	if actions0[0].(string) != "push" {
+		t.Errorf("expected first action push, got %s", actions0[0])
+	}
+	if actions0[1].(string) != "pull" {
+		t.Errorf("expected second action pull, got %s", actions0[1])
 	}
 }

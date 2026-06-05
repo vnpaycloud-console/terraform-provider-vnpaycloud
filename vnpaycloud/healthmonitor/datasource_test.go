@@ -42,11 +42,11 @@ func TestDataSourceHealthMonitorRead_ByID(t *testing.T) {
 	if v := d.Get("type").(string); v != "HTTP" {
 		t.Errorf("expected type HTTP, got %s", v)
 	}
-	if v := d.Get("delay").(int); v != 5 {
-		t.Errorf("expected delay 5, got %d", v)
+	if v := d.Get("delay").(int); v != 10 {
+		t.Errorf("expected delay 10, got %d", v)
 	}
-	if v := d.Get("timeout").(int); v != 10 {
-		t.Errorf("expected timeout 10, got %d", v)
+	if v := d.Get("timeout").(int); v != 5 {
+		t.Errorf("expected timeout 5, got %d", v)
 	}
 	if v := d.Get("max_retries").(int); v != 3 {
 		t.Errorf("expected max_retries 3, got %d", v)

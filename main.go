@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 )
 
-const providerAddr = "registry.terraform.io/terraform-provider-vnpaycloud/vnpaycloud"
+const providerAddr = "registry.terraform.io/vnpaycloud-console/vnpaycloud"
 
 func main() {
 	// added debugMode to enable debugging for provider per https://www.terraform.io/plugin/sdkv2/debugging

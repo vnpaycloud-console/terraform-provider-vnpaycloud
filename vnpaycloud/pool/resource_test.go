@@ -14,11 +14,14 @@ import (
 // testPool returns a fully populated dto.Pool for use in tests.
 func testPool() dto.Pool {
 	return dto.Pool{
-		ID:          "pool-001",
-		Name:        "test-pool",
-		ListenerID:  "listener-001",
-		LBAlgorithm: "ROUND_ROBIN",
-		Protocol:    "HTTP",
+		ID:                 "pool-001",
+		Name:               "test-pool",
+		Description:        "Test pool description",
+		ListenerID:         "listener-001",
+		LBAlgorithm:        "ROUND_ROBIN",
+		Protocol:           "HTTP",
+		SessionPersistence: &dto.SessionPersistence{Type: "SOURCE_IP"},
+		TlsEnabled:         false,
 		Members: []dto.PoolMember{
 			{
 				ID:           "member-001",
@@ -75,9 +78,12 @@ func TestResourcePoolCreate(t *testing.T) {
 	res := ResourcePool()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
 		"name":         "test-pool",
+		"description":  "Test pool description",
 		"listener_id":  "listener-001",
 		"lb_algorithm": "ROUND_ROBIN",
 		"protocol":     "HTTP",
+		"session_persistence": []interface{}{map[string]interface{}{"type": "SOURCE_IP", "cookie_name": ""}},
+		"tls_enabled":  false,
 		"member": []interface{}{
 			map[string]interface{}{
 				"address":       "10.0.0.10",
@@ -135,9 +141,12 @@ func TestResourcePoolCreate_NoMembers(t *testing.T) {
 	res := ResourcePool()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
 		"name":         "test-pool-empty",
+		"description":  "",
 		"listener_id":  "listener-001",
 		"lb_algorithm": "ROUND_ROBIN",
 		"protocol":     "TCP",
+		"session_persistence": []interface{}{},
+		"tls_enabled":  false,
 		"member":       []interface{}{},
 	})
 
@@ -166,9 +175,12 @@ func TestResourcePoolRead(t *testing.T) {
 	res := ResourcePool()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
 		"name":         "",
+		"description":  "",
 		"listener_id":  "",
 		"lb_algorithm": "ROUND_ROBIN",
 		"protocol":     "HTTP",
+		"session_persistence": []interface{}{},
+		"tls_enabled":  false,
 		"member":       []interface{}{},
 	})
 	d.SetId("pool-001")
@@ -226,9 +238,12 @@ func TestResourcePoolRead_NotFound(t *testing.T) {
 	res := ResourcePool()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
 		"name":         "",
+		"description":  "",
 		"listener_id":  "",
 		"lb_algorithm": "ROUND_ROBIN",
 		"protocol":     "HTTP",
+		"session_persistence": []interface{}{},
+		"tls_enabled":  false,
 		"member":       []interface{}{},
 	})
 	d.SetId("pool-gone")

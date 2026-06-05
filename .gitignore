@@ -12,3 +12,4 @@ main.tf
 testdata/
 tests/
 examples/
+CLAUDE.md

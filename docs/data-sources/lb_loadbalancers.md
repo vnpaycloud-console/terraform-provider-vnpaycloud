@@ -21,15 +21,8 @@ output "all_lb_names" {
 output "active_lb_vip_addresses" {
   value = [
     for lb in data.vnpaycloud_lb_loadbalancers.all.load_balancers :
-    lb.vip_address if lb.status == "ACTIVE"
+    lb.vip_address if lb.status == "active"
   ]
-}
-
-output "lb_listener_map" {
-  value = {
-    for lb in data.vnpaycloud_lb_loadbalancers.all.load_balancers :
-    lb.name => lb.listener_ids
-  }
 }
 ```
 
@@ -43,6 +36,6 @@ output "lb_listener_map" {
   - `description` (String) A human-readable description of the load balancer.
   - `vip_address` (String) The virtual IP address of the load balancer.
   - `vip_subnet_id` (String) The ID of the subnet where the virtual IP resides.
-  - `status` (String) The current status of the load balancer (e.g., `ACTIVE`, `PENDING_CREATE`, `ERROR`).
-  - `listener_ids` (List of String) A list of listener IDs attached to this load balancer.
+  - `status` (String) Lifecycle status: `active`, `creating`, `pending_create`, `pending_update`, `pending_delete`, `deleting`, `disabled`, `error`, `unknown`.
   - `created_at` (String) The timestamp when the load balancer was created, in ISO 8601 format.
+  - `floating_ip_id` (String) The ID of the floating IP attached to the load balancer. Returned as an empty string (`""`) when the LB is internal-only (no FIP attached).

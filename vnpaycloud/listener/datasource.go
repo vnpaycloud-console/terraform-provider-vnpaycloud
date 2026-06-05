@@ -22,6 +22,10 @@ func DataSourceListener() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"description": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"load_balancer_id": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -37,6 +41,45 @@ func DataSourceListener() *schema.Resource {
 			"default_pool_id": {
 				Type:     schema.TypeString,
 				Computed: true,
+			},
+			"insert_headers": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"allowed_cidrs": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"connection_limit": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"timeout_client_data": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"timeout_member_connect": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"timeout_member_data": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"certificate_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"certificate_authority_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"sni_certificate_ids": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
 			"status": {
 				Type:     schema.TypeString,
@@ -63,10 +106,20 @@ func dataSourceListenerRead(ctx context.Context, d *schema.ResourceData, meta in
 
 	d.SetId(resp.Listener.ID)
 	d.Set("name", resp.Listener.Name)
+	d.Set("description", resp.Listener.Description)
 	d.Set("load_balancer_id", resp.Listener.LoadBalancerID)
 	d.Set("protocol", resp.Listener.Protocol)
 	d.Set("protocol_port", resp.Listener.ProtocolPort)
 	d.Set("default_pool_id", resp.Listener.DefaultPoolID)
+	d.Set("insert_headers", resp.Listener.InsertHeaders)
+	d.Set("allowed_cidrs", resp.Listener.AllowedCidrs)
+	d.Set("connection_limit", resp.Listener.ConnectionLimit)
+	d.Set("timeout_client_data", resp.Listener.TimeoutClientData)
+	d.Set("timeout_member_connect", resp.Listener.TimeoutMemberConnect)
+	d.Set("timeout_member_data", resp.Listener.TimeoutMemberData)
+	d.Set("certificate_id", resp.Listener.CertificateID)
+	d.Set("certificate_authority_id", resp.Listener.CertificateAuthorityID)
+	d.Set("sni_certificate_ids", resp.Listener.SniCertificateIDs)
 	d.Set("status", resp.Listener.Status)
 	d.Set("created_at", resp.Listener.CreatedAt)
 

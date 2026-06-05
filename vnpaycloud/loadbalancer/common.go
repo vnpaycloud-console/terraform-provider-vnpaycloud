@@ -23,8 +23,14 @@ func loadBalancerStateRefreshFunc(ctx context.Context, c *client.Client, project
 			return nil, "", err
 		}
 
-		if lbResp.LoadBalancer.Status == "failed" || lbResp.LoadBalancer.Status == "error" {
-			return lbResp.LoadBalancer, lbResp.LoadBalancer.Status, fmt.Errorf("The load balancer is in error status. " +
+		prov := lbResp.LoadBalancer.ProvisioningStatus
+		if prov == "" {
+			if lbResp.LoadBalancer.Status == "failed" || lbResp.LoadBalancer.Status == "error" {
+				return lbResp.LoadBalancer, lbResp.LoadBalancer.Status, fmt.Errorf("The load balancer is in error status. " +
+					"Please check with your cloud admin or check the API logs.")
+			}
+		} else if prov == "ERROR" {
+			return lbResp.LoadBalancer, "error", fmt.Errorf("The load balancer is in error status. " +
 				"Please check with your cloud admin or check the API logs.")
 		}
 
