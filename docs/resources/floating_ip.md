@@ -37,8 +37,8 @@ resource "vnpaycloud_floating_ip" "spare" {}
 
 ### Optional
 
-- `port_id` (String) The ID of the network interface (port) to associate this floating IP with. Conflicts with `vpc_id`.
-- `vpc_id` (String) The ID of the VPC to associate this floating IP with (for VPC-level SNAT). Conflicts with `port_id`.
+- `port_id` (String, Computed) The ID of the network interface (port) to associate this floating IP with. Conflicts with `vpc_id`. **Computed because external resources may set it server-side** — e.g. attaching this FIP to a load balancer via `vnpaycloud_lb_loadbalancer.floating_ip_id` causes the backend to set `port_id` to the LB's port. Omit it from HCL when the attachment is managed by another resource; only declare it when you want to actively manage the attachment from this `vnpaycloud_floating_ip`.
+- `vpc_id` (String, Computed) The ID of the VPC to associate this floating IP with (for VPC-level SNAT). Conflicts with `port_id`. Computed for the same reason as `port_id`.
 
 ### Read-Only
 

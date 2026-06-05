@@ -37,10 +37,11 @@ output "storage_used_bytes" {
 
 ### Read-Only
 
-- `name` (String) The name of the registry project, used as the namespace for image repositories (e.g., `my-org/my-app`).
-- `is_public` (Boolean) Whether the registry project is publicly accessible without authentication.
-- `storage_limit` (Number) The maximum storage limit for this project in bytes. `-1` indicates unlimited.
-- `storage_used` (Number) The current storage used by all repositories in this project, in bytes.
-- `repo_count` (Number) The number of image repositories within this project.
-- `status` (String) The current status of the registry project (e.g., `ACTIVE`, `DISABLED`).
-- `created_at` (String) The timestamp when the registry project was created, in ISO 8601 format.
+- `name` (String) User-friendly project name (the label shown in the console UI).
+- `is_public` (Boolean) Whether the project is publicly accessible (anonymous `docker pull`).
+- `storage_limit` (String) Maximum storage quota in bytes (as a string because the value exceeds 32-bit int).
+- `storage_used` (Number) Current storage used by all repositories, in bytes.
+- `repo_count` (Number) Number of image repositories inside the project.
+- `status` (String) Project status: `active`, `creating`, `deleting`, `disabled`, `error`, `deleted`, `unknown`.
+- `created_at` (String) Creation timestamp (RFC 3339 nanosecond).
+- `namespace` (String) Full registry namespace `"{org_id_short}-{name}"`. **Use this** (not `name`) when tagging images: `vcr.vnpaycloud.vn/<namespace>/<repo>:<tag>`.

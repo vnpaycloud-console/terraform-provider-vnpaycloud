@@ -65,7 +65,6 @@ func TestDataSourceLoadBalancersRead(t *testing.T) {
 		VipAddress:  "10.0.0.101",
 		VipSubnetID: "subnet-002",
 		Status:      "active",
-		ListenerIDs: []string{},
 		CreatedAt:   "2025-01-16T12:00:00Z",
 	}
 

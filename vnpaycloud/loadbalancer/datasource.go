@@ -38,12 +38,11 @@ func DataSourceLoadBalancer() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"listener_ids": {
-				Type:     schema.TypeList,
-				Computed: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
-			},
 			"created_at": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"floating_ip_id": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -68,8 +67,8 @@ func dataSourceLoadBalancerRead(ctx context.Context, d *schema.ResourceData, met
 	d.Set("vip_address", lbResp.LoadBalancer.VipAddress)
 	d.Set("vip_subnet_id", lbResp.LoadBalancer.VipSubnetID)
 	d.Set("status", lbResp.LoadBalancer.Status)
-	d.Set("listener_ids", lbResp.LoadBalancer.ListenerIDs)
 	d.Set("created_at", lbResp.LoadBalancer.CreatedAt)
+	d.Set("floating_ip_id", lbResp.LoadBalancer.FloatingIPID)
 
 	return nil
 }
@@ -111,6 +110,10 @@ func DataSourceLoadBalancers() *schema.Resource {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
+						"floating_ip_id": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
 					},
 				},
 			},
@@ -130,13 +133,14 @@ func dataSourceLoadBalancersRead(ctx context.Context, d *schema.ResourceData, me
 	var lbs []map[string]interface{}
 	for _, lb := range lbsResp.LoadBalancers {
 		lbs = append(lbs, map[string]interface{}{
-			"id":            lb.ID,
-			"name":          lb.Name,
-			"description":   lb.Description,
-			"vip_address":   lb.VipAddress,
-			"vip_subnet_id": lb.VipSubnetID,
-			"status":        lb.Status,
-			"created_at":    lb.CreatedAt,
+			"id":             lb.ID,
+			"name":           lb.Name,
+			"description":    lb.Description,
+			"vip_address":    lb.VipAddress,
+			"vip_subnet_id":  lb.VipSubnetID,
+			"status":         lb.Status,
+			"created_at":     lb.CreatedAt,
+			"floating_ip_id": lb.FloatingIPID,
 		})
 	}
 

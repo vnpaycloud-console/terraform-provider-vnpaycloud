@@ -14,14 +14,21 @@ import (
 // testListener returns a fully populated dto.Listener for use in tests.
 func testListener() dto.Listener {
 	return dto.Listener{
-		ID:             "listener-001",
-		Name:           "test-listener",
-		LoadBalancerID: "lb-001",
-		Protocol:       "HTTP",
-		ProtocolPort:   80,
-		DefaultPoolID:  "pool-001",
-		Status:         "active",
-		CreatedAt:      "2025-01-15T10:00:00Z",
+		ID:                   "listener-001",
+		Name:                 "test-listener",
+		Description:          "Test listener description",
+		LoadBalancerID:       "lb-001",
+		Protocol:             "HTTP",
+		ProtocolPort:         80,
+		DefaultPoolID:        "pool-001",
+		InsertHeaders:        []string{"X-Forwarded-For"},
+		AllowedCidrs:         []string{"10.0.0.0/8"},
+		ConnectionLimit:      1000,
+		TimeoutClientData:    50000,
+		TimeoutMemberConnect: 5000,
+		TimeoutMemberData:    50000,
+		Status:               "active",
+		CreatedAt:            "2025-01-15T10:00:00Z",
 	}
 }
 
@@ -44,11 +51,18 @@ func TestResourceListenerCreate(t *testing.T) {
 
 	res := ResourceListener()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"name":             "test-listener",
-		"load_balancer_id": "lb-001",
-		"protocol":         "HTTP",
-		"protocol_port":    80,
-		"default_pool_id":  "pool-001",
+		"name":                   "test-listener",
+		"description":            "Test listener description",
+		"load_balancer_id":       "lb-001",
+		"protocol":               "HTTP",
+		"protocol_port":          80,
+		"default_pool_id":        "pool-001",
+		"insert_headers":         []interface{}{"X-Forwarded-For"},
+		"allowed_cidrs":          []interface{}{"10.0.0.0/8"},
+		"connection_limit":       1000,
+		"timeout_client_data":    50000,
+		"timeout_member_connect": 5000,
+		"timeout_member_data":    50000,
 	})
 
 	diags := res.CreateContext(context.Background(), d, cfg)
@@ -71,6 +85,18 @@ func TestResourceListenerCreate(t *testing.T) {
 	if v := d.Get("protocol_port").(int); v != 80 {
 		t.Errorf("expected protocol_port 80, got %d", v)
 	}
+	if v := d.Get("connection_limit").(int); v != 1000 {
+		t.Errorf("expected connection_limit 1000, got %d", v)
+	}
+	if v := d.Get("timeout_client_data").(int); v != 50000 {
+		t.Errorf("expected timeout_client_data 50000, got %d", v)
+	}
+	if v := d.Get("timeout_member_connect").(int); v != 5000 {
+		t.Errorf("expected timeout_member_connect 5000, got %d", v)
+	}
+	if v := d.Get("timeout_member_data").(int); v != 50000 {
+		t.Errorf("expected timeout_member_data 50000, got %d", v)
+	}
 }
 
 func TestResourceListenerRead(t *testing.T) {
@@ -87,11 +113,18 @@ func TestResourceListenerRead(t *testing.T) {
 
 	res := ResourceListener()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"name":             "",
-		"load_balancer_id": "",
-		"protocol":         "HTTP",
-		"protocol_port":    0,
-		"default_pool_id":  "",
+		"name":                   "",
+		"description":            "",
+		"load_balancer_id":       "",
+		"protocol":               "HTTP",
+		"protocol_port":          0,
+		"default_pool_id":        "",
+		"insert_headers":         []interface{}{},
+		"allowed_cidrs":          []interface{}{},
+		"connection_limit":       0,
+		"timeout_client_data":    0,
+		"timeout_member_connect": 0,
+		"timeout_member_data":    0,
 	})
 	d.SetId("listener-001")
 
@@ -115,6 +148,18 @@ func TestResourceListenerRead(t *testing.T) {
 	if v := d.Get("default_pool_id").(string); v != "pool-001" {
 		t.Errorf("expected default_pool_id pool-001, got %s", v)
 	}
+	if v := d.Get("connection_limit").(int); v != 1000 {
+		t.Errorf("expected connection_limit 1000, got %d", v)
+	}
+	if v := d.Get("timeout_client_data").(int); v != 50000 {
+		t.Errorf("expected timeout_client_data 50000, got %d", v)
+	}
+	if v := d.Get("timeout_member_connect").(int); v != 5000 {
+		t.Errorf("expected timeout_member_connect 5000, got %d", v)
+	}
+	if v := d.Get("timeout_member_data").(int); v != 50000 {
+		t.Errorf("expected timeout_member_data 50000, got %d", v)
+	}
 	if v := d.Get("status").(string); v != "active" {
 		t.Errorf("expected status active, got %s", v)
 	}
@@ -135,11 +180,18 @@ func TestResourceListenerRead_NotFound(t *testing.T) {
 
 	res := ResourceListener()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"name":             "",
-		"load_balancer_id": "",
-		"protocol":         "HTTP",
-		"protocol_port":    0,
-		"default_pool_id":  "",
+		"name":                   "",
+		"description":            "",
+		"load_balancer_id":       "",
+		"protocol":               "HTTP",
+		"protocol_port":          0,
+		"default_pool_id":        "",
+		"insert_headers":         []interface{}{},
+		"allowed_cidrs":          []interface{}{},
+		"connection_limit":       0,
+		"timeout_client_data":    0,
+		"timeout_member_connect": 0,
+		"timeout_member_data":    0,
 	})
 	d.SetId("listener-gone")
 
@@ -181,11 +233,18 @@ func TestResourceListenerDelete(t *testing.T) {
 
 	res := ResourceListener()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"name":             "test-listener",
-		"load_balancer_id": "lb-001",
-		"protocol":         "HTTP",
-		"protocol_port":    80,
-		"default_pool_id":  "",
+		"name":                   "test-listener",
+		"description":            "Test listener description",
+		"load_balancer_id":       "lb-001",
+		"protocol":               "HTTP",
+		"protocol_port":          80,
+		"default_pool_id":        "",
+		"insert_headers":         []interface{}{},
+		"allowed_cidrs":          []interface{}{},
+		"connection_limit":       0,
+		"timeout_client_data":    0,
+		"timeout_member_connect": 0,
+		"timeout_member_data":    0,
 	})
 	d.SetId("listener-001")
 

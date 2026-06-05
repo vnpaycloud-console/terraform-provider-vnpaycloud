@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"strings"
@@ -109,36 +110,48 @@ func (client *Client) Delete(ctx context.Context, path string, opts *RequestOpts
 }
 
 func (client *Client) doRequest(ctx context.Context, method, url string, options *RequestOpts) (*http.Response, error) {
-	const maxRetries = 3
+	const (
+		maxTransientRetries = 3 // 503 Service Unavailable (network blips)
+		maxRateLimitRetries = 4 // 429 / "Too Many Requests" — longer backoff, backend rate-limits aggressively
+	)
 
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+	transientAttempts := 0
+	rateLimitAttempts := 0
+
+	for {
 		resp, err := client.doRequestOnce(ctx, method, url, options)
 		if err == nil {
 			return resp, nil
 		}
 
-		// Retry on 429 Too Many Requests or 503 Service Unavailable
 		var respErr ErrUnexpectedResponseCode
 		if !errors.As(err, &respErr) {
 			return resp, err
 		}
-		if respErr.Actual != http.StatusTooManyRequests && respErr.Actual != http.StatusServiceUnavailable {
-			// Also check if the body contains "Too Many Requests" (gRPC error forwarded as 200 with error body)
-			if !strings.Contains(string(respErr.Body), "Too Many Requests") {
+
+		isRateLimited := respErr.Actual == http.StatusTooManyRequests ||
+			strings.Contains(string(respErr.Body), "Too Many Requests")
+		isTransient := respErr.Actual == http.StatusServiceUnavailable && !isRateLimited
+
+		var backoff time.Duration
+		switch {
+		case isRateLimited:
+			if rateLimitAttempts >= maxRateLimitRetries {
 				return resp, err
 			}
-		}
 
-		if attempt == maxRetries {
+			backoff = time.Duration(30*(rateLimitAttempts+1)) * time.Second // 30s, 60s, 90s, 120s
+			backoff += time.Duration(rand.Int64N(int64(backoff) / 4))       // +0–25% jitter
+			rateLimitAttempts++
+		case isTransient:
+			if transientAttempts >= maxTransientRetries {
+				return resp, err
+			}
+			backoff = time.Duration(1<<uint(transientAttempts)) * time.Second // 1s, 2s, 4s
+			transientAttempts++
+		default:
 			return resp, err
 		}
-
-		backoff := time.Duration(1<<uint(attempt)) * time.Second // 1s, 2s, 4s
-		tflog.Warn(ctx, fmt.Sprintf("Rate limited (attempt %d/%d), retrying in %s...", attempt+1, maxRetries+1, backoff), map[string]interface{}{
-			"url":    url,
-			"method": method,
-			"status": respErr.Actual,
-		})
 
 		select {
 		case <-ctx.Done():
@@ -146,8 +159,6 @@ func (client *Client) doRequest(ctx context.Context, method, url string, options
 		case <-time.After(backoff):
 		}
 	}
-
-	return nil, errors.New("unreachable")
 }
 
 func (client *Client) doRequestOnce(ctx context.Context, method, url string, options *RequestOpts) (*http.Response, error) {

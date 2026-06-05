@@ -23,8 +23,14 @@ func listenerStateRefreshFunc(ctx context.Context, c *client.Client, projectID, 
 			return nil, "", err
 		}
 
-		if resp.Listener.Status == "failed" || resp.Listener.Status == "error" {
-			return resp.Listener, resp.Listener.Status, fmt.Errorf("The listener is in error status. " +
+		prov := resp.Listener.ProvisioningStatus
+		if prov == "" {
+			if resp.Listener.Status == "failed" || resp.Listener.Status == "error" {
+				return resp.Listener, resp.Listener.Status, fmt.Errorf("The listener is in error status. " +
+					"Please check with your cloud admin or check the API logs.")
+			}
+		} else if prov == "ERROR" {
+			return resp.Listener, "error", fmt.Errorf("The listener is in error status. " +
 				"Please check with your cloud admin or check the API logs.")
 		}
 

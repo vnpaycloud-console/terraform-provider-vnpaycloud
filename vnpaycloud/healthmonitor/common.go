@@ -23,8 +23,14 @@ func healthMonitorStateRefreshFunc(ctx context.Context, c *client.Client, projec
 			return nil, "", err
 		}
 
-		if resp.HealthMonitor.Status == "failed" || resp.HealthMonitor.Status == "error" {
-			return resp.HealthMonitor, resp.HealthMonitor.Status, fmt.Errorf("The health monitor is in error status. " +
+		prov := resp.HealthMonitor.ProvisioningStatus
+		if prov == "" {
+			if resp.HealthMonitor.Status == "failed" || resp.HealthMonitor.Status == "error" {
+				return resp.HealthMonitor, resp.HealthMonitor.Status, fmt.Errorf("The health monitor is in error status. " +
+					"Please check with your cloud admin or check the API logs.")
+			}
+		} else if prov == "ERROR" {
+			return resp.HealthMonitor, "error", fmt.Errorf("The health monitor is in error status. " +
 				"Please check with your cloud admin or check the API logs.")
 		}
 

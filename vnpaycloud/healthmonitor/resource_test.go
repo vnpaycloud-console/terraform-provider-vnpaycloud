@@ -14,16 +14,18 @@ import (
 // testHealthMonitor returns a fully populated dto.HealthMonitor for use in tests.
 func testHealthMonitor() dto.HealthMonitor {
 	return dto.HealthMonitor{
-		ID:            "hm-001",
-		PoolID:        "pool-001",
-		Type:          "HTTP",
-		Delay:         5,
-		Timeout:       10,
-		MaxRetries:    3,
-		HTTPMethod:    "GET",
-		URLPath:       "/health",
-		ExpectedCodes: "200",
-		Status:        "active",
+		ID:             "hm-001",
+		Name:           "hm-HTTP-pool-001",
+		PoolID:         "pool-001",
+		Type:           "HTTP",
+		Delay:          10,
+		Timeout:        5,
+		MaxRetries:     3,
+		MaxRetriesDown: 3,
+		HTTPMethod:     "GET",
+		URLPath:        "/health",
+		ExpectedCodes:  "200",
+		Status:         "active",
 	}
 }
 
@@ -46,14 +48,16 @@ func TestResourceHealthMonitorCreate(t *testing.T) {
 
 	res := ResourceHealthMonitor()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"pool_id":        "pool-001",
-		"type":           "HTTP",
-		"delay":          5,
-		"timeout":        10,
-		"max_retries":    3,
-		"http_method":    "GET",
-		"url_path":       "/health",
-		"expected_codes": "200",
+		"name":            "hm-HTTP-pool-001",
+		"pool_id":         "pool-001",
+		"type":            "HTTP",
+		"delay":           10,
+		"timeout":         5,
+		"max_retries":     3,
+		"max_retries_down": 3,
+		"http_method":     "GET",
+		"url_path":        "/health",
+		"expected_codes":  "200",
 	})
 
 	diags := res.CreateContext(context.Background(), d, cfg)
@@ -102,14 +106,16 @@ func TestResourceHealthMonitorCreate_TCPMinimal(t *testing.T) {
 
 	res := ResourceHealthMonitor()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"pool_id":        "pool-002",
-		"type":           "TCP",
-		"delay":          10,
-		"timeout":        5,
-		"max_retries":    2,
-		"http_method":    "",
-		"url_path":       "",
-		"expected_codes": "",
+		"name":            "",
+		"pool_id":         "pool-002",
+		"type":            "TCP",
+		"delay":           10,
+		"timeout":         5,
+		"max_retries":     2,
+		"max_retries_down": 0,
+		"http_method":     "",
+		"url_path":        "",
+		"expected_codes":  "",
 	})
 
 	diags := res.CreateContext(context.Background(), d, cfg)
@@ -139,14 +145,16 @@ func TestResourceHealthMonitorRead(t *testing.T) {
 
 	res := ResourceHealthMonitor()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"pool_id":        "",
-		"type":           "HTTP",
-		"delay":          0,
-		"timeout":        0,
-		"max_retries":    0,
-		"http_method":    "",
-		"url_path":       "",
-		"expected_codes": "",
+		"name":            "",
+		"pool_id":         "",
+		"type":            "HTTP",
+		"delay":           0,
+		"timeout":         0,
+		"max_retries":     0,
+		"max_retries_down": 0,
+		"http_method":     "",
+		"url_path":        "",
+		"expected_codes":  "",
 	})
 	d.SetId("hm-001")
 
@@ -161,11 +169,11 @@ func TestResourceHealthMonitorRead(t *testing.T) {
 	if v := d.Get("type").(string); v != "HTTP" {
 		t.Errorf("expected type HTTP, got %s", v)
 	}
-	if v := d.Get("delay").(int); v != 5 {
-		t.Errorf("expected delay 5, got %d", v)
+	if v := d.Get("delay").(int); v != 10 {
+		t.Errorf("expected delay 10, got %d", v)
 	}
-	if v := d.Get("timeout").(int); v != 10 {
-		t.Errorf("expected timeout 10, got %d", v)
+	if v := d.Get("timeout").(int); v != 5 {
+		t.Errorf("expected timeout 5, got %d", v)
 	}
 	if v := d.Get("max_retries").(int); v != 3 {
 		t.Errorf("expected max_retries 3, got %d", v)
@@ -196,14 +204,16 @@ func TestResourceHealthMonitorRead_NotFound(t *testing.T) {
 
 	res := ResourceHealthMonitor()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"pool_id":        "",
-		"type":           "HTTP",
-		"delay":          0,
-		"timeout":        0,
-		"max_retries":    0,
-		"http_method":    "",
-		"url_path":       "",
-		"expected_codes": "",
+		"name":            "",
+		"pool_id":         "",
+		"type":            "HTTP",
+		"delay":           0,
+		"timeout":         0,
+		"max_retries":     0,
+		"max_retries_down": 0,
+		"http_method":     "",
+		"url_path":        "",
+		"expected_codes":  "",
 	})
 	d.SetId("hm-gone")
 
@@ -245,14 +255,16 @@ func TestResourceHealthMonitorDelete(t *testing.T) {
 
 	res := ResourceHealthMonitor()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"pool_id":        "pool-001",
-		"type":           "HTTP",
-		"delay":          5,
-		"timeout":        10,
-		"max_retries":    3,
-		"http_method":    "GET",
-		"url_path":       "/health",
-		"expected_codes": "200",
+		"name":            "hm-HTTP-pool-001",
+		"pool_id":         "pool-001",
+		"type":            "HTTP",
+		"delay":           10,
+		"timeout":         5,
+		"max_retries":     3,
+		"max_retries_down": 3,
+		"http_method":     "GET",
+		"url_path":        "/health",
+		"expected_codes":  "200",
 	})
 	d.SetId("hm-001")
 

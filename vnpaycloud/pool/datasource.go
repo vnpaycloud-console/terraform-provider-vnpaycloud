@@ -22,6 +22,14 @@ func DataSourcePool() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"description": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"load_balancer_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"listener_id": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -32,6 +40,26 @@ func DataSourcePool() *schema.Resource {
 			},
 			"protocol": {
 				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"session_persistence": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"type": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"cookie_name": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+					},
+				},
+			},
+			"tls_enabled": {
+				Type:     schema.TypeBool,
 				Computed: true,
 			},
 			"member": {
@@ -91,9 +119,13 @@ func dataSourcePoolRead(ctx context.Context, d *schema.ResourceData, meta interf
 
 	d.SetId(resp.Pool.ID)
 	d.Set("name", resp.Pool.Name)
+	d.Set("description", resp.Pool.Description)
+	d.Set("load_balancer_id", resp.Pool.LoadBalancerID)
 	d.Set("listener_id", resp.Pool.ListenerID)
 	d.Set("lb_algorithm", resp.Pool.LBAlgorithm)
 	d.Set("protocol", resp.Pool.Protocol)
+	d.Set("session_persistence", flattenSessionPersistence(resp.Pool.SessionPersistence))
+	d.Set("tls_enabled", resp.Pool.TlsEnabled)
 	d.Set("member", flattenPoolMembers(resp.Pool.Members))
 	d.Set("status", resp.Pool.Status)
 	d.Set("created_at", resp.Pool.CreatedAt)

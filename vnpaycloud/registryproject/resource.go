@@ -18,6 +18,7 @@ func ResourceRegistryProject() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceRegistryProjectCreate,
 		ReadContext:   resourceRegistryProjectRead,
+		UpdateContext: resourceRegistryProjectUpdate,
 		DeleteContext: resourceRegistryProjectDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
@@ -35,14 +36,11 @@ func ResourceRegistryProject() *schema.Resource {
 			"is_public": {
 				Type:     schema.TypeBool,
 				Optional: true,
-				ForceNew: true,
 				Default:  false,
 			},
 			"storage_limit": {
 				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
-				Computed: true,
+				Required: true,
 			},
 			"storage_used": {
 				Type:     schema.TypeInt,
@@ -60,6 +58,11 @@ func ResourceRegistryProject() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"namespace": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Registry namespace ('{org_id_short}-{name}'). Use as the second path segment when tagging: docker tag <local> vcr.vnpaycloud.vn/<namespace>/<repo>:<tag>.",
+			},
 		},
 	}
 }
@@ -68,12 +71,9 @@ func resourceRegistryProjectCreate(ctx context.Context, d *schema.ResourceData, 
 	cfg := meta.(*config.Config)
 
 	createOpts := dto.CreateRegistryProjectRequest{
-		Name:     d.Get("name").(string),
-		IsPublic: d.Get("is_public").(bool),
-	}
-
-	if v, ok := d.GetOk("storage_limit"); ok {
-		createOpts.StorageLimit = v.(string)
+		Name:         d.Get("name").(string),
+		IsPublic:     d.Get("is_public").(bool),
+		StorageLimit: d.Get("storage_limit").(string),
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_registry_project create options", map[string]interface{}{"create_opts": createOpts})
@@ -87,8 +87,8 @@ func resourceRegistryProjectCreate(ctx context.Context, d *schema.ResourceData, 
 	d.SetId(createResp.Registry.ID)
 
 	stateConf := &retry.StateChangeConf{
-		Pending:    []string{"initiating", "creating", "pending_create", "unknown"},
-		Target:     []string{"active", "created"},
+		Pending:    []string{"creating", "unknown"},
+		Target:     []string{"active"},
 		Refresh:    registryProjectStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, createResp.Registry.ID),
 		Timeout:    d.Timeout(schema.TimeoutCreate),
 		Delay:      5 * time.Second,
@@ -121,8 +121,30 @@ func resourceRegistryProjectRead(ctx context.Context, d *schema.ResourceData, me
 	d.Set("repo_count", resp.Registry.RepoCount)
 	d.Set("status", resp.Registry.Status)
 	d.Set("created_at", resp.Registry.CreatedAt)
+	d.Set("namespace", resp.Registry.Namespace)
 
 	return nil
+}
+
+func resourceRegistryProjectUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	cfg := meta.(*config.Config)
+
+	if !d.HasChanges("is_public", "storage_limit") {
+		return resourceRegistryProjectRead(ctx, d, meta)
+	}
+
+	updateOpts := dto.UpdateRegistryProjectRequest{
+		IsPublic:     d.Get("is_public").(bool),
+		StorageLimit: d.Get("storage_limit").(string),
+	}
+
+	tflog.Debug(ctx, "vnpaycloud_registry_project update options", map[string]interface{}{"update_opts": updateOpts})
+
+	if _, err := cfg.Client.Put(ctx, client.ApiPath.RegistryProjectWithID(cfg.ProjectID, d.Id()), updateOpts, nil, nil); err != nil {
+		return diag.Errorf("Error updating vnpaycloud_registry_project %s: %s", d.Id(), err)
+	}
+
+	return resourceRegistryProjectRead(ctx, d, meta)
 }
 
 func resourceRegistryProjectDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -133,7 +155,7 @@ func resourceRegistryProjectDelete(ctx context.Context, d *schema.ResourceData, 
 	}
 
 	stateConf := &retry.StateChangeConf{
-		Pending:    []string{"deleting", "active", "created", "pending_delete", "unknown"},
+		Pending:    []string{"deleting", "active", "unknown"},
 		Target:     []string{"deleted"},
 		Refresh:    registryProjectStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, d.Id()),
 		Timeout:    d.Timeout(schema.TimeoutDelete),

@@ -46,6 +46,10 @@ func DataSourceRegistryProject() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"namespace": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 	}
 }
@@ -69,6 +73,7 @@ func dataSourceRegistryProjectRead(ctx context.Context, d *schema.ResourceData, 
 	d.Set("repo_count", resp.Registry.RepoCount)
 	d.Set("status", resp.Registry.Status)
 	d.Set("created_at", resp.Registry.CreatedAt)
+	d.Set("namespace", resp.Registry.Namespace)
 
 	return nil
 }
@@ -114,6 +119,10 @@ func DataSourceRegistryProjects() *schema.Resource {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
+						"namespace": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
 					},
 				},
 			},
@@ -141,6 +150,7 @@ func dataSourceRegistryProjectsRead(ctx context.Context, d *schema.ResourceData,
 			"repo_count":    r.RepoCount,
 			"status":        r.Status,
 			"created_at":    r.CreatedAt,
+			"namespace":     r.Namespace,
 		})
 	}
 

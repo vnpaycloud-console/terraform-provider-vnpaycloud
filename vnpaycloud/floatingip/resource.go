@@ -39,11 +39,13 @@ func ResourceFloatingIP() *schema.Resource {
 			"port_id": {
 				Type:          schema.TypeString,
 				Optional:      true,
+				Computed:      true,
 				ConflictsWith: []string{"vpc_id"},
 			},
 			"vpc_id": {
 				Type:          schema.TypeString,
 				Optional:      true,
+				Computed:      true,
 				ConflictsWith: []string{"port_id"},
 			},
 			"instance_id": {

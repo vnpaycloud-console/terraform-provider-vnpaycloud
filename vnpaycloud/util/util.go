@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
@@ -220,4 +222,18 @@ func ResponseCodeIs(err error, status int) bool {
 		return codeError.Actual == status
 	}
 	return false
+}
+
+func RetryLBPendingPut(ctx context.Context, timeout time.Duration, write func() error) error {
+	return retry.RetryContext(ctx, timeout, func() *retry.RetryError {
+		err := write()
+		if err == nil {
+			return nil
+		}
+		msg := err.Error()
+		if strings.Contains(msg, "Please wait") || strings.Contains(msg, "not active") {
+			return retry.RetryableError(err)
+		}
+		return retry.NonRetryableError(err)
+	})
 }
