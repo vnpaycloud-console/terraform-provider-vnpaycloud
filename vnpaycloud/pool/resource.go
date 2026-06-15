@@ -300,7 +300,7 @@ func resourcePoolCreate(ctx context.Context, d *schema.ResourceData, meta interf
 
 		tflog.Debug(ctx, "vnpaycloud_lb_pool adding members via update", map[string]interface{}{"update_opts": updateOpts})
 
-		err := util.RetryLBPendingPut(ctx, 2*time.Minute, func() error {
+		err := util.RetryLBPendingPut(ctx, d.Timeout(schema.TimeoutCreate), func() error {
 			_, putErr := cfg.Client.Put(ctx, client.ApiPath.PoolWithID(cfg.ProjectID, d.Id()), updateOpts, nil, nil)
 			return putErr
 		})
