@@ -56,15 +56,15 @@ func TestDataSourcePostgresInstanceRead(t *testing.T) {
 func TestDataSourcePostgresInstancesRead(t *testing.T) {
 	inst1 := testPostgresInstance()
 	inst2 := dto.PostgresInstance{
-		ID:         "pg-002",
-		Name:       "prod-postgres",
-		Version:    "16.9",
-		Mode:       "cluster",
-		Replica:    3,
-		PrimaryIP:  "10.0.0.20",
+		ID:          "pg-002",
+		Name:        "prod-postgres",
+		Version:     "16.9",
+		Mode:        "cluster",
+		Replica:     3,
+		PrimaryIP:   "10.0.0.20",
 		PrimaryPort: 5432,
-		Status:     "active",
-		CreatedAt:  "2025-02-01T08:00:00Z",
+		Status:      "active",
+		CreatedAt:   "2025-02-01T08:00:00Z",
 	}
 
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{

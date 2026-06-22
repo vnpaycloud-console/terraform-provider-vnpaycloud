@@ -21,6 +21,7 @@ var ApiPath = struct {
 	// Security Group
 	SecurityGroups      func(projectID string) string
 	SecurityGroupWithID func(projectID, id string) string
+	SecurityGroupLog    func(projectID, id string) string
 
 	// Security Group Rule
 	SecurityGroupRules      func(projectID string) string
@@ -33,10 +34,15 @@ var ApiPath = struct {
 	FloatingIPDisassociate func(projectID, id string) string
 
 	// Network Interface
-	NetworkInterfaces      func(projectID string) string
-	NetworkInterfaceWithID func(projectID, id string) string
-	NetworkInterfaceAttach func(projectID, id string) string
-	NetworkInterfaceDetach func(projectID, id string) string
+	NetworkInterfaces                   func(projectID string) string
+	NetworkInterfaceWithID              func(projectID, id string) string
+	NetworkInterfaceAttach              func(projectID, id string) string
+	NetworkInterfaceDetach              func(projectID, id string) string
+	NetworkInterfaceReserved            func(projectID, id string) string
+	NetworkInterfaceVirtualIP           func(projectID, id string) string
+	NetworkInterfaceAllowedAddressPairs func(projectID, id string) string
+	NetworkInterfacePortSecurity        func(projectID, id string) string
+	NetworkInterfaceSecurityGroups      func(projectID, id string) string
 
 	// Volume
 	Volumes      func(projectID string) string
@@ -69,15 +75,29 @@ var ApiPath = struct {
 	InternetGatewayAttachVPC func(projectID, id string) string
 	InternetGatewayDetachVPC func(projectID, id string) string
 
+	// Service Gateway
+	ServiceGateways       func(projectID string) string
+	ServiceGatewayWithID  func(projectID, id string) string
+	ServiceGatewayICMP    func(projectID, id string) string
+	ServiceGatewayFlavors func(projectID string) string
+
+	// Service Endpoint
+	ServiceEndpoints      func(projectID string) string
+	ServiceEndpointWithID func(projectID, id string) string
+
+	// Service Catalogs (read-only)
+	ServiceProviders func(projectID string) string
+	Services         func(projectID string) string
+
 	// Snapshot
 	Snapshots      func(projectID string) string
 	SnapshotWithID func(projectID, id string) string
 
 	// Load Balancer
-	LoadBalancers             func(projectID string) string
-	LoadBalancerWithID        func(projectID, id string) string
-	LoadBalancerChangeFlavor  func(projectID, id string) string
-	LBFlavors                 func(projectID string) string
+	LoadBalancers            func(projectID string) string
+	LoadBalancerWithID       func(projectID, id string) string
+	LoadBalancerChangeFlavor func(projectID, id string) string
+	LBFlavors                func(projectID string) string
 
 	// Certificate (shared — not LB-specific)
 	Certificates func(projectID string) string
@@ -95,8 +115,8 @@ var ApiPath = struct {
 	HealthMonitorWithID func(projectID, id string) string
 
 	// L7 Policy
-	L7Policies      func(projectID string) string
-	L7PolicyWithID  func(projectID, id string) string
+	L7Policies     func(projectID string) string
+	L7PolicyWithID func(projectID, id string) string
 
 	// L7 Rule (nested under l7policy)
 	L7Rules      func(projectID, l7policyID string) string
@@ -188,6 +208,40 @@ var ApiPath = struct {
 	// Database Flavor
 	DatabaseFlavors func(projectID string) string
 
+	// Database Postgres Account
+	DatabasePostgresAccounts                func(projectID string) string
+	DatabasePostgresAccountWithID           func(projectID, id string) string
+	DatabasePostgresAccountChangePassword   func(projectID, id string) string
+	DatabasePostgresAccountGrantPrivileges  func(projectID, id string) string
+	DatabasePostgresAccountRevokePrivileges func(projectID, id string) string
+
+	// Database Postgres Database
+	DatabasePostgresDatabases               func(projectID string) string
+	DatabasePostgresDatabaseWithID          func(projectID, id string) string
+	DatabasePostgresDatabaseChangeOwnership func(projectID, id string) string
+
+	// Database Redis Account
+	DatabaseRedisAccounts              func(projectID string) string
+	DatabaseRedisAccountWithID         func(projectID, id string) string
+	DatabaseRedisAccountChangePassword func(projectID, id string) string
+	DatabaseRedisAccountGrantPrivilege func(projectID, id string) string
+
+	// Database Redis Sentinel Account
+	DatabaseRedisSentinelAccounts              func(projectID string) string
+	DatabaseRedisSentinelAccountWithID         func(projectID, id string) string
+	DatabaseRedisSentinelAccountChangePassword func(projectID, id string) string
+	DatabaseRedisSentinelAccountGrantPrivilege func(projectID, id string) string
+
+	// Database Instance Read-Only Endpoint
+	DatabasePostgresInstanceEnableReadOnlyEndpoint       func(projectID, id string) string
+	DatabasePostgresInstanceDisableReadOnlyEndpoint      func(projectID, id string) string
+	DatabaseRedisSentinelInstanceEnableReadOnlyEndpoint  func(projectID, id string) string
+	DatabaseRedisSentinelInstanceDisableReadOnlyEndpoint func(projectID, id string) string
+
+	// Database Versions
+	DatabasePostgresVersions func(projectID string) string
+	DatabaseRedisVersions    func(projectID string) string
+
 	// Zone → Project Resolution (not project-scoped)
 	ResolveProjectByZone func(zoneID string) string
 }{
@@ -218,6 +272,9 @@ var ApiPath = struct {
 	SecurityGroupWithID: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/security-groups/%s", projectID, id)
 	},
+	SecurityGroupLog: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/security-groups/%s/log", projectID, id)
+	},
 	SecurityGroupRules: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/security-group-rules", projectID)
 	},
@@ -247,6 +304,21 @@ var ApiPath = struct {
 	},
 	NetworkInterfaceDetach: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/network-interfaces/%s/detach", projectID, id)
+	},
+	NetworkInterfaceReserved: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/network-interfaces/%s/reserved", projectID, id)
+	},
+	NetworkInterfaceVirtualIP: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/network-interfaces/%s/virtual-ip", projectID, id)
+	},
+	NetworkInterfaceAllowedAddressPairs: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/network-interfaces/%s/allowed-address-pairs", projectID, id)
+	},
+	NetworkInterfacePortSecurity: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/network-interfaces/%s/port-security", projectID, id)
+	},
+	NetworkInterfaceSecurityGroups: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/network-interfaces/%s/security-groups", projectID, id)
 	},
 	Volumes: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/volumes", projectID)
@@ -304,6 +376,30 @@ var ApiPath = struct {
 	},
 	InternetGatewayDetachVPC: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/internet-gateways/%s/detach-vpc", projectID, id)
+	},
+	ServiceGateways: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/service-gateways", projectID)
+	},
+	ServiceGatewayWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/service-gateways/%s", projectID, id)
+	},
+	ServiceGatewayICMP: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/service-gateways/%s/icmp", projectID, id)
+	},
+	ServiceGatewayFlavors: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/service-gateway-flavors", projectID)
+	},
+	ServiceEndpoints: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/service-endpoints", projectID)
+	},
+	ServiceEndpointWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/service-endpoints/%s", projectID, id)
+	},
+	ServiceProviders: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/service-providers", projectID)
+	},
+	Services: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/services", projectID)
 	},
 	Snapshots: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/snapshots", projectID)
@@ -524,6 +620,84 @@ var ApiPath = struct {
 	// Database Flavor
 	DatabaseFlavors: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/database/flavor-databases", projectID)
+	},
+
+	// Database Postgres Account
+	DatabasePostgresAccounts: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-accounts", projectID)
+	},
+	DatabasePostgresAccountWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-accounts/%s", projectID, id)
+	},
+	DatabasePostgresAccountChangePassword: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-accounts/%s/change-password", projectID, id)
+	},
+	DatabasePostgresAccountGrantPrivileges: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-accounts/%s/grant-privileges", projectID, id)
+	},
+	DatabasePostgresAccountRevokePrivileges: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-accounts/%s/revoke-privileges", projectID, id)
+	},
+
+	// Database Postgres Database
+	DatabasePostgresDatabases: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-databases", projectID)
+	},
+	DatabasePostgresDatabaseWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-databases/%s", projectID, id)
+	},
+	DatabasePostgresDatabaseChangeOwnership: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-databases/%s/change-ownership", projectID, id)
+	},
+
+	// Database Redis Account
+	DatabaseRedisAccounts: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-accounts", projectID)
+	},
+	DatabaseRedisAccountWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-accounts/%s", projectID, id)
+	},
+	DatabaseRedisAccountChangePassword: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-accounts/%s/change-password", projectID, id)
+	},
+	DatabaseRedisAccountGrantPrivilege: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-accounts/%s/grant-privilege", projectID, id)
+	},
+
+	// Database Redis Sentinel Account
+	DatabaseRedisSentinelAccounts: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-accounts", projectID)
+	},
+	DatabaseRedisSentinelAccountWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-accounts/%s", projectID, id)
+	},
+	DatabaseRedisSentinelAccountChangePassword: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-accounts/%s/change-password", projectID, id)
+	},
+	DatabaseRedisSentinelAccountGrantPrivilege: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-accounts/%s/grant-privilege", projectID, id)
+	},
+
+	// Database Instance Read-Only Endpoint
+	DatabasePostgresInstanceEnableReadOnlyEndpoint: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-instances/%s/enable-read-only-endpoint", projectID, id)
+	},
+	DatabasePostgresInstanceDisableReadOnlyEndpoint: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-instances/%s/disable-read-only-endpoint", projectID, id)
+	},
+	DatabaseRedisSentinelInstanceEnableReadOnlyEndpoint: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances/%s/enable-read-only-endpoint", projectID, id)
+	},
+	DatabaseRedisSentinelInstanceDisableReadOnlyEndpoint: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-sentinel-instances/%s/disable-read-only-endpoint", projectID, id)
+	},
+
+	// Database Versions
+	DatabasePostgresVersions: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/postgres-versions", projectID)
+	},
+	DatabaseRedisVersions: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-versions", projectID)
 	},
 
 	ResolveProjectByZone: func(zoneID string) string {

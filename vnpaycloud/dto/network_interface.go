@@ -20,6 +20,8 @@ type NetworkInterface struct {
 	AllowedAddressPairs []NetworkInterfaceAddressPair `json:"allowedAddressPairs"`
 	NetworkType         string                        `json:"networkType"`
 	Description         string                        `json:"description"`
+	Reserved            bool                          `json:"reserved"`
+	VirtualIP           bool                          `json:"virtualIp"`
 	CreatedAt           string                        `json:"createdAt"`
 	ProjectID           string                        `json:"projectId"`
 	ZoneID              string                        `json:"zoneId"`
@@ -32,6 +34,29 @@ type CreateNetworkInterfaceRequest struct {
 	SubnetID    string `json:"subnetId"`
 	IPAddress   string `json:"ipAddress,omitempty"`
 	Description string `json:"description,omitempty"`
+	Reserved    bool   `json:"reserved,omitempty"`
+	VirtualIP   bool   `json:"virtualIp,omitempty"`
+}
+
+type UpdateNetworkInterfaceReservedRequest struct {
+	Reserved    bool   `json:"reserved"`
+	Description string `json:"description,omitempty"`
+}
+
+type UpdateNetworkInterfaceVirtualIpRequest struct {
+	VirtualIP bool `json:"virtualIp"`
+}
+
+type UpdateNetworkInterfaceAllowedAddressPairsRequest struct {
+	AllowedAddressPairs []NetworkInterfaceAddressPair `json:"allowedAddressPairs"`
+}
+
+type UpdateNetworkInterfacePortSecurityRequest struct {
+	PortSecurityEnabled bool `json:"portSecurityEnabled"`
+}
+
+type UpdateNetworkInterfaceSecurityGroupsRequest struct {
+	SecurityGroupIDs []string `json:"securityGroupIds"`
 }
 
 // AttachNetworkInterfaceRequest matches the iac-proxy-v2 AttachNetworkInterfaceRequest proto message.

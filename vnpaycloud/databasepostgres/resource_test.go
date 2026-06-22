@@ -39,20 +39,20 @@ func testPostgresInstance() dto.PostgresInstance {
 func postgresSchemaRaw() map[string]interface{} {
 	return map[string]interface{}{
 		"name":                  "test-postgres",
-		"description":          "test postgres instance",
-		"flavor_database_id":   "flavor-001",
-		"version":              "17.5",
-		"volume_type":          "SSD",
-		"volume_size":          50,
-		"mode":                 "standalone",
-		"replica":              1,
-		"purpose":              "testing",
-		"enable_tls":           false,
-		"certificate_id":       "",
-		"tls_mode":             "",
+		"description":           "test postgres instance",
+		"flavor_database_id":    "flavor-001",
+		"version":               "17.5",
+		"volume_type":           "SSD",
+		"volume_size":           50,
+		"mode":                  "standalone",
+		"replica":               1,
+		"purpose":               "testing",
+		"enable_tls":            false,
+		"certificate_id":        "",
+		"tls_mode":              "",
 		"is_auto_expand_volume": false,
-		"usage_threshold":      0,
-		"scale_percent":        0,
+		"usage_threshold":       0,
+		"scale_percent":         0,
 	}
 }
 

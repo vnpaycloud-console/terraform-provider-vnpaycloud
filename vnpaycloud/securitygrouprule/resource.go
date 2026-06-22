@@ -16,6 +16,7 @@ func ResourceSecurityGroupRule() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceSecurityGroupRuleCreate,
 		ReadContext:   resourceSecurityGroupRuleRead,
+		UpdateContext: resourceSecurityGroupRuleUpdate,
 		DeleteContext: resourceSecurityGroupRuleDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
@@ -55,12 +56,11 @@ func ResourceSecurityGroupRule() *schema.Resource {
 			"remote_ip_prefix": {
 				Type:     schema.TypeString,
 				Optional: true,
-				ForceNew: true,
+				Computed: true,
 			},
-			"remote_group_id": {
+			"description": {
 				Type:     schema.TypeString,
 				Optional: true,
-				ForceNew: true,
 			},
 		},
 	}
@@ -77,7 +77,7 @@ func resourceSecurityGroupRuleCreate(ctx context.Context, d *schema.ResourceData
 		PortRangeMin:    int32(d.Get("port_range_min").(int)),
 		PortRangeMax:    int32(d.Get("port_range_max").(int)),
 		RemoteIPPrefix:  d.Get("remote_ip_prefix").(string),
-		RemoteGroupID:   d.Get("remote_group_id").(string),
+		Description:     d.Get("description").(string),
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_security_group_rule create options", map[string]interface{}{"create_opts": createOpts})
@@ -111,9 +111,25 @@ func resourceSecurityGroupRuleRead(ctx context.Context, d *schema.ResourceData, 
 	d.Set("port_range_min", ruleResp.Rule.PortRangeMin)
 	d.Set("port_range_max", ruleResp.Rule.PortRangeMax)
 	d.Set("remote_ip_prefix", ruleResp.Rule.RemoteIPPrefix)
-	d.Set("remote_group_id", ruleResp.Rule.RemoteGroupID)
+	d.Set("description", ruleResp.Rule.Description)
 
 	return nil
+}
+
+func resourceSecurityGroupRuleUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	cfg := meta.(*config.Config)
+
+	if d.HasChange("remote_ip_prefix") || d.HasChange("description") {
+		updateOpts := dto.UpdateSecurityGroupRuleRequest{
+			RemoteIPPrefix: d.Get("remote_ip_prefix").(string),
+			Description:    d.Get("description").(string),
+		}
+		if _, err := cfg.Client.Put(ctx, client.ApiPath.SecurityGroupRuleWithID(cfg.ProjectID, d.Id()), updateOpts, nil, nil); err != nil {
+			return diag.Errorf("Error updating vnpaycloud_security_group_rule %s: %s", d.Id(), err)
+		}
+	}
+
+	return resourceSecurityGroupRuleRead(ctx, d, meta)
 }
 
 func resourceSecurityGroupRuleDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

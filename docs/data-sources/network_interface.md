@@ -46,5 +46,8 @@ data "vnpaycloud_network_interface" "by_id" {
   - `ip_address` (String) The allowed IP address or CIDR.
   - `mac_address` (String) The allowed MAC address (optional).
 - `network_type` (String) The type of network this interface is connected to (e.g., `vxlan`, `flat`).
-- `status` (String) The current status of the network interface (e.g., `ACTIVE`, `DOWN`, `BUILD`).
+- `description` (String) The description of the network interface.
+- `reserved` (Boolean) Whether the interface (its IP) is reserved.
+- `virtual_ip` (Boolean) Whether the interface is marked as a virtual IP (VIP).
+- `status` (String) The current status of the network interface (for example, `active`, `down`, `building`, `error`).
 - `created_at` (String) The timestamp when the network interface was created, in ISO 8601 format.

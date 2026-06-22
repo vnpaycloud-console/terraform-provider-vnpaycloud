@@ -37,7 +37,7 @@ data "vnpaycloud_security_group" "by_id" {
 ### Read-Only
 
 - `description` (String) A human-readable description of the security group.
-- `status` (String) The current status of the security group (e.g., `ACTIVE`).
+- `status` (String) The current status of the security group (e.g., `active`).
 - `rules` (List of Object) A list of security group rules. Each object contains:
   - `id` (String) The ID of the security group rule.
   - `security_group_id` (String) The ID of the security group this rule belongs to.
@@ -47,5 +47,6 @@ data "vnpaycloud_security_group" "by_id" {
   - `port_range_min` (Number) The minimum port number in the range. `0` means all ports (for `icmp`, this is the type).
   - `port_range_max` (Number) The maximum port number in the range. `0` means all ports (for `icmp`, this is the code).
   - `remote_ip_prefix` (String) The remote CIDR IP prefix that traffic is allowed from/to.
-  - `remote_group_id` (String) The ID of the remote security group that traffic is allowed from/to.
+- `enable_log` (Boolean) Whether ACCEPT network logging is enabled for this security group.
+- `can_enable_log` (Boolean) Whether network logging can be enabled for this security group.
 - `created_at` (String) The timestamp when the security group was created, in ISO 8601 format.

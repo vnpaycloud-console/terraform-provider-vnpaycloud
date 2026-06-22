@@ -21,7 +21,7 @@ output "all_security_group_names" {
 output "active_security_group_ids" {
   value = [
     for sg in data.vnpaycloud_security_groups.all.security_groups :
-    sg.id if sg.status == "ACTIVE"
+    sg.id if sg.status == "active"
   ]
 }
 ```
@@ -34,5 +34,5 @@ output "active_security_group_ids" {
   - `id` (String) The unique identifier of the security group.
   - `name` (String) The name of the security group.
   - `description` (String) A human-readable description of the security group.
-  - `status` (String) The current status of the security group (e.g., `ACTIVE`, `BUILD`, `ERROR`).
+  - `status` (String) The current status of the security group (lowercase, e.g., `active`).
   - `created_at` (String) The timestamp when the security group was created, in ISO 8601 format.

@@ -8,8 +8,13 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/databaseflavor"
 	"terraform-provider-vnpaycloud/vnpaycloud/databasepostgres"
+	"terraform-provider-vnpaycloud/vnpaycloud/databasepostgresaccount"
+	"terraform-provider-vnpaycloud/vnpaycloud/databasepostgresdatabase"
 	"terraform-provider-vnpaycloud/vnpaycloud/databaseredis"
+	"terraform-provider-vnpaycloud/vnpaycloud/databaseredisaccount"
 	"terraform-provider-vnpaycloud/vnpaycloud/databaseredissentinel"
+	"terraform-provider-vnpaycloud/vnpaycloud/databaseredissentinelaccount"
+	"terraform-provider-vnpaycloud/vnpaycloud/databaseversion"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/flavor"
 	"terraform-provider-vnpaycloud/vnpaycloud/floatingip"
@@ -37,6 +42,8 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/securitygroup"
 	"terraform-provider-vnpaycloud/vnpaycloud/securitygrouprule"
 	"terraform-provider-vnpaycloud/vnpaycloud/servergroup"
+	"terraform-provider-vnpaycloud/vnpaycloud/serviceendpoint"
+	"terraform-provider-vnpaycloud/vnpaycloud/servicegateway"
 	"terraform-provider-vnpaycloud/vnpaycloud/snapshot"
 	"terraform-provider-vnpaycloud/vnpaycloud/subnet"
 	"terraform-provider-vnpaycloud/vnpaycloud/subnetsnat"
@@ -98,6 +105,13 @@ func Provider() *schema.Provider {
 			"vnpaycloud_snapshots":                         snapshot.DataSourceSnapshots(),
 			"vnpaycloud_internet_gateway":                  internetgateway.DataSourceInternetGateway(),
 			"vnpaycloud_internet_gateways":                 internetgateway.DataSourceInternetGateways(),
+			"vnpaycloud_service_gateway":                   servicegateway.DataSourceServiceGateway(),
+			"vnpaycloud_service_gateways":                  servicegateway.DataSourceServiceGateways(),
+			"vnpaycloud_service_gateway_flavors":           servicegateway.DataSourceServiceGatewayFlavors(),
+			"vnpaycloud_service_endpoint":                  serviceendpoint.DataSourceServiceEndpoint(),
+			"vnpaycloud_service_endpoints":                 serviceendpoint.DataSourceServiceEndpoints(),
+			"vnpaycloud_service_providers":                 serviceendpoint.DataSourceServiceProviders(),
+			"vnpaycloud_services":                          serviceendpoint.DataSourceServices(),
 			"vnpaycloud_lb_loadbalancer":                   loadbalancer.DataSourceLoadBalancer(),
 			"vnpaycloud_lb_loadbalancers":                  loadbalancer.DataSourceLoadBalancers(),
 			"vnpaycloud_lb_listener":                       listener.DataSourceListener(),
@@ -120,12 +134,22 @@ func Provider() *schema.Provider {
 			"vnpaycloud_buckets":                           bucket.DataSourceBuckets(),
 			"vnpaycloud_database_postgres_instance":        databasepostgres.DataSourceDatabasePostgresInstance(),
 			"vnpaycloud_database_postgres_instances":       databasepostgres.DataSourceDatabasePostgresInstances(),
+			"vnpaycloud_database_postgres_account":         databasepostgresaccount.DataSourceDatabasePostgresAccount(),
+			"vnpaycloud_database_postgres_accounts":        databasepostgresaccount.DataSourceDatabasePostgresAccounts(),
+			"vnpaycloud_database_postgres_database":        databasepostgresdatabase.DataSourceDatabasePostgresDatabase(),
+			"vnpaycloud_database_postgres_databases":       databasepostgresdatabase.DataSourceDatabasePostgresDatabases(),
+			"vnpaycloud_database_redis_account":            databaseredisaccount.DataSourceDatabaseRedisAccount(),
+			"vnpaycloud_database_redis_accounts":           databaseredisaccount.DataSourceDatabaseRedisAccounts(),
+			"vnpaycloud_database_redis_sentinel_account":   databaseredissentinelaccount.DataSourceDatabaseRedisSentinelAccount(),
+			"vnpaycloud_database_redis_sentinel_accounts":  databaseredissentinelaccount.DataSourceDatabaseRedisSentinelAccounts(),
 			"vnpaycloud_database_redis_instance":           databaseredis.DataSourceDatabaseRedisInstance(),
 			"vnpaycloud_database_redis_instances":          databaseredis.DataSourceDatabaseRedisInstances(),
 			"vnpaycloud_database_redis_sentinel_instance":  databaseredissentinel.DataSourceDatabaseRedisSentinelInstance(),
 			"vnpaycloud_database_redis_sentinel_instances": databaseredissentinel.DataSourceDatabaseRedisSentinelInstances(),
 			"vnpaycloud_database_flavor":                   databaseflavor.DataSourceDatabaseFlavor(),
 			"vnpaycloud_database_flavors":                  databaseflavor.DataSourceDatabaseFlavors(),
+			"vnpaycloud_database_postgres_versions":        databaseversion.DataSourceDatabasePostgresVersions(),
+			"vnpaycloud_database_redis_versions":           databaseversion.DataSourceDatabaseRedisVersions(),
 			"vnpaycloud_vpc_peering":                       vpcpeering.DataSourceVPCPeering(),
 			"vnpaycloud_vpc_peerings":                      vpcpeering.DataSourceVPCPeerings(),
 			"vnpaycloud_flavor":                            flavor.DataSourceFlavor(),
@@ -152,6 +176,8 @@ func Provider() *schema.Provider {
 			"vnpaycloud_keypair":                          keypair.ResourceKeyPair(),
 			"vnpaycloud_snapshot":                         snapshot.ResourceSnapshot(),
 			"vnpaycloud_internet_gateway":                 internetgateway.ResourceInternetGateway(),
+			"vnpaycloud_service_gateway":                  servicegateway.ResourceServiceGateway(),
+			"vnpaycloud_service_endpoint":                 serviceendpoint.ResourceServiceEndpoint(),
 			"vnpaycloud_lb_loadbalancer":                  loadbalancer.ResourceLoadBalancer(),
 			"vnpaycloud_lb_listener":                      listener.ResourceListener(),
 			"vnpaycloud_lb_pool":                          pool.ResourcePool(),
@@ -167,6 +193,10 @@ func Provider() *schema.Provider {
 			"vnpaycloud_bucket":                           bucket.ResourceBucket(),
 			"vnpaycloud_vpc_peering":                      vpcpeering.ResourceVPCPeering(),
 			"vnpaycloud_database_postgres_instance":       databasepostgres.ResourceDatabasePostgresInstance(),
+			"vnpaycloud_database_postgres_account":        databasepostgresaccount.ResourceDatabasePostgresAccount(),
+			"vnpaycloud_database_postgres_database":       databasepostgresdatabase.ResourceDatabasePostgresDatabase(),
+			"vnpaycloud_database_redis_account":           databaseredisaccount.ResourceDatabaseRedisAccount(),
+			"vnpaycloud_database_redis_sentinel_account":  databaseredissentinelaccount.ResourceDatabaseRedisSentinelAccount(),
 			"vnpaycloud_database_redis_instance":          databaseredis.ResourceDatabaseRedisInstance(),
 			"vnpaycloud_database_redis_sentinel_instance": databaseredissentinel.ResourceDatabaseRedisSentinelInstance(),
 		},

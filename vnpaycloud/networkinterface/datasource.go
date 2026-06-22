@@ -78,6 +78,14 @@ func DataSourceNetworkInterface() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"reserved": {
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
+			"virtual_ip": {
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
 			"created_at": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -143,6 +151,8 @@ func setNetworkInterfaceDataSourceAttributes(d *schema.ResourceData, ni dto.Netw
 	d.Set("port_security_enabled", ni.PortSecurityEnabled)
 	d.Set("network_type", ni.NetworkType)
 	d.Set("description", ni.Description)
+	d.Set("reserved", ni.Reserved)
+	d.Set("virtual_ip", ni.VirtualIP)
 	d.Set("created_at", ni.CreatedAt)
 
 	allowedAddressPairs := make([]map[string]interface{}, len(ni.AllowedAddressPairs))
