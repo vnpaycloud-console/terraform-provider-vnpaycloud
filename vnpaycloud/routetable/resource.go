@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceRouteTable() *schema.Resource {
@@ -39,9 +40,10 @@ func ResourceRouteTable() *schema.Resource {
 				ForceNew: true,
 			},
 			"target_type": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.StringInSlice([]string{"peering_connection", "internet_gateway", "service_instance", "vpn_gateway"}, false),
 			},
 			"name": {
 				Type:     schema.TypeString,
