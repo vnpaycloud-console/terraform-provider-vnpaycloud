@@ -46,9 +46,16 @@ func DataSourceSecurityGroup() *schema.Resource {
 						"port_range_min":    {Type: schema.TypeInt, Computed: true},
 						"port_range_max":    {Type: schema.TypeInt, Computed: true},
 						"remote_ip_prefix":  {Type: schema.TypeString, Computed: true},
-						"remote_group_id":   {Type: schema.TypeString, Computed: true},
 					},
 				},
+			},
+			"enable_log": {
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
+			"can_enable_log": {
+				Type:     schema.TypeBool,
+				Computed: true,
 			},
 			"created_at": {
 				Type:     schema.TypeString,
@@ -94,6 +101,8 @@ func setSecurityGroupData(d *schema.ResourceData, sg *dto.SecurityGroup) diag.Di
 	d.Set("name", sg.Name)
 	d.Set("description", sg.Description)
 	d.Set("status", sg.Status)
+	d.Set("enable_log", sg.EnableLog)
+	d.Set("can_enable_log", sg.CanEnableLog)
 	d.Set("created_at", sg.CreatedAt)
 
 	rules := make([]map[string]interface{}, len(sg.Rules))
@@ -107,7 +116,6 @@ func setSecurityGroupData(d *schema.ResourceData, sg *dto.SecurityGroup) diag.Di
 			"port_range_min":    r.PortRangeMin,
 			"port_range_max":    r.PortRangeMax,
 			"remote_ip_prefix":  r.RemoteIPPrefix,
-			"remote_group_id":   r.RemoteGroupID,
 		}
 	}
 	d.Set("rules", rules)

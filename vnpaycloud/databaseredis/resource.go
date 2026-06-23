@@ -2,6 +2,7 @@ package databaseredis
 
 import (
 	"context"
+	"fmt"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
@@ -23,6 +24,15 @@ func ResourceDatabaseRedisInstance() *schema.Resource {
 		DeleteContext: resourceRedisInstanceDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
+		},
+		CustomizeDiff: func(ctx context.Context, d *schema.ResourceDiff, meta interface{}) error {
+			if d.Get("enable_tls").(bool) {
+				return nil
+			}
+			if v, ok := d.GetOk("certificate_id"); ok && v.(string) != "" {
+				return fmt.Errorf("certificate_id can only be set when enable_tls = true")
+			}
+			return nil
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(30 * time.Minute),

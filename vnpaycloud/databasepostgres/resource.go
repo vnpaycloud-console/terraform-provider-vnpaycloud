@@ -2,6 +2,7 @@ package databasepostgres
 
 import (
 	"context"
+	"fmt"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
@@ -23,6 +24,27 @@ func ResourceDatabasePostgresInstance() *schema.Resource {
 		DeleteContext: resourcePostgresInstanceDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
+		},
+		CustomizeDiff: func(ctx context.Context, d *schema.ResourceDiff, meta interface{}) error {
+			// Scaling replica and the read-only endpoint are cluster-only operations.
+			if d.Get("mode").(string) == "standalone" {
+				if d.Get("enable_read_only_endpoint").(bool) {
+					return fmt.Errorf("enable_read_only_endpoint is only supported when mode = cluster")
+				}
+				if d.Id() != "" && d.HasChange("replica") {
+					return fmt.Errorf("replica can only be scaled when mode = cluster; standalone replica is fixed at create time")
+				}
+			}
+			// certificate_id / tls_mode may only be set when TLS is enabled.
+			if !d.Get("enable_tls").(bool) {
+				if v, ok := d.GetOk("certificate_id"); ok && v.(string) != "" {
+					return fmt.Errorf("certificate_id can only be set when enable_tls = true")
+				}
+				if v, ok := d.GetOk("tls_mode"); ok && v.(string) != "" {
+					return fmt.Errorf("tls_mode can only be set when enable_tls = true")
+				}
+			}
+			return nil
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(30 * time.Minute),
@@ -103,6 +125,12 @@ func ResourceDatabasePostgresInstance() *schema.Resource {
 				Type:         schema.TypeInt,
 				Optional:     true,
 				ValidateFunc: validation.IntAtLeast(1),
+			},
+
+			"enable_read_only_endpoint": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
 			},
 
 			// Computed
@@ -203,6 +231,17 @@ func resourcePostgresInstanceCreate(ctx context.Context, d *schema.ResourceData,
 		}
 	}
 
+	// Read-only endpoint is not part of the create request; enable it after the instance is active.
+	if d.Get("enable_read_only_endpoint").(bool) {
+		_, err := cfg.Client.Post(ctx, client.ApiPath.DatabasePostgresInstanceEnableReadOnlyEndpoint(cfg.ProjectID, d.Id()), nil, nil, nil)
+		if err != nil {
+			return diag.Errorf("Error enabling read-only endpoint for vnpaycloud_database_postgres_instance %s: %s", d.Id(), err)
+		}
+		if diags := waitForPostgresActive(ctx, d, cfg); diags != nil {
+			return diags
+		}
+	}
+
 	return resourcePostgresInstanceRead(ctx, d, meta)
 }
 
@@ -228,6 +267,7 @@ func resourcePostgresInstanceRead(ctx context.Context, d *schema.ResourceData, m
 	d.Set("enable_tls", inst.EnableTls)
 	d.Set("certificate_id", inst.CertificateID)
 	d.Set("tls_mode", inst.TlsMode)
+	d.Set("enable_read_only_endpoint", inst.EnableReadOnlyEndpoint)
 	d.Set("is_auto_expand_volume", inst.IsAutoExpandVolume)
 	if inst.IsAutoExpandVolume {
 		d.Set("usage_threshold", inst.UsageThreshold)
@@ -352,6 +392,21 @@ func resourcePostgresInstanceUpdate(ctx context.Context, d *schema.ResourceData,
 			if err != nil {
 				return diag.Errorf("Error disabling TLS for vnpaycloud_database_postgres_instance %s: %s", d.Id(), err)
 			}
+		}
+		if diags := waitForPostgresActive(ctx, d, cfg); diags != nil {
+			return diags
+		}
+	}
+
+	if d.HasChange("enable_read_only_endpoint") {
+		var err error
+		if d.Get("enable_read_only_endpoint").(bool) {
+			_, err = cfg.Client.Post(ctx, client.ApiPath.DatabasePostgresInstanceEnableReadOnlyEndpoint(cfg.ProjectID, d.Id()), nil, nil, nil)
+		} else {
+			_, err = cfg.Client.Post(ctx, client.ApiPath.DatabasePostgresInstanceDisableReadOnlyEndpoint(cfg.ProjectID, d.Id()), nil, nil, nil)
+		}
+		if err != nil {
+			return diag.Errorf("Error updating read-only endpoint for vnpaycloud_database_postgres_instance %s: %s", d.Id(), err)
 		}
 		if diags := waitForPostgresActive(ctx, d, cfg); diags != nil {
 			return diags

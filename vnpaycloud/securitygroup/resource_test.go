@@ -2,6 +2,7 @@ package securitygroup
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"sync/atomic"
 	"testing"
@@ -29,7 +30,6 @@ func testSecurityGroup() dto.SecurityGroup {
 				PortRangeMin:    80,
 				PortRangeMax:    80,
 				RemoteIPPrefix:  "0.0.0.0/0",
-				RemoteGroupID:   "",
 			},
 		},
 		CreatedAt: "2025-01-15T10:00:00Z",
@@ -98,6 +98,114 @@ func TestResourceSecurityGroupCreate(t *testing.T) {
 	}
 	if rule["port_range_max"] != 80 {
 		t.Errorf("expected rule port_range_max 80, got %v", rule["port_range_max"])
+	}
+}
+
+func TestResourceSecurityGroupCreate_EnableLogAfterCreate(t *testing.T) {
+	sg := testSecurityGroup()
+	sg.CanEnableLog = true
+
+	var postCalled bool
+	var logCalled bool
+	var logReq dto.UpdateSecurityGroupLogRequest
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "POST",
+			Pattern: "/v2/iac/projects/test-project-id/security-groups",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				postCalled = true
+				testhelpers.JSONHandler(t, http.StatusOK, dto.SecurityGroupResponse{SecurityGroup: sg})(w, r)
+			},
+		},
+		{
+			Method:  "PUT",
+			Pattern: "/v2/iac/projects/test-project-id/security-groups/sg-001/log",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				logCalled = true
+				if err := json.NewDecoder(r.Body).Decode(&logReq); err != nil {
+					t.Fatalf("failed to decode log request: %v", err)
+				}
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/security-groups/sg-001",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				resp := sg
+				resp.EnableLog = logCalled
+				testhelpers.JSONHandler(t, http.StatusOK, dto.SecurityGroupResponse{SecurityGroup: resp})(w, r)
+			},
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	res := ResourceSecurityGroup()
+	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
+		"name":        "test-sg",
+		"description": "a test security group",
+		"enable_log":  true,
+	})
+
+	diags := res.CreateContext(context.Background(), d, cfg)
+	if diags.HasError() {
+		t.Fatalf("unexpected error: %v", diags)
+	}
+
+	if !postCalled {
+		t.Fatal("expected POST to have been called")
+	}
+	if !logCalled {
+		t.Fatal("expected PUT /log to have been called after create")
+	}
+	if !logReq.EnableLog {
+		t.Error("expected log request to enable logs")
+	}
+	if d.Id() != "sg-001" {
+		t.Errorf("expected ID sg-001, got %s", d.Id())
+	}
+	if v := d.Get("enable_log").(bool); !v {
+		t.Error("expected enable_log true after post-create log enable")
+	}
+}
+
+func TestResourceSecurityGroupCreate_EnableLogUpdateErrorKeepsID(t *testing.T) {
+	sg := testSecurityGroup()
+	sg.CanEnableLog = true
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "POST",
+			Pattern: "/v2/iac/projects/test-project-id/security-groups",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.SecurityGroupResponse{SecurityGroup: sg}),
+		},
+		{
+			Method:  "PUT",
+			Pattern: "/v2/iac/projects/test-project-id/security-groups/sg-001/log",
+			Handler: testhelpers.EmptyHandler(http.StatusInternalServerError),
+		},
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/security-groups/sg-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.SecurityGroupResponse{SecurityGroup: sg}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	res := ResourceSecurityGroup()
+	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
+		"name":        "test-sg",
+		"description": "a test security group",
+		"enable_log":  true,
+	})
+
+	diags := res.CreateContext(context.Background(), d, cfg)
+	if !diags.HasError() {
+		t.Fatal("expected error from post-create log enable")
+	}
+	if d.Id() != "sg-001" {
+		t.Errorf("expected created ID to remain set after log enable failure, got %s", d.Id())
 	}
 }
 

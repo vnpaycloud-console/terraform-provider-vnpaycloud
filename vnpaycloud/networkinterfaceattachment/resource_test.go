@@ -31,14 +31,31 @@ func testNetworkInterface() dto.NetworkInterface {
 	}
 }
 
+func testInstance(nicIDs ...string) dto.Instance {
+	return dto.Instance{
+		ID:                  "srv-001",
+		Name:                "test-server",
+		Status:              "active",
+		NetworkInterfaceIDs: nicIDs,
+		ProjectID:           testhelpers.TestProjectID,
+		ZoneID:              testhelpers.TestZoneID,
+	}
+}
+
 func TestResourceNetworkInterfaceAttachmentCreate(t *testing.T) {
 	ni := testNetworkInterface()
+	inst := testInstance("nic-001")
 
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
 		{
 			Method:  "POST",
 			Pattern: "/v2/iac/projects/test-project-id/network-interfaces/nic-001/attach",
 			Handler: testhelpers.EmptyHandler(http.StatusAccepted),
+		},
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/instances/srv-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.InstanceResponse{Instance: inst}),
 		},
 		{
 			Method:  "GET",
@@ -72,8 +89,14 @@ func TestResourceNetworkInterfaceAttachmentCreate(t *testing.T) {
 
 func TestResourceNetworkInterfaceAttachmentRead(t *testing.T) {
 	ni := testNetworkInterface()
+	inst := testInstance("nic-001")
 
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/instances/srv-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.InstanceResponse{Instance: inst}),
+		},
 		{
 			Method:  "GET",
 			Pattern: "/v2/iac/projects/test-project-id/network-interfaces/nic-001",
@@ -109,6 +132,11 @@ func TestResourceNetworkInterfaceAttachmentRead_NotFound(t *testing.T) {
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
 		{
 			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/instances/srv-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.InstanceResponse{Instance: testInstance("nic-gone")}),
+		},
+		{
+			Method:  "GET",
 			Pattern: "/v2/iac/projects/test-project-id/network-interfaces/nic-gone",
 			Handler: testhelpers.EmptyHandler(http.StatusNotFound),
 		},
@@ -133,7 +161,6 @@ func TestResourceNetworkInterfaceAttachmentRead_NotFound(t *testing.T) {
 }
 
 func TestResourceNetworkInterfaceAttachmentDelete(t *testing.T) {
-	ni := testNetworkInterface()
 	detachCalled := false
 
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
@@ -147,13 +174,13 @@ func TestResourceNetworkInterfaceAttachmentDelete(t *testing.T) {
 		},
 		{
 			Method:  "GET",
-			Pattern: "/v2/iac/projects/test-project-id/network-interfaces/nic-001",
+			Pattern: "/v2/iac/projects/test-project-id/instances/srv-001",
 			Handler: func(w http.ResponseWriter, r *http.Request) {
-				// Return detached state after detach is called
 				if detachCalled {
-					ni.Status = "active"
+					testhelpers.JSONHandler(t, http.StatusOK, dto.InstanceResponse{Instance: testInstance()})(w, r)
+					return
 				}
-				testhelpers.JSONHandler(t, http.StatusOK, dto.NetworkInterfaceResponse{NetworkInterface: ni})(w, r)
+				testhelpers.JSONHandler(t, http.StatusOK, dto.InstanceResponse{Instance: testInstance("nic-001")})(w, r)
 			},
 		},
 	})
@@ -173,5 +200,54 @@ func TestResourceNetworkInterfaceAttachmentDelete(t *testing.T) {
 
 	if !detachCalled {
 		t.Error("expected detach POST to have been called")
+	}
+}
+
+func TestResourceNetworkInterfaceAttachmentRead_DetachedClearsState(t *testing.T) {
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/instances/srv-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.InstanceResponse{Instance: testInstance()}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	res := ResourceNetworkInterfaceAttachment()
+	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
+		"network_interface_id": "nic-001",
+		"server_id":            "srv-001",
+	})
+	d.SetId("nic-001")
+
+	diags := res.ReadContext(context.Background(), d, cfg)
+	if diags.HasError() {
+		t.Fatalf("unexpected error: %v", diags)
+	}
+
+	if d.Id() != "" {
+		t.Errorf("expected attachment ID to be cleared after NIC is no longer on server, got %s", d.Id())
+	}
+}
+
+func TestResourceNetworkInterfaceAttachmentCreate_APIError(t *testing.T) {
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "POST",
+			Pattern: "/v2/iac/projects/test-project-id/network-interfaces/nic-001/attach",
+			Handler: testhelpers.EmptyHandler(http.StatusBadRequest),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	res := ResourceNetworkInterfaceAttachment()
+	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
+		"network_interface_id": "nic-001",
+		"server_id":            "srv-001",
+	})
+
+	diags := res.CreateContext(context.Background(), d, cfg)
+	if !diags.HasError() {
+		t.Fatal("expected error for attach API failure, got none")
 	}
 }

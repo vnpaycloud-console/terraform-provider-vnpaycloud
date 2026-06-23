@@ -24,7 +24,6 @@ func testSecurityGroupRule() dto.SecurityGroupRule {
 		PortRangeMin:    443,
 		PortRangeMax:    443,
 		RemoteIPPrefix:  "0.0.0.0/0",
-		RemoteGroupID:   "",
 		ProjectID:       testhelpers.TestProjectID,
 		ZoneID:          testhelpers.TestZoneID,
 	}
@@ -56,7 +55,6 @@ func TestResourceSecurityGroupRuleCreate(t *testing.T) {
 		"port_range_min":    443,
 		"port_range_max":    443,
 		"remote_ip_prefix":  "0.0.0.0/0",
-		"remote_group_id":   "",
 	})
 
 	diags := res.CreateContext(context.Background(), d, cfg)
@@ -111,7 +109,6 @@ func TestResourceSecurityGroupRuleCreate_Error(t *testing.T) {
 		"port_range_min":    443,
 		"port_range_max":    443,
 		"remote_ip_prefix":  "0.0.0.0/0",
-		"remote_group_id":   "",
 	})
 
 	diags := res.CreateContext(context.Background(), d, cfg)
@@ -141,7 +138,6 @@ func TestResourceSecurityGroupRuleRead(t *testing.T) {
 		"port_range_min":    0,
 		"port_range_max":    0,
 		"remote_ip_prefix":  "",
-		"remote_group_id":   "",
 	})
 	d.SetId("sgr-001")
 
@@ -171,9 +167,6 @@ func TestResourceSecurityGroupRuleRead(t *testing.T) {
 	if v := d.Get("remote_ip_prefix").(string); v != "0.0.0.0/0" {
 		t.Errorf("expected remote_ip_prefix 0.0.0.0/0, got %s", v)
 	}
-	if v := d.Get("remote_group_id").(string); v != "" {
-		t.Errorf("expected remote_group_id empty, got %s", v)
-	}
 }
 
 func TestResourceSecurityGroupRuleRead_NotFound(t *testing.T) {
@@ -195,7 +188,6 @@ func TestResourceSecurityGroupRuleRead_NotFound(t *testing.T) {
 		"port_range_min":    0,
 		"port_range_max":    0,
 		"remote_ip_prefix":  "",
-		"remote_group_id":   "",
 	})
 	d.SetId("sgr-gone")
 
@@ -392,7 +384,6 @@ func TestCreateSecurityGroupAndRulesTogether(t *testing.T) {
 				"port_range_min":    rc.portMin,
 				"port_range_max":    rc.portMax,
 				"remote_ip_prefix":  rc.remoteIPPrefix,
-				"remote_group_id":   "",
 			})
 
 			diags := ruleRes.CreateContext(context.Background(), ruleData, cfg)
@@ -486,7 +477,6 @@ func TestResourceSecurityGroupRuleDelete(t *testing.T) {
 		"port_range_min":    443,
 		"port_range_max":    443,
 		"remote_ip_prefix":  "0.0.0.0/0",
-		"remote_group_id":   "",
 	})
 	d.SetId("sgr-001")
 

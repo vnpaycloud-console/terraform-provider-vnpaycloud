@@ -10,21 +10,23 @@ type SecurityGroupRule struct {
 	PortRangeMin    int32  `json:"portRangeMin"`
 	PortRangeMax    int32  `json:"portRangeMax"`
 	RemoteIPPrefix  string `json:"remoteIpPrefix"`
-	RemoteGroupID   string `json:"remoteGroupId"`
+	Description     string `json:"description"`
 	ProjectID       string `json:"projectId"`
 	ZoneID          string `json:"zoneId"`
 }
 
 // SecurityGroup matches the iac-proxy-v2 SecurityGroup proto message.
 type SecurityGroup struct {
-	ID          string              `json:"id"`
-	Name        string              `json:"name"`
-	Description string              `json:"description"`
-	Rules       []SecurityGroupRule `json:"rules"`
-	CreatedAt   string              `json:"createdAt"`
-	Status      string              `json:"status"`
-	ProjectID   string              `json:"projectId"`
-	ZoneID      string              `json:"zoneId"`
+	ID           string              `json:"id"`
+	Name         string              `json:"name"`
+	Description  string              `json:"description"`
+	Rules        []SecurityGroupRule `json:"rules"`
+	CreatedAt    string              `json:"createdAt"`
+	Status       string              `json:"status"`
+	EnableLog    bool                `json:"enableLog"`
+	CanEnableLog bool                `json:"canEnableLog"`
+	ProjectID    string              `json:"projectId"`
+	ZoneID       string              `json:"zoneId"`
 }
 
 // CreateSecurityGroupRequest matches the iac-proxy-v2 CreateSecurityGroupRequest proto message.
@@ -35,10 +37,17 @@ type CreateSecurityGroupRequest struct {
 }
 
 // UpdateSecurityGroupRequest matches the iac-proxy-v2 UpdateSecurityGroupRequest proto message.
-// project_id and id are passed via URL path.
+// project_id and id are passed via URL path. Network logging is set separately via
+// UpdateSecurityGroupLogRequest.
 type UpdateSecurityGroupRequest struct {
 	Name        string `json:"name,omitempty"`
 	Description string `json:"description,omitempty"`
+}
+
+// UpdateSecurityGroupLogRequest matches the iac-proxy-v2 UpdateSecurityGroupLogRequest proto message.
+// project_id and id are passed via URL path.
+type UpdateSecurityGroupLogRequest struct {
+	EnableLog bool `json:"enableLog"`
 }
 
 // SecurityGroupResponse matches the iac-proxy-v2 SecurityGroupResponse proto message.
@@ -61,7 +70,12 @@ type CreateSecurityGroupRuleRequest struct {
 	PortRangeMin    int32  `json:"portRangeMin,omitempty"`
 	PortRangeMax    int32  `json:"portRangeMax,omitempty"`
 	RemoteIPPrefix  string `json:"remoteIpPrefix,omitempty"`
-	RemoteGroupID   string `json:"remoteGroupId,omitempty"`
+	Description     string `json:"description,omitempty"`
+}
+
+type UpdateSecurityGroupRuleRequest struct {
+	RemoteIPPrefix string `json:"remoteIpPrefix,omitempty"`
+	Description    string `json:"description,omitempty"`
 }
 
 // SecurityGroupRuleResponse matches the iac-proxy-v2 SecurityGroupRuleResponse proto message.

@@ -2,12 +2,14 @@ package networkinterface
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
 
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/testhelpers"
 
+	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -28,6 +30,107 @@ func testNetworkInterface() dto.NetworkInterface {
 		CreatedAt:           "2025-01-15T10:00:00Z",
 		ProjectID:           testhelpers.TestProjectID,
 		ZoneID:              testhelpers.TestZoneID,
+	}
+}
+
+func TestEmptySecurityGroupsConfig(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  cty.Value
+		want bool
+	}{
+		{
+			name: "explicit empty security groups",
+			raw: cty.ObjectVal(map[string]cty.Value{
+				"security_groups": cty.SetValEmpty(cty.String),
+			}),
+			want: true,
+		},
+		{
+			name: "omitted security groups",
+			raw: cty.ObjectVal(map[string]cty.Value{
+				"security_groups": cty.NullVal(cty.Set(cty.String)),
+			}),
+			want: false,
+		},
+		{
+			name: "non-empty security groups",
+			raw: cty.ObjectVal(map[string]cty.Value{
+				"security_groups": cty.SetVal([]cty.Value{cty.StringVal("sg-001")}),
+			}),
+			want: false,
+		},
+		{
+			name: "unknown security groups",
+			raw: cty.ObjectVal(map[string]cty.Value{
+				"security_groups": cty.UnknownVal(cty.Set(cty.String)),
+			}),
+			want: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := emptySecurityGroupsConfig(tc.raw)
+			if got != tc.want {
+				t.Fatalf("expected %v, got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestInvalidNetworkInterfaceSecurityGroupsConfig(t *testing.T) {
+	cases := []struct {
+		name              string
+		raw               cty.Value
+		securityGroupsLen int
+		want              bool
+	}{
+		{
+			name: "port security false with security groups",
+			raw: cty.ObjectVal(map[string]cty.Value{
+				"port_security_enabled": cty.False,
+				"security_groups":       cty.SetVal([]cty.Value{cty.StringVal("sg-001")}),
+			}),
+			securityGroupsLen: 1,
+			want:              true,
+		},
+		{
+			name: "port security true with security groups",
+			raw: cty.ObjectVal(map[string]cty.Value{
+				"port_security_enabled": cty.True,
+				"security_groups":       cty.SetVal([]cty.Value{cty.StringVal("sg-001")}),
+			}),
+			securityGroupsLen: 1,
+			want:              false,
+		},
+		{
+			name: "port security false without configured security groups",
+			raw: cty.ObjectVal(map[string]cty.Value{
+				"port_security_enabled": cty.False,
+				"security_groups":       cty.NullVal(cty.Set(cty.String)),
+			}),
+			securityGroupsLen: 0,
+			want:              false,
+		},
+		{
+			name: "computed port security with security groups",
+			raw: cty.ObjectVal(map[string]cty.Value{
+				"port_security_enabled": cty.NullVal(cty.Bool),
+				"security_groups":       cty.SetVal([]cty.Value{cty.StringVal("sg-001")}),
+			}),
+			securityGroupsLen: 1,
+			want:              false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := invalidNetworkInterfaceSecurityGroupsConfig(tc.raw, tc.securityGroupsLen)
+			if got != tc.want {
+				t.Fatalf("expected %v, got %v", tc.want, got)
+			}
+		})
 	}
 }
 
@@ -119,12 +222,12 @@ func TestResourceNetworkInterfaceRead(t *testing.T) {
 	if v := d.Get("status").(string); v != "active" {
 		t.Errorf("expected status active, got %s", v)
 	}
-	sgs := d.Get("security_groups").([]interface{})
-	if len(sgs) != 2 {
-		t.Fatalf("expected 2 security groups, got %d", len(sgs))
+	sgs := d.Get("security_groups").(*schema.Set)
+	if sgs.Len() != 2 {
+		t.Fatalf("expected 2 security groups, got %d", sgs.Len())
 	}
-	if sgs[0].(string) != "sg-001" {
-		t.Errorf("expected first security group sg-001, got %s", sgs[0])
+	if !sgs.Contains("sg-001") || !sgs.Contains("sg-002") {
+		t.Errorf("expected security groups sg-001 and sg-002, got %#v", sgs.List())
 	}
 	if v := d.Get("port_security_enabled").(bool); !v {
 		t.Error("expected port_security_enabled true, got false")
@@ -137,6 +240,99 @@ func TestResourceNetworkInterfaceRead(t *testing.T) {
 	}
 	if v := d.Get("created_at").(string); v != "2025-01-15T10:00:00Z" {
 		t.Errorf("expected created_at 2025-01-15T10:00:00Z, got %s", v)
+	}
+}
+
+func TestResourceNetworkInterfaceCreate_WithPostCreateOptions(t *testing.T) {
+	ni := testNetworkInterface()
+	var gotPairs dto.UpdateNetworkInterfaceAllowedAddressPairsRequest
+	var gotSecurityGroups dto.UpdateNetworkInterfaceSecurityGroupsRequest
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "POST",
+			Pattern: "/v2/iac/projects/test-project-id/network-interfaces",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.NetworkInterfaceResponse{NetworkInterface: ni}),
+		},
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/network-interfaces/nic-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.NetworkInterfaceResponse{NetworkInterface: ni}),
+		},
+		{
+			Method:  "PUT",
+			Pattern: "/v2/iac/projects/test-project-id/network-interfaces/nic-001/allowed-address-pairs",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				if err := json.NewDecoder(r.Body).Decode(&gotPairs); err != nil {
+					t.Fatalf("failed to decode allowed address pairs request: %v", err)
+				}
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			Method:  "PUT",
+			Pattern: "/v2/iac/projects/test-project-id/network-interfaces/nic-001/security-groups",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				if err := json.NewDecoder(r.Body).Decode(&gotSecurityGroups); err != nil {
+					t.Fatalf("failed to decode security groups request: %v", err)
+				}
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	res := ResourceNetworkInterface()
+	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
+		"name":      "test-nic",
+		"subnet_id": "subnet-001",
+		"allowed_address_pairs": []interface{}{
+			map[string]interface{}{
+				"ip_address": "10.0.0.100",
+			},
+		},
+		"security_groups": []interface{}{"sg-003", "sg-004"},
+	})
+
+	diags := res.CreateContext(context.Background(), d, cfg)
+	if diags.HasError() {
+		t.Fatalf("unexpected error: %v", diags)
+	}
+
+	if len(gotPairs.AllowedAddressPairs) != 1 {
+		t.Fatalf("expected 1 allowed address pair, got %d", len(gotPairs.AllowedAddressPairs))
+	}
+	if gotPairs.AllowedAddressPairs[0].IPAddress != "10.0.0.100" {
+		t.Errorf("expected allowed address pair IP 10.0.0.100, got %s", gotPairs.AllowedAddressPairs[0].IPAddress)
+	}
+	if gotPairs.AllowedAddressPairs[0].MACAddress != ni.MACAddress {
+		t.Errorf("expected default MAC %s, got %s", ni.MACAddress, gotPairs.AllowedAddressPairs[0].MACAddress)
+	}
+
+	if len(gotSecurityGroups.SecurityGroupIDs) != 2 {
+		t.Fatalf("expected 2 security groups, got %d", len(gotSecurityGroups.SecurityGroupIDs))
+	}
+}
+
+func TestResourceNetworkInterfaceCreate_APIError(t *testing.T) {
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "POST",
+			Pattern: "/v2/iac/projects/test-project-id/network-interfaces",
+			Handler: testhelpers.EmptyHandler(http.StatusBadRequest),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	res := ResourceNetworkInterface()
+	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
+		"name":      "bad-nic",
+		"subnet_id": "subnet-001",
+	})
+
+	diags := res.CreateContext(context.Background(), d, cfg)
+	if !diags.HasError() {
+		t.Fatal("expected error for create API failure, got none")
 	}
 }
 

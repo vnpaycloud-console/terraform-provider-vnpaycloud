@@ -23,9 +23,9 @@ func networkInterfaceStateRefreshFunc(ctx context.Context, c *client.Client, pro
 			return nil, "", err
 		}
 
-		if niResp.NetworkInterface.Status == "failed" {
-			return niResp.NetworkInterface, niResp.NetworkInterface.Status, fmt.Errorf("The network interface is in error status. " +
-				"Please check with your cloud admin or check the API logs.")
+		if status := niResp.NetworkInterface.Status; status == "failed" || status == "error" {
+			return niResp.NetworkInterface, status, fmt.Errorf("the network interface entered %q status; "+
+				"please check with your cloud admin or the API logs", status)
 		}
 
 		return niResp.NetworkInterface, niResp.NetworkInterface.Status, nil

@@ -2,6 +2,7 @@ package databasepostgres
 
 import (
 	"context"
+	"fmt"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 
@@ -22,6 +23,9 @@ func postgresInstanceStateRefreshFunc(ctx context.Context, c *client.Client, pro
 		status := resp.PostgresInstance.Status
 		if status == "" {
 			status = "unknown"
+		}
+		if status == "error" {
+			return resp, status, fmt.Errorf("vnpaycloud_database_postgres_instance %s is in error state", id)
 		}
 		return resp, status, nil
 	}

@@ -82,6 +82,10 @@ func DataSourceDatabaseRedisSentinelInstance() *schema.Resource {
 				Type:     schema.TypeBool,
 				Computed: true,
 			},
+			"enable_read_only_endpoint": {
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
 			"status": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -122,6 +126,7 @@ func dataSourceRedisSentinelInstanceRead(ctx context.Context, d *schema.Resource
 	d.Set("standby_ip", inst.StandbyIP)
 	d.Set("standby_port", inst.StandbyPort)
 	d.Set("enable_tls", inst.EnableTls)
+	d.Set("enable_read_only_endpoint", inst.EnableReadOnlyEndpoint)
 	d.Set("status", inst.Status)
 	d.Set("created_at", inst.CreatedAt)
 

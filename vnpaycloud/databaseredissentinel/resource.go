@@ -2,6 +2,7 @@ package databaseredissentinel
 
 import (
 	"context"
+	"fmt"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
@@ -23,6 +24,15 @@ func ResourceDatabaseRedisSentinelInstance() *schema.Resource {
 		DeleteContext: resourceRedisSentinelInstanceDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
+		},
+		CustomizeDiff: func(ctx context.Context, d *schema.ResourceDiff, meta interface{}) error {
+			if d.Get("enable_tls").(bool) {
+				return nil
+			}
+			if v, ok := d.GetOk("certificate_id"); ok && v.(string) != "" {
+				return fmt.Errorf("certificate_id can only be set when enable_tls = true")
+			}
+			return nil
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(30 * time.Minute),
@@ -118,6 +128,12 @@ func ResourceDatabaseRedisSentinelInstance() *schema.Resource {
 				Type:         schema.TypeInt,
 				Optional:     true,
 				ValidateFunc: validation.IntAtLeast(1),
+			},
+
+			"enable_read_only_endpoint": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
 			},
 
 			// Computed
@@ -217,6 +233,17 @@ func resourceRedisSentinelInstanceCreate(ctx context.Context, d *schema.Resource
 		}
 	}
 
+	// Read-only endpoint is not part of the create request; enable it after the instance is active.
+	if d.Get("enable_read_only_endpoint").(bool) {
+		_, err := cfg.Client.Post(ctx, client.ApiPath.DatabaseRedisSentinelInstanceEnableReadOnlyEndpoint(cfg.ProjectID, d.Id()), nil, nil, nil)
+		if err != nil {
+			return diag.Errorf("Error enabling read-only endpoint for vnpaycloud_database_redis_sentinel_instance %s: %s", d.Id(), err)
+		}
+		if diags := waitForRedisSentinelActive(ctx, d, cfg); diags != nil {
+			return diags
+		}
+	}
+
 	return resourceRedisSentinelInstanceRead(ctx, d, meta)
 }
 
@@ -244,6 +271,7 @@ func resourceRedisSentinelInstanceRead(ctx context.Context, d *schema.ResourceDa
 	d.Set("sentinel_volume_size", int(inst.SentinelVolumeSize))
 	d.Set("enable_tls", inst.EnableTls)
 	d.Set("certificate_id", inst.CertificateID)
+	d.Set("enable_read_only_endpoint", inst.EnableReadOnlyEndpoint)
 	d.Set("is_auto_expand_volume", inst.IsAutoExpandVolume)
 	if inst.IsAutoExpandVolume {
 		d.Set("usage_threshold", inst.UsageThreshold)
@@ -391,6 +419,21 @@ func resourceRedisSentinelInstanceUpdate(ctx context.Context, d *schema.Resource
 			if err != nil {
 				return diag.Errorf("Error disabling TLS for vnpaycloud_database_redis_sentinel_instance %s: %s", d.Id(), err)
 			}
+		}
+		if diags := waitForRedisSentinelActive(ctx, d, cfg); diags != nil {
+			return diags
+		}
+	}
+
+	if d.HasChange("enable_read_only_endpoint") {
+		var err error
+		if d.Get("enable_read_only_endpoint").(bool) {
+			_, err = cfg.Client.Post(ctx, client.ApiPath.DatabaseRedisSentinelInstanceEnableReadOnlyEndpoint(cfg.ProjectID, d.Id()), nil, nil, nil)
+		} else {
+			_, err = cfg.Client.Post(ctx, client.ApiPath.DatabaseRedisSentinelInstanceDisableReadOnlyEndpoint(cfg.ProjectID, d.Id()), nil, nil, nil)
+		}
+		if err != nil {
+			return diag.Errorf("Error updating read-only endpoint for vnpaycloud_database_redis_sentinel_instance %s: %s", d.Id(), err)
 		}
 		if diags := waitForRedisSentinelActive(ctx, d, cfg); diags != nil {
 			return diags
