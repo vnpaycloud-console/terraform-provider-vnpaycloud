@@ -43,6 +43,12 @@ type SetServiceGatewayICMPRequest struct {
 	AllowedICMP bool `json:"allowedIcmp"`
 }
 
+// ChangeFlavorServiceGatewayRequest matches the iac-proxy-v2 ChangeFlavorServiceGatewayRequest proto message.
+// project_id and id are passed via URL path.
+type ChangeFlavorServiceGatewayRequest struct {
+	FlavorID string `json:"flavorId"`
+}
+
 // ServiceGatewayResponse matches the iac-proxy-v2 ServiceGatewayResponse proto message.
 type ServiceGatewayResponse struct {
 	ServiceGateway ServiceGateway `json:"serviceGateway"`

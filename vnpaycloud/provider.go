@@ -6,6 +6,7 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/bucket"
 	"terraform-provider-vnpaycloud/vnpaycloud/certificate"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
+	"terraform-provider-vnpaycloud/vnpaycloud/customergateway"
 	"terraform-provider-vnpaycloud/vnpaycloud/databaseflavor"
 	"terraform-provider-vnpaycloud/vnpaycloud/databasepostgres"
 	"terraform-provider-vnpaycloud/vnpaycloud/databasepostgresaccount"
@@ -52,6 +53,9 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/volumetype"
 	"terraform-provider-vnpaycloud/vnpaycloud/vpc"
 	"terraform-provider-vnpaycloud/vnpaycloud/vpcpeering"
+	"terraform-provider-vnpaycloud/vnpaycloud/vpnconnection"
+	"terraform-provider-vnpaycloud/vnpaycloud/vpngateway"
+	"terraform-provider-vnpaycloud/vnpaycloud/vpnpublicip"
 	"terraform-provider-vnpaycloud/vnpaycloud/workergroup"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -152,6 +156,14 @@ func Provider() *schema.Provider {
 			"vnpaycloud_database_redis_versions":           databaseversion.DataSourceDatabaseRedisVersions(),
 			"vnpaycloud_vpc_peering":                       vpcpeering.DataSourceVPCPeering(),
 			"vnpaycloud_vpc_peerings":                      vpcpeering.DataSourceVPCPeerings(),
+			"vnpaycloud_vpn_gateway":                       vpngateway.DataSourceVPNGateway(),
+			"vnpaycloud_vpn_gateways":                      vpngateway.DataSourceVPNGateways(),
+			"vnpaycloud_vpn_connection":                    vpnconnection.DataSourceVPNConnection(),
+			"vnpaycloud_vpn_connections":                   vpnconnection.DataSourceVPNConnections(),
+			"vnpaycloud_customer_gateway":                  customergateway.DataSourceCustomerGateway(),
+			"vnpaycloud_customer_gateways":                 customergateway.DataSourceCustomerGateways(),
+			"vnpaycloud_vpn_public_ip":                     vpnpublicip.DataSourceVPNPublicIP(),
+			"vnpaycloud_vpn_public_ips":                    vpnpublicip.DataSourceVPNPublicIPs(),
 			"vnpaycloud_flavor":                            flavor.DataSourceFlavor(),
 			"vnpaycloud_flavors":                           flavor.DataSourceFlavors(),
 			"vnpaycloud_image":                             image.DataSourceImage(),
@@ -190,6 +202,11 @@ func Provider() *schema.Provider {
 			"vnpaycloud_kubernetes_worker_group":          workergroup.ResourceWorkerGroup(),
 			"vnpaycloud_route_table":                      routetable.ResourceRouteTable(),
 			"vnpaycloud_private_gateway":                  privategateway.ResourcePrivateGateway(),
+			"vnpaycloud_vpn_gateway":                      vpngateway.ResourceVPNGateway(),
+			"vnpaycloud_vpn_gateway_vpc_attachment":       vpngateway.ResourceVPNGatewayVPCAttachment(),
+			"vnpaycloud_vpn_connection":                   vpnconnection.ResourceVPNConnection(),
+			"vnpaycloud_customer_gateway":                 customergateway.ResourceCustomerGateway(),
+			"vnpaycloud_vpn_public_ip":                    vpnpublicip.ResourceVPNPublicIP(),
 			"vnpaycloud_bucket":                           bucket.ResourceBucket(),
 			"vnpaycloud_vpc_peering":                      vpcpeering.ResourceVPCPeering(),
 			"vnpaycloud_database_postgres_instance":       databasepostgres.ResourceDatabasePostgresInstance(),
