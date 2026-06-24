@@ -35,10 +35,14 @@ func ResourceVpc() *schema.Resource {
 			"description": {
 				Type:     schema.TypeString,
 				Optional: true,
+				DiffSuppressFunc: func(_, _, _ string, d *schema.ResourceData) bool {
+					return d.Id() != ""
+				},
 			},
 			"cidr": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
+				Computed: true,
 				ForceNew: true,
 			},
 			"status": {
@@ -47,8 +51,7 @@ func ResourceVpc() *schema.Resource {
 			},
 			"enable_snat": {
 				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
+				Computed: true,
 			},
 			"snat_address": {
 				Type:     schema.TypeString,
@@ -70,10 +73,15 @@ func ResourceVpc() *schema.Resource {
 func resourceVpcCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
+	cidr := ""
+	if v, ok := d.GetOk("cidr"); ok {
+		cidr = v.(string)
+	}
+
 	createOpts := dto.CreateVPCRequest{
 		Name:        d.Get("name").(string),
 		Description: d.Get("description").(string),
-		CIDR:        d.Get("cidr").(string),
+		CIDR:        cidr,
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_vpc create options", map[string]interface{}{"create_opts": createOpts})
@@ -98,15 +106,6 @@ func resourceVpcCreate(ctx context.Context, d *schema.ResourceData, meta interfa
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
 		return diag.Errorf("Error waiting for vnpaycloud_vpc %s to become ready: %s", createResp.VPC.ID, err)
-	}
-
-	// Enable SNAT if requested
-	if d.Get("enable_snat").(bool) {
-		snatReq := dto.SetVPCRouterSNATRequest{EnableSnat: true}
-		_, err := cfg.Client.Put(ctx, client.ApiPath.VPCSetSNAT(cfg.ProjectID, d.Id()), snatReq, nil, nil)
-		if err != nil {
-			return diag.Errorf("Error enabling SNAT for vnpaycloud_vpc %s: %s", d.Id(), err)
-		}
 	}
 
 	return resourceVpcRead(ctx, d, meta)
@@ -149,14 +148,6 @@ func resourceVpcUpdate(ctx context.Context, d *schema.ResourceData, meta interfa
 		_, err := cfg.Client.Put(ctx, client.ApiPath.VPCWithID(cfg.ProjectID, d.Id()), updateOpts, nil, nil)
 		if err != nil {
 			return diag.Errorf("Error updating vnpaycloud_vpc %s: %s", d.Id(), err)
-		}
-	}
-
-	if d.HasChange("enable_snat") {
-		snatReq := dto.SetVPCRouterSNATRequest{EnableSnat: d.Get("enable_snat").(bool)}
-		_, err := cfg.Client.Put(ctx, client.ApiPath.VPCSetSNAT(cfg.ProjectID, d.Id()), snatReq, nil, nil)
-		if err != nil {
-			return diag.Errorf("Error setting SNAT for vnpaycloud_vpc %s: %s", d.Id(), err)
 		}
 	}
 

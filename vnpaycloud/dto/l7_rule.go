@@ -1,6 +1,6 @@
 package dto
 
-// L7Rule matches the iac-proxy-v2 L7Rule proto message.
+// L7Rule matches the backend L7Rule proto message.
 type L7Rule struct {
 	ID                 string `json:"id"`
 	L7PolicyID         string `json:"l7policyId"`
@@ -32,4 +32,8 @@ type UpdateL7RuleRequest struct {
 
 type L7RuleResponse struct {
 	L7Rule L7Rule `json:"l7rule"`
+}
+
+type ListL7RulesResponse struct {
+	L7Rules []L7Rule `json:"l7rules"`
 }

@@ -1,6 +1,6 @@
 package dto
 
-// K8sCluster matches the iac-proxy-v2 K8sCluster proto message.
+// K8sCluster matches the backend K8sCluster proto message.
 type K8sCluster struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -20,7 +20,7 @@ type K8sCluster struct {
 	CreatedAt   string `json:"createdAt"`
 }
 
-// CreateK8sClusterRequest matches the iac-proxy-v2 CreateK8sClusterRequest proto message.
+// CreateK8sClusterRequest matches the backend CreateK8sClusterRequest proto message.
 // project_id is passed via URL path.
 type CreateK8sClusterRequest struct {
 	ClusterInformation     K8sClusterInformation     `json:"clusterInformation"`
@@ -60,22 +60,22 @@ type K8sWorkerGroupInformation struct {
 	Labels      string `json:"labels,omitempty"`
 }
 
-// K8sClusterResponse matches the iac-proxy-v2 K8sClusterResponse proto message.
+// K8sClusterResponse matches the backend K8sClusterResponse proto message.
 type K8sClusterResponse struct {
 	Cluster K8sCluster `json:"cluster"`
 }
 
-// ListK8sClustersResponse matches the iac-proxy-v2 ListK8sClustersResponse proto message.
+// ListK8sClustersResponse matches the backend ListK8sClustersResponse proto message.
 type ListK8sClustersResponse struct {
 	Clusters []K8sCluster `json:"clusters"`
 }
 
-// KubeconfigResponse matches the iac-proxy-v2 KubeconfigResponse proto message.
+// KubeconfigResponse matches the backend KubeconfigResponse proto message.
 type KubeconfigResponse struct {
 	Kubeconfig string `json:"kubeconfig"`
 }
 
-// WorkerGroup matches the iac-proxy-v2 WorkerGroup proto message.
+// WorkerGroup matches the backend WorkerGroup proto message.
 type WorkerGroup struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -89,7 +89,7 @@ type WorkerGroup struct {
 	CreatedAt   string `json:"createdAt"`
 }
 
-// CreateWorkerGroupRequest matches the iac-proxy-v2 CreateWorkerGroupRequest proto message.
+// CreateWorkerGroupRequest matches the backend CreateWorkerGroupRequest proto message.
 // project_id and cluster_id are passed via URL path.
 type CreateWorkerGroupRequest struct {
 	Name        string            `json:"name"`
@@ -104,7 +104,7 @@ type CreateWorkerGroupRequest struct {
 	Labels      map[string]string `json:"labels,omitempty"`
 }
 
-// UpdateWorkerGroupRequest matches the iac-proxy-v2 UpdateWorkerGroupRequest proto message.
+// UpdateWorkerGroupRequest matches the backend UpdateWorkerGroupRequest proto message.
 type UpdateWorkerGroupRequest struct {
 	NumWorkers  int  `json:"numWorkers"`
 	AutoScaling bool `json:"autoScaling,omitempty"`
@@ -112,12 +112,12 @@ type UpdateWorkerGroupRequest struct {
 	MaxWorkers  int  `json:"maxWorkers,omitempty"`
 }
 
-// WorkerGroupResponse matches the iac-proxy-v2 WorkerGroupResponse proto message.
+// WorkerGroupResponse matches the backend WorkerGroupResponse proto message.
 type WorkerGroupResponse struct {
 	WorkerGroup WorkerGroup `json:"workerGroup"`
 }
 
-// ListWorkerGroupsResponse matches the iac-proxy-v2 ListWorkerGroupsResponse proto message.
+// ListWorkerGroupsResponse matches the backend ListWorkerGroupsResponse proto message.
 type ListWorkerGroupsResponse struct {
 	WorkerGroups []WorkerGroup `json:"workerGroups"`
 }

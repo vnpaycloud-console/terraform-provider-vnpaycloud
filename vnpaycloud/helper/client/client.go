@@ -54,7 +54,7 @@ func NewClient(_ context.Context, cfg *ClientConfig) (*Client, error) {
 		token:   cfg.Token,
 		httpClient: http.Client{
 			Transport: transport,
-			Timeout:   60 * time.Second,
+			Timeout:   180 * time.Second,
 		},
 	}, nil
 }

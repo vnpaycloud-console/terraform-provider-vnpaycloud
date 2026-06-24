@@ -1,6 +1,6 @@
 package dto
 
-// PeeringConnection matches the iac-proxy-v2 PeeringConnection proto message.
+// PeeringConnection matches the backend PeeringConnection proto message.
 type PeeringConnection struct {
 	ID            string `json:"id"`
 	Name          string `json:"name"`
@@ -13,24 +13,24 @@ type PeeringConnection struct {
 	CreatedAt     string `json:"createdAt"`
 }
 
-// CreatePeeringConnectionRequest matches the iac-proxy-v2 CreatePeeringConnectionRequest proto message.
+// CreatePeeringConnectionRequest matches the backend CreatePeeringConnectionRequest proto message.
 type CreatePeeringConnectionRequest struct {
 	SrcVpcID    string `json:"srcVpcId"`
 	DestVpcID   string `json:"destVpcId"`
 	Description string `json:"description,omitempty"`
 }
 
-// UpdatePeeringConnectionRequest matches the iac-proxy-v2 UpdatePeeringConnectionRequest proto message.
+// UpdatePeeringConnectionRequest matches the backend UpdatePeeringConnectionRequest proto message.
 type UpdatePeeringConnectionRequest struct {
 	Name string `json:"name"`
 }
 
-// PeeringConnectionResponse matches the iac-proxy-v2 PeeringConnectionResponse proto message.
+// PeeringConnectionResponse matches the backend PeeringConnectionResponse proto message.
 type PeeringConnectionResponse struct {
 	PeeringConnection PeeringConnection `json:"peeringConnection"`
 }
 
-// ListPeeringConnectionsResponse matches the iac-proxy-v2 ListPeeringConnectionsResponse proto message.
+// ListPeeringConnectionsResponse matches the backend ListPeeringConnectionsResponse proto message.
 type ListPeeringConnectionsResponse struct {
 	PeeringConnections []PeeringConnection `json:"peeringConnections"`
 }

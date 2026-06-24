@@ -2,6 +2,7 @@ package routetable
 
 import (
 	"context"
+	"net/http"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
@@ -103,17 +104,24 @@ func resourceRouteTableCreate(ctx context.Context, d *schema.ResourceData, meta 
 func resourceRouteTableRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
-	rt, err := findRouteTableByID(ctx, cfg.Client, cfg.ProjectID, d.Id())
+	resp := &dto.RouteTableResponse{}
+	_, err := cfg.Client.Get(ctx, client.ApiPath.RouteTableWithID(cfg.ProjectID, d.Id()), resp, nil)
 	if err != nil {
+		if client.ResponseCodeIs(err, http.StatusNotFound) {
+			tflog.Info(ctx, "Route table not found, removing from state", map[string]interface{}{"id": d.Id()})
+			d.SetId("")
+			return nil
+		}
 		return diag.Errorf("Error reading vnpaycloud_route_table %s: %s", d.Id(), err)
 	}
 
-	if rt == nil {
+	if resp.RouteTable.ID == "" {
 		tflog.Info(ctx, "Route table not found, removing from state", map[string]interface{}{"id": d.Id()})
 		d.SetId("")
 		return nil
 	}
 
+	rt := &resp.RouteTable
 	tflog.Debug(ctx, "Retrieved vnpaycloud_route_table "+d.Id(), map[string]interface{}{"route_table": rt})
 
 	d.Set("vpc_id", rt.VpcID)

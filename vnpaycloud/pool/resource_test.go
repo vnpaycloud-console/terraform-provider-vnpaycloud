@@ -37,8 +37,22 @@ func testPool() dto.Pool {
 	}
 }
 
+func testListener() dto.Listener {
+	return dto.Listener{
+		ID:             "listener-001",
+		Name:           "test-listener",
+		Description:    "Test listener description",
+		LoadBalancerID: "lb-001",
+		Protocol:       "HTTP",
+		ProtocolPort:   80,
+		Status:         "active",
+		CreatedAt:      "2025-01-15T10:00:00Z",
+	}
+}
+
 func TestResourcePoolCreate(t *testing.T) {
 	p := testPool()
+	l := testListener()
 	// The create response returns pool without members (API creates pool first,
 	// then members are added via PUT update).
 	createPool := dto.Pool{
@@ -72,18 +86,31 @@ func TestResourcePoolCreate(t *testing.T) {
 				}
 			},
 		},
+		{
+			Pattern: "/v2/iac/projects/test-project-id/listeners/listener-001",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				switch r.Method {
+				case "GET":
+					testhelpers.JSONHandler(t, http.StatusOK, dto.ListenerResponse{Listener: l})(w, r)
+				case "PUT":
+					w.WriteHeader(http.StatusOK)
+				default:
+					http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				}
+			},
+		},
 	})
 	cfg := testhelpers.NewMockConfig(t, srv.URL)
 
 	res := ResourcePool()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"name":         "test-pool",
-		"description":  "Test pool description",
-		"listener_id":  "listener-001",
-		"lb_algorithm": "ROUND_ROBIN",
-		"protocol":     "HTTP",
+		"name":                "test-pool",
+		"description":         "Test pool description",
+		"listener_id":         "listener-001",
+		"lb_algorithm":        "ROUND_ROBIN",
+		"protocol":            "HTTP",
 		"session_persistence": []interface{}{map[string]interface{}{"type": "SOURCE_IP", "cookie_name": ""}},
-		"tls_enabled":  false,
+		"tls_enabled":         false,
 		"member": []interface{}{
 			map[string]interface{}{
 				"address":       "10.0.0.10",
@@ -113,6 +140,7 @@ func TestResourcePoolCreate(t *testing.T) {
 }
 
 func TestResourcePoolCreate_NoMembers(t *testing.T) {
+	l := testListener()
 	p := dto.Pool{
 		ID:          "pool-002",
 		Name:        "test-pool-empty",
@@ -135,19 +163,32 @@ func TestResourcePoolCreate_NoMembers(t *testing.T) {
 			Pattern: "/v2/iac/projects/test-project-id/pools/pool-002",
 			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.PoolResponse{Pool: p}),
 		},
+		{
+			Pattern: "/v2/iac/projects/test-project-id/listeners/listener-001",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				switch r.Method {
+				case "GET":
+					testhelpers.JSONHandler(t, http.StatusOK, dto.ListenerResponse{Listener: l})(w, r)
+				case "PUT":
+					w.WriteHeader(http.StatusOK)
+				default:
+					http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				}
+			},
+		},
 	})
 	cfg := testhelpers.NewMockConfig(t, srv.URL)
 
 	res := ResourcePool()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"name":         "test-pool-empty",
-		"description":  "",
-		"listener_id":  "listener-001",
-		"lb_algorithm": "ROUND_ROBIN",
-		"protocol":     "TCP",
+		"name":                "test-pool-empty",
+		"description":         "",
+		"listener_id":         "listener-001",
+		"lb_algorithm":        "ROUND_ROBIN",
+		"protocol":            "TCP",
 		"session_persistence": []interface{}{},
-		"tls_enabled":  false,
-		"member":       []interface{}{},
+		"tls_enabled":         false,
+		"member":              []interface{}{},
 	})
 
 	diags := res.CreateContext(context.Background(), d, cfg)
@@ -174,14 +215,14 @@ func TestResourcePoolRead(t *testing.T) {
 
 	res := ResourcePool()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"name":         "",
-		"description":  "",
-		"listener_id":  "",
-		"lb_algorithm": "ROUND_ROBIN",
-		"protocol":     "HTTP",
+		"name":                "",
+		"description":         "",
+		"listener_id":         "",
+		"lb_algorithm":        "ROUND_ROBIN",
+		"protocol":            "HTTP",
 		"session_persistence": []interface{}{},
-		"tls_enabled":  false,
-		"member":       []interface{}{},
+		"tls_enabled":         false,
+		"member":              []interface{}{},
 	})
 	d.SetId("pool-001")
 
@@ -209,7 +250,7 @@ func TestResourcePoolRead(t *testing.T) {
 		t.Errorf("expected created_at 2025-01-15T10:00:00Z, got %s", v)
 	}
 
-	members := d.Get("member").([]interface{})
+	members := d.Get("member").(*schema.Set).List()
 	if len(members) != 1 {
 		t.Fatalf("expected 1 member, got %d", len(members))
 	}
@@ -237,14 +278,14 @@ func TestResourcePoolRead_NotFound(t *testing.T) {
 
 	res := ResourcePool()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"name":         "",
-		"description":  "",
-		"listener_id":  "",
-		"lb_algorithm": "ROUND_ROBIN",
-		"protocol":     "HTTP",
+		"name":                "",
+		"description":         "",
+		"listener_id":         "",
+		"lb_algorithm":        "ROUND_ROBIN",
+		"protocol":            "HTTP",
 		"session_persistence": []interface{}{},
-		"tls_enabled":  false,
-		"member":       []interface{}{},
+		"tls_enabled":         false,
+		"member":              []interface{}{},
 	})
 	d.SetId("pool-gone")
 

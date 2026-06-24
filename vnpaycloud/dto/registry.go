@@ -1,6 +1,6 @@
 package dto
 
-// RegistryProject matches the iac-proxy-v2 RegistryProject proto message.
+// RegistryProject matches the backend RegistryProject proto message.
 type RegistryProject struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
@@ -13,7 +13,7 @@ type RegistryProject struct {
 	Namespace    string `json:"namespace"`
 }
 
-// CreateRegistryProjectRequest matches the iac-proxy-v2 CreateRegistryProjectRequest proto message.
+// CreateRegistryProjectRequest matches the backend CreateRegistryProjectRequest proto message.
 // project_id is passed via URL path.
 type CreateRegistryProjectRequest struct {
 	Name         string `json:"name"`
@@ -21,19 +21,19 @@ type CreateRegistryProjectRequest struct {
 	StorageLimit string `json:"storageLimit,omitempty"`
 }
 
-// UpdateRegistryProjectRequest matches the iac-proxy-v2 UpdateRegistryProjectRequest proto message.
+// UpdateRegistryProjectRequest matches the backend UpdateRegistryProjectRequest proto message.
 // Editable fields: is_public, storage_limit.
 type UpdateRegistryProjectRequest struct {
 	IsPublic     bool   `json:"isPublic"`
 	StorageLimit string `json:"storageLimit,omitempty"`
 }
 
-// RegistryProjectResponse matches the iac-proxy-v2 RegistryProjectResponse proto message.
+// RegistryProjectResponse matches the backend RegistryProjectResponse proto message.
 type RegistryProjectResponse struct {
 	Registry RegistryProject `json:"registry"`
 }
 
-// ListRegistryProjectsResponse matches the iac-proxy-v2 ListRegistryProjectsResponse proto message.
+// ListRegistryProjectsResponse matches the backend ListRegistryProjectsResponse proto message.
 type ListRegistryProjectsResponse struct {
 	Registries []RegistryProject `json:"registries"`
 }
@@ -44,7 +44,7 @@ type RegistryPermission struct {
 	Action   string `json:"action"`
 }
 
-// ListRegistryPermissionsResponse matches the iac-proxy-v2 ListRegistryPermissionsResponse proto message.
+// ListRegistryPermissionsResponse matches the backend ListRegistryPermissionsResponse proto message.
 type ListRegistryPermissionsResponse struct {
 	Permissions []RegistryPermission `json:"permissions"`
 }
@@ -55,7 +55,7 @@ type RobotAccountPermission struct {
 	Actions    []string `json:"actions"`
 }
 
-// RobotAccount matches the iac-proxy-v2 RobotAccount proto message.
+// RobotAccount matches the backend RobotAccount proto message.
 type RobotAccount struct {
 	ID            string                   `json:"id"`
 	Name          string                   `json:"name"`
@@ -68,7 +68,7 @@ type RobotAccount struct {
 	CreatedAt     string                   `json:"createdAt"`
 }
 
-// CreateRobotAccountRequest matches the iac-proxy-v2 CreateRobotAccountRequest proto message.
+// CreateRobotAccountRequest matches the backend CreateRobotAccountRequest proto message.
 type CreateRobotAccountRequest struct {
 	Name          string                   `json:"name"`
 	Description   string                   `json:"description,omitempty"`
@@ -76,7 +76,7 @@ type CreateRobotAccountRequest struct {
 	ExpiresInDays int                      `json:"expiresInDays,omitempty"`
 }
 
-// UpdateRobotAccountRequest matches the iac-proxy-v2 UpdateRobotAccountRequest proto message.
+// UpdateRobotAccountRequest matches the backend UpdateRobotAccountRequest proto message.
 // Editable fields: description, expires_in_days, permissions.
 type UpdateRobotAccountRequest struct {
 	Description   string                   `json:"description"`
@@ -84,14 +84,14 @@ type UpdateRobotAccountRequest struct {
 	Permissions   []RobotAccountPermission `json:"permissions,omitempty"`
 }
 
-// RobotAccountResponse matches the iac-proxy-v2 RobotAccountResponse proto message.
+// RobotAccountResponse matches the backend RobotAccountResponse proto message.
 // Secret is only returned on create.
 type RobotAccountResponse struct {
 	RobotAccount RobotAccount `json:"robotAccount"`
 	Secret       string       `json:"secret"`
 }
 
-// ListRobotAccountsResponse matches the iac-proxy-v2 ListRobotAccountsResponse proto message.
+// ListRobotAccountsResponse matches the backend ListRobotAccountsResponse proto message.
 type ListRobotAccountsResponse struct {
 	RobotAccounts []RobotAccount `json:"robotAccounts"`
 }

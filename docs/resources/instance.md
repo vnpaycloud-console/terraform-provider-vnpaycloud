@@ -44,7 +44,7 @@ resource "vnpaycloud_instance" "web" {
 
 ### Optional
 
-- `image` (String, ForceNew) The image name or ID to boot the instance from. Conflicts with `snapshot_id`. Changing this creates a new instance.
+- `image` (String, ForceNew) The image name to boot the instance from. Conflicts with `snapshot_id`. Changing this creates a new instance.
 - `snapshot_id` (String, ForceNew) The ID of a volume snapshot to boot the instance from. Conflicts with `image`. Changing this creates a new instance.
 - `flavor` (String) The flavor name defining the vCPU and RAM resources for the instance (e.g., `s.4c8r`). Mutually exclusive with `is_custom_flavor`.
 - `is_custom_flavor` (Boolean) Set to `true` to use custom vCPU and RAM values instead of a named flavor. When enabled, `custom_vcpus` and `custom_ram_mb` must be provided.

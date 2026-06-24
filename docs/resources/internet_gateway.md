@@ -21,12 +21,26 @@ resource "vnpaycloud_vpc" "main" {
   cidr = "10.0.0.0/16"
 }
 
+resource "vnpaycloud_subnet" "app" {
+  name   = "app-subnet"
+  vpc_id = vnpaycloud_vpc.main.id
+  cidr   = "10.0.1.0/24"
+}
+
 resource "vnpaycloud_internet_gateway" "example" {
   name        = "my-igw"
   description = "Internet gateway for main VPC"
   vpc_id      = vnpaycloud_vpc.main.id
+
+  depends_on = [vnpaycloud_subnet.app]
 }
 ```
+
+~> **Note:** Attaching an internet gateway requires the VPC to already have at least one network/subnet. If you create the VPC, subnet, and internet gateway in the same configuration, add an explicit dependency from the internet gateway to the subnet.
+
+~> **Note:** A VPC can have only one attached internet gateway. Attaching a second gateway to the same VPC is rejected by the API.
+
+~> **Note:** An internet gateway cannot be detached/destroyed while a floating IP is still associated with its VPC (e.g. a VPC-SNAT floating IP), which fails with `Cannot detach internet gateway from VPC attached floating IP`. Remove or disassociate such floating IPs first — add a `depends_on` from the internet gateway to those `vnpaycloud_floating_ip` resources so Terraform destroys them in the right order.
 
 ### Standalone Internet Gateway (Unattached)
 
@@ -40,7 +54,7 @@ resource "vnpaycloud_internet_gateway" "standalone" {
 
 ### Required
 
-- `name` (String, ForceNew) The name of the internet gateway. Changing this creates a new internet gateway.
+- `name` (String, ForceNew) The name of the internet gateway. Length 3–250; may only contain ASCII letters, digits, spaces, and the characters `- _ .`. Changing this creates a new internet gateway.
 
 ### Optional
 

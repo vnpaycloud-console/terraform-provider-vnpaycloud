@@ -15,6 +15,7 @@ var ApiPath = struct {
 	// Subnet
 	Subnets           func(projectID string) string
 	SubnetWithID      func(projectID, id string) string
+	SubnetRoutes      func(projectID, id string) string
 	SubnetEnableSNAT  func(projectID, id string) string
 	SubnetDisableSNAT func(projectID, id string) string
 
@@ -26,6 +27,16 @@ var ApiPath = struct {
 	// Security Group Rule
 	SecurityGroupRules      func(projectID string) string
 	SecurityGroupRuleWithID func(projectID, id string) string
+
+	// Network ACL
+	NetworkACLs            func(projectID string) string
+	NetworkACLWithID       func(projectID, id string) string
+	NetworkACLSubnet       func(projectID, id, subnetID string) string
+	NetworkACLSubnetRemove func(projectID, subnetID string) string
+
+	// Network ACL Rule
+	NetworkACLRules      func(projectID string) string
+	NetworkACLRuleWithID func(projectID, id string) string
 
 	// Floating IP
 	FloatingIPs            func(projectID string) string
@@ -76,10 +87,11 @@ var ApiPath = struct {
 	InternetGatewayDetachVPC func(projectID, id string) string
 
 	// Service Gateway
-	ServiceGateways       func(projectID string) string
-	ServiceGatewayWithID  func(projectID, id string) string
-	ServiceGatewayICMP    func(projectID, id string) string
-	ServiceGatewayFlavors func(projectID string) string
+	ServiceGateways            func(projectID string) string
+	ServiceGatewayWithID       func(projectID, id string) string
+	ServiceGatewayICMP         func(projectID, id string) string
+	ServiceGatewayChangeFlavor func(projectID, id string) string
+	ServiceGatewayFlavors      func(projectID string) string
 
 	// Service Endpoint
 	ServiceEndpoints      func(projectID string) string
@@ -149,6 +161,25 @@ var ApiPath = struct {
 	// Private Gateway
 	PrivateGateways      func(projectID string) string
 	PrivateGatewayWithID func(projectID, id string) string
+
+	// VPN Gateway
+	VPNGateways         func(projectID string) string
+	VPNGatewayWithID    func(projectID, id string) string
+	VPNGatewayAttachVPC func(projectID, id string) string
+	VPNGatewayDetachVPC func(projectID, id string) string
+
+	// VPN Connection
+	VPNConnections      func(projectID string) string
+	VPNConnectionWithID func(projectID, id string) string
+	VPNConnectionReset  func(projectID, id string) string
+
+	// Customer Gateway
+	CustomerGateways      func(projectID string) string
+	CustomerGatewayWithID func(projectID, id string) string
+
+	// VPN Public IP
+	VPNPublicIPs      func(projectID string) string
+	VPNPublicIPWithID func(projectID, id string) string
 
 	// VPC Peering (not project-scoped)
 	PeeringConnections      func() string
@@ -260,6 +291,9 @@ var ApiPath = struct {
 	SubnetWithID: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/subnets/%s", projectID, id)
 	},
+	SubnetRoutes: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/subnets/%s/routes", projectID, id)
+	},
 	SubnetEnableSNAT: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/subnets/%s/enable-snat", projectID, id)
 	},
@@ -277,6 +311,24 @@ var ApiPath = struct {
 	},
 	SecurityGroupRules: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/security-group-rules", projectID)
+	},
+	NetworkACLs: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/network-acls", projectID)
+	},
+	NetworkACLWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/network-acls/%s", projectID, id)
+	},
+	NetworkACLSubnet: func(projectID, id, subnetID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/network-acls/%s/networks/%s", projectID, id, subnetID)
+	},
+	NetworkACLSubnetRemove: func(projectID, subnetID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/network-acls/networks/%s", projectID, subnetID)
+	},
+	NetworkACLRules: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/network-acl-rules", projectID)
+	},
+	NetworkACLRuleWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/network-acl-rules/%s", projectID, id)
 	},
 	SecurityGroupRuleWithID: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/security-group-rules/%s", projectID, id)
@@ -386,6 +438,9 @@ var ApiPath = struct {
 	ServiceGatewayICMP: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/service-gateways/%s/icmp", projectID, id)
 	},
+	ServiceGatewayChangeFlavor: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/service-gateways/%s/change-flavor", projectID, id)
+	},
 	ServiceGatewayFlavors: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/service-gateway-flavors", projectID)
 	},
@@ -493,6 +548,39 @@ var ApiPath = struct {
 	},
 	PrivateGatewayWithID: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/private-gateways/%s", projectID, id)
+	},
+	VPNGateways: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/vpn-gateways", projectID)
+	},
+	VPNGatewayWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/vpn-gateways/%s", projectID, id)
+	},
+	VPNGatewayAttachVPC: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/vpn-gateways/%s/attach-vpc", projectID, id)
+	},
+	VPNGatewayDetachVPC: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/vpn-gateways/%s/detach-vpc", projectID, id)
+	},
+	VPNConnections: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/vpn-connections", projectID)
+	},
+	VPNConnectionWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/vpn-connections/%s", projectID, id)
+	},
+	VPNConnectionReset: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/vpn-connections/%s/reset", projectID, id)
+	},
+	CustomerGateways: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/customer-gateways", projectID)
+	},
+	CustomerGatewayWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/customer-gateways/%s", projectID, id)
+	},
+	VPNPublicIPs: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/vpn-public-ips", projectID)
+	},
+	VPNPublicIPWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/vpn-public-ips/%s", projectID, id)
 	},
 	PeeringConnections: func() string {
 		return "/v2/iac/peering-connections"

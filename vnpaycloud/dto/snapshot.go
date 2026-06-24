@@ -1,6 +1,6 @@
 package dto
 
-// Snapshot matches the iac-proxy-v2 Snapshot proto message.
+// Snapshot matches the backend Snapshot proto message.
 type Snapshot struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -13,7 +13,7 @@ type Snapshot struct {
 	ZoneID      string `json:"zoneId"`
 }
 
-// CreateSnapshotRequest matches the iac-proxy-v2 CreateSnapshotRequest proto message.
+// CreateSnapshotRequest matches the backend CreateSnapshotRequest proto message.
 // project_id is passed via URL path, not in the body.
 type CreateSnapshotRequest struct {
 	Name        string `json:"name"`
@@ -21,12 +21,12 @@ type CreateSnapshotRequest struct {
 	VolumeID    string `json:"volumeId"`
 }
 
-// SnapshotResponse matches the iac-proxy-v2 SnapshotResponse proto message.
+// SnapshotResponse matches the backend SnapshotResponse proto message.
 type SnapshotResponse struct {
 	Snapshot Snapshot `json:"snapshot"`
 }
 
-// ListSnapshotsResponse matches the iac-proxy-v2 ListSnapshotsResponse proto message.
+// ListSnapshotsResponse matches the backend ListSnapshotsResponse proto message.
 type ListSnapshotsResponse struct {
 	Snapshots []Snapshot `json:"snapshots"`
 }

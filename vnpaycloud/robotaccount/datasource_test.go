@@ -63,10 +63,10 @@ func TestDataSourceRobotAccountRead_ByID(t *testing.T) {
 	if len(actions0) != 2 {
 		t.Fatalf("expected 2 actions in first permission, got %d", len(actions0))
 	}
-	if actions0[0].(string) != "push" {
-		t.Errorf("expected first action push, got %s", actions0[0])
+	if actions0[0].(string) != "repository:push" {
+		t.Errorf("expected first action repository:push, got %s", actions0[0])
 	}
-	if actions0[1].(string) != "pull" {
-		t.Errorf("expected second action pull, got %s", actions0[1])
+	if actions0[1].(string) != "repository:pull" {
+		t.Errorf("expected second action repository:pull, got %s", actions0[1])
 	}
 }

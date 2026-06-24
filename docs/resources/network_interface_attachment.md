@@ -11,6 +11,8 @@ Attaches a network interface (port) to a server instance within VNPayCloud. This
 
 ~> **Note:** This resource does not support import. Both `network_interface_id` and `server_id` are immutable; changing either will force creation of a new attachment.
 
+~> **Note:** The attached interface must belong to a **different subnet** than the server's existing interface(s). Attaching a second interface from the same subnet is rejected by the backend with a conflict error. (The example below places the extra NIC in a separate subnet.)
+
 ## Example Usage
 
 ```hcl
@@ -39,7 +41,7 @@ resource "vnpaycloud_network_interface" "primary" {
 resource "vnpaycloud_instance" "app" {
   name                  = "app-server"
   image                 = "Ubuntu 22.04 LTS"
-  flavor                = "i-pro-small.2x2"
+  flavor                = "a-pro-small.2x2"
   root_disk_gb          = 20
   root_disk_type        = "c1-standard"
   network_interface_ids = [vnpaycloud_network_interface.primary.id]
@@ -81,3 +83,7 @@ resource "vnpaycloud_network_interface_attachment" "example" {
 
 - `create` - (Default `10 minutes`) Used for attaching the network interface.
 - `delete` - (Default `10 minutes`) Used for detaching the network interface.
+
+## Import
+
+Network interface attachments do not support import.

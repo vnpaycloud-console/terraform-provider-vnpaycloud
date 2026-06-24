@@ -40,7 +40,7 @@ output "endpoint_port" {
 - `pool_id` (String) The underlying pool ID.
 - `health_monitor_id` (String) The underlying health monitor ID.
 - `pool_member_ids` (List of String) The underlying pool member IDs.
-- `operating_status` (String) The Octavia operating status.
-- `provisioning_status` (String) The Octavia provisioning status.
+- `operating_status` (String) The operating status.
+- `provisioning_status` (String) The provisioning status.
 - `status` (String) Lifecycle status.
 - `created_at` (String) Creation timestamp.

@@ -56,7 +56,6 @@ func ResourceServiceGateway() *schema.Resource {
 			"flavor_id": {
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"allowed_icmp": {
 				Type:     schema.TypeBool,
@@ -194,6 +193,16 @@ func resourceServiceGatewayUpdate(ctx context.Context, d *schema.ResourceData, m
 		}
 		if err := waitServiceGatewayActive(ctx, cfg, d.Id(), d.Timeout(schema.TimeoutUpdate)); err != nil {
 			return diag.Errorf("Error waiting for vnpaycloud_service_gateway %s to converge after ICMP change: %s", d.Id(), err)
+		}
+	}
+
+	if d.HasChange("flavor_id") {
+		flavorOpts := dto.ChangeFlavorServiceGatewayRequest{FlavorID: d.Get("flavor_id").(string)}
+		if _, err := cfg.Client.Post(ctx, client.ApiPath.ServiceGatewayChangeFlavor(cfg.ProjectID, d.Id()), flavorOpts, nil, nil); err != nil {
+			return diag.Errorf("Error changing flavor on vnpaycloud_service_gateway %s: %s", d.Id(), err)
+		}
+		if err := waitServiceGatewayActive(ctx, cfg, d.Id(), d.Timeout(schema.TimeoutUpdate)); err != nil {
+			return diag.Errorf("Error waiting for vnpaycloud_service_gateway %s to converge after flavor change: %s", d.Id(), err)
 		}
 	}
 

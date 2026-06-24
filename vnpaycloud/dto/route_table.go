@@ -1,6 +1,6 @@
 package dto
 
-// RouteTable matches the iac-proxy-v2 RouteTable proto message.
+// RouteTable matches the backend RouteTable proto message.
 type RouteTable struct {
 	ID         string `json:"id"`
 	VpcID      string `json:"vpcId"`
@@ -15,7 +15,7 @@ type RouteTable struct {
 	ZoneID     string `json:"zoneId"`
 }
 
-// CreateRouteTableRequest matches the iac-proxy-v2 CreateRouteTableRequest proto message.
+// CreateRouteTableRequest matches the backend CreateRouteTableRequest proto message.
 // project_id is passed via URL path.
 type CreateRouteTableRequest struct {
 	VpcID      string `json:"vpcId"`
@@ -24,12 +24,12 @@ type CreateRouteTableRequest struct {
 	TargetType string `json:"targetType"`
 }
 
-// RouteTableResponse matches the iac-proxy-v2 RouteTableResponse proto message.
+// RouteTableResponse matches the backend RouteTableResponse proto message.
 type RouteTableResponse struct {
 	RouteTable RouteTable `json:"routeTable"`
 }
 
-// ListRouteTablesResponse matches the iac-proxy-v2 ListRouteTablesResponse proto message.
+// ListRouteTablesResponse matches the backend ListRouteTablesResponse proto message.
 type ListRouteTablesResponse struct {
 	RouteTables []RouteTable `json:"routeTables"`
 }

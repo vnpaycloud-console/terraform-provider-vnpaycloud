@@ -1,6 +1,6 @@
 package dto
 
-// Instance matches the iac-proxy-v2 Instance proto message.
+// Instance matches the backend Instance proto message.
 type Instance struct {
 	ID                  string   `json:"id"`
 	Name                string   `json:"name"`
@@ -19,7 +19,7 @@ type Instance struct {
 	ZoneID              string   `json:"zoneId"`
 }
 
-// CreateInstanceRequest matches the iac-proxy-v2 CreateInstanceRequest proto message.
+// CreateInstanceRequest matches the backend CreateInstanceRequest proto message.
 // project_id is passed via URL path, not in the body.
 type CreateInstanceRequest struct {
 	Name                string   `json:"name"`
@@ -35,14 +35,14 @@ type CreateInstanceRequest struct {
 	IsUserDataBase64    bool     `json:"isUserDataBase64,omitempty"`
 }
 
-// UpdateInstanceRequest matches the iac-proxy-v2 UpdateInstanceRequest proto message.
+// UpdateInstanceRequest matches the backend UpdateInstanceRequest proto message.
 // project_id and id are passed via URL path.
 type UpdateInstanceRequest struct {
 	Name           string   `json:"name,omitempty"`
 	SecurityGroups []string `json:"securityGroups,omitempty"`
 }
 
-// ResizeInstanceRequest matches the iac-proxy-v2 ResizeInstanceRequest proto message.
+// ResizeInstanceRequest matches the backend ResizeInstanceRequest proto message.
 // project_id and id are passed via URL path.
 type ResizeInstanceRequest struct {
 	Flavor         string `json:"flavor,omitempty"`
@@ -51,12 +51,12 @@ type ResizeInstanceRequest struct {
 	CustomRAMMB    int32  `json:"customRamMb,omitempty"`
 }
 
-// InstanceResponse matches the iac-proxy-v2 InstanceResponse proto message.
+// InstanceResponse matches the backend InstanceResponse proto message.
 type InstanceResponse struct {
 	Instance Instance `json:"instance"`
 }
 
-// ListInstancesResponse matches the iac-proxy-v2 ListInstancesResponse proto message.
+// ListInstancesResponse matches the backend ListInstancesResponse proto message.
 type ListInstancesResponse struct {
 	Instances []Instance `json:"instances"`
 }

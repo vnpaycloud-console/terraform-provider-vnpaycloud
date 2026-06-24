@@ -3,7 +3,6 @@ package listener
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
@@ -15,7 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceListener() *schema.Resource {
@@ -43,15 +41,10 @@ func ResourceListener() *schema.Resource {
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
-				ValidateFunc: validation.All(
-					validation.StringLenBetween(3, 250),
-					validation.StringMatch(regexp.MustCompile(`^[^ ].*[^ ]$`), "name must not start or end with whitespace"),
-				),
 			},
 			"description": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validation.StringLenBetween(0, 255),
+				Type:     schema.TypeString,
+				Optional: true,
 			},
 			"load_balancer_id": {
 				Type:     schema.TypeString,
@@ -59,16 +52,14 @@ func ResourceListener() *schema.Resource {
 				ForceNew: true,
 			},
 			"protocol": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringInSlice([]string{"HTTP", "HTTPS", "TCP", "UDP"}, false),
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
 			},
 			"protocol_port": {
-				Type:         schema.TypeInt,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.IntBetween(1, 65535),
+				Type:     schema.TypeInt,
+				Required: true,
+				ForceNew: true,
 			},
 			"default_pool_id": {
 				Type:     schema.TypeString,
@@ -92,33 +83,28 @@ func ResourceListener() *schema.Resource {
 				Optional: true,
 				Computed: true,
 				Elem: &schema.Schema{
-					Type:         schema.TypeString,
-					ValidateFunc: validation.IsCIDR,
+					Type: schema.TypeString,
 				},
 			},
 			"connection_limit": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				Computed:     true,
-				ValidateFunc: validation.IntAtLeast(-1),
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
 			},
 			"timeout_client_data": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				Computed:     true,
-				ValidateFunc: validation.IntAtLeast(-1),
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
 			},
 			"timeout_member_connect": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				Computed:     true,
-				ValidateFunc: validation.IntAtLeast(-1),
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
 			},
 			"timeout_member_data": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				Computed:     true,
-				ValidateFunc: validation.IntAtLeast(-1),
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
 			},
 			"certificate_id": {
 				Type:        schema.TypeString,

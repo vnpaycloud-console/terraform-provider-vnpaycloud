@@ -3,7 +3,6 @@ package loadbalancer
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
@@ -15,7 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceLoadBalancer() *schema.Resource {
@@ -43,18 +41,10 @@ func ResourceLoadBalancer() *schema.Resource {
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
-				ValidateFunc: validation.All(
-					validation.StringLenBetween(3, 250),
-					validation.StringMatch(regexp.MustCompile(`^[^ ].*[^ ]$`), "name must not start or end with whitespace"),
-				),
 			},
 			"description": {
 				Type:     schema.TypeString,
 				Optional: true,
-				ValidateFunc: validation.All(
-					validation.StringLenBetween(0, 255),
-					validation.StringMatch(regexp.MustCompile(`^[a-zA-Z0-9-_. ]*$`), "description may only contain ASCII letters, digits, spaces, and the characters - _ ."),
-				),
 			},
 			"subnet_id": {
 				Type:     schema.TypeString,
@@ -72,9 +62,15 @@ func ResourceLoadBalancer() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
-				ForceNew: true,
+				DiffSuppressFunc: func(_, _, _ string, d *schema.ResourceData) bool {
+					return d.Id() != ""
+				},
 			},
 			"vip_address": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"vip_port_id": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -150,9 +146,12 @@ func resourceLoadBalancerRead(ctx context.Context, d *schema.ResourceData, meta 
 	d.Set("name", lbResp.LoadBalancer.Name)
 	d.Set("description", lbResp.LoadBalancer.Description)
 	d.Set("subnet_id", lbResp.LoadBalancer.VipSubnetID)
-	d.Set("flavor", lbResp.LoadBalancer.Flavor)
+	if lbResp.LoadBalancer.Flavor != "" {
+		d.Set("flavor", lbResp.LoadBalancer.Flavor)
+	}
 	d.Set("floating_ip_id", lbResp.LoadBalancer.FloatingIPID)
 	d.Set("vip_address", lbResp.LoadBalancer.VipAddress)
+	d.Set("vip_port_id", lbResp.LoadBalancer.VipPortID)
 	d.Set("vip_subnet_id", lbResp.LoadBalancer.VipSubnetID)
 	d.Set("status", lbResp.LoadBalancer.Status)
 	d.Set("created_at", lbResp.LoadBalancer.CreatedAt)

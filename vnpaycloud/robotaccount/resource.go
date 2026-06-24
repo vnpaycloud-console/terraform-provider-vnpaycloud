@@ -2,8 +2,6 @@ package robotaccount
 
 import (
 	"context"
-	"fmt"
-	"regexp"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
@@ -14,10 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
-
-var actionRegex = regexp.MustCompile(`^[a-z]+:[a-z-]+$`)
 
 func ResourceRobotAccount() *schema.Resource {
 	return &schema.Resource{
@@ -60,26 +55,15 @@ func ResourceRobotAccount() *schema.Resource {
 							MinItems: 1,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
-								ValidateDiagFunc: validation.ToDiagFunc(validation.StringMatch(
-									actionRegex,
-									"must be in 'resource:action' format (e.g. 'repository:push', 'artifact:read', 'tag:list')",
-								)),
 							},
 						},
 					},
 				},
 			},
 			"expires_in_days": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Computed: true,
-				ValidateDiagFunc: validation.ToDiagFunc(func(v interface{}, k string) ([]string, []error) {
-					n := v.(int)
-					if n == -1 || n > 0 {
-						return nil, nil
-					}
-					return nil, []error{fmt.Errorf("%s must be -1 (never expire) or a positive integer, got %d", k, n)}
-				}),
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Computed:    true,
 				Description: "Days until expiry. Set -1 for never-expire, or a positive integer. Editable in-place — backend recomputes expires_at.",
 			},
 			"username": {

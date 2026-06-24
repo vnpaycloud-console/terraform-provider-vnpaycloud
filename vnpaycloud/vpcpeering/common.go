@@ -33,10 +33,7 @@ func vpcPeeringStateRefreshFunc(ctx context.Context, c *client.Client, peeringID
 	}
 }
 
-// findReversePeeringID finds the reverse direction peering by listing all peerings
-// and matching src/dest VPC IDs in the opposite direction.
 func findReversePeeringID(ctx context.Context, c *client.Client, peeringID string) string {
-	// First get the primary peering to know src/dest VPCs
 	peeringResp := &dto.PeeringConnectionResponse{}
 	_, err := c.Get(ctx, client.ApiPath.PeeringConnectionWithID(peeringID), peeringResp, nil)
 	if err != nil {
@@ -47,7 +44,6 @@ func findReversePeeringID(ctx context.Context, c *client.Client, peeringID strin
 	srcVpcID := peeringResp.PeeringConnection.SrcVpcID
 	destVpcID := peeringResp.PeeringConnection.DestVpcID
 
-	// List all peerings and find the reverse direction
 	listResp := &dto.ListPeeringConnectionsResponse{}
 	_, err = c.Get(ctx, client.ApiPath.PeeringConnections(), listResp, nil)
 	if err != nil {

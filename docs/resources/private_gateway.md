@@ -1,6 +1,6 @@
 ---
 page_title: "vnpaycloud_private_gateway Resource - VNPayCloud"
-subcategory: "Networking"
+subcategory: "Kubernetes"
 description: |-
   Manages a private gateway resource within VNPayCloud.
 ---
