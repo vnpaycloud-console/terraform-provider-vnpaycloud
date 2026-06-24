@@ -9,8 +9,6 @@ description: |-
 
 Manages a security group resource within VNPayCloud. Security groups act as virtual firewalls that control inbound and outbound traffic for your instances.
 
-~> **Note:** `enable_log` is only available in zones that support security-group network logging, indicated by the read-only `can_enable_log` attribute. Where `can_enable_log` is `false`, logging cannot be toggled: setting `enable_log = true` at create fails and the security group is rolled back (not created), and changing `enable_log` on an existing security group is rejected at plan time. Leave `enable_log` unset (or `false`) in zones that do not support it.
-
 ## Example Usage
 
 ```hcl
@@ -38,7 +36,7 @@ resource "vnpaycloud_security_group_rule" "allow_http" {
 ### Optional
 
 - `description` (String) A description of the security group. May contain only letters, digits, spaces, hyphens (`-`), underscores (`_`), and periods (`.`) (`^[a-zA-Z0-9-_. ]*$`).
-- `enable_log` (Boolean) Whether ACCEPT network logging is enabled for this security group. When set to `true`, an ACCEPT log is created; setting it back to `false` removes the log. Can be set at create and updated in place. Only supported where `can_enable_log` is `true` (see the note above).
+- `enable_log` (Boolean) Whether ACCEPT network logging is enabled for this security group. When set to `true`, an ACCEPT log is created; setting it back to `false` removes the log. Can be set at create and updated in place. Network logging is only available in zones that support it — when `can_enable_log` is `false`, enabling or disabling `enable_log` is rejected at plan time, so only set this in a supporting zone.
 
 ### Read-Only
 

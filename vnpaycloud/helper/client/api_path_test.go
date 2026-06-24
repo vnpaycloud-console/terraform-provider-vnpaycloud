@@ -120,6 +120,19 @@ func TestApiPathBuilders(t *testing.T) {
 		{"PrivateGateways", ApiPath.PrivateGateways(projectID), "/v2/iac/projects/proj-123", "", ""},
 		{"PrivateGatewayWithID", ApiPath.PrivateGatewayWithID(projectID, resourceID), "", resourceID, ""},
 
+		// VPNaaS
+		{"VPNGateways", ApiPath.VPNGateways(projectID), "", "", "/v2/iac/projects/proj-123/vpn-gateways"},
+		{"VPNGatewayWithID", ApiPath.VPNGatewayWithID(projectID, resourceID), "", "", "/v2/iac/projects/proj-123/vpn-gateways/res-456"},
+		{"VPNGatewayAttachVPC", ApiPath.VPNGatewayAttachVPC(projectID, resourceID), "", "/attach-vpc", ""},
+		{"VPNGatewayDetachVPC", ApiPath.VPNGatewayDetachVPC(projectID, resourceID), "", "/detach-vpc", ""},
+		{"VPNConnections", ApiPath.VPNConnections(projectID), "", "", "/v2/iac/projects/proj-123/vpn-connections"},
+		{"VPNConnectionWithID", ApiPath.VPNConnectionWithID(projectID, resourceID), "", "", "/v2/iac/projects/proj-123/vpn-connections/res-456"},
+		{"VPNConnectionReset", ApiPath.VPNConnectionReset(projectID, resourceID), "", "/reset", ""},
+		{"CustomerGateways", ApiPath.CustomerGateways(projectID), "", "", "/v2/iac/projects/proj-123/customer-gateways"},
+		{"CustomerGatewayWithID", ApiPath.CustomerGatewayWithID(projectID, resourceID), "", "", "/v2/iac/projects/proj-123/customer-gateways/res-456"},
+		{"VPNPublicIPs", ApiPath.VPNPublicIPs(projectID), "", "", "/v2/iac/projects/proj-123/vpn-public-ips"},
+		{"VPNPublicIPWithID", ApiPath.VPNPublicIPWithID(projectID, resourceID), "", "", "/v2/iac/projects/proj-123/vpn-public-ips/res-456"},
+
 		// VPC Peering (global, no project)
 		{"PeeringConnections", ApiPath.PeeringConnections(), "/v2/iac/", "", ""},
 		{"PeeringConnectionWithID", ApiPath.PeeringConnectionWithID(resourceID), "", resourceID, ""},

@@ -1,6 +1,6 @@
 package dto
 
-// ServiceEndpoint matches the iac-proxy-v2 ServiceEndpoint proto message.
+// ServiceEndpoint matches the backend ServiceEndpoint proto message.
 type ServiceEndpoint struct {
 	ID                 string   `json:"id"`
 	Name               string   `json:"name"`
@@ -22,7 +22,7 @@ type ServiceEndpoint struct {
 	ProjectID          string   `json:"projectId"`
 }
 
-// CreateServiceEndpointRequest matches the iac-proxy-v2 CreateServiceEndpointRequest proto message.
+// CreateServiceEndpointRequest matches the backend CreateServiceEndpointRequest proto message.
 // project_id is passed via URL path.
 type CreateServiceEndpointRequest struct {
 	Name             string   `json:"name"`
@@ -34,7 +34,7 @@ type CreateServiceEndpointRequest struct {
 	AllowedCIDRs     []string `json:"allowedCidrs,omitempty"`
 }
 
-// UpdateServiceEndpointRequest matches the iac-proxy-v2 UpdateServiceEndpointRequest proto message.
+// UpdateServiceEndpointRequest matches the backend UpdateServiceEndpointRequest proto message.
 // project_id and id are passed via URL path.
 type UpdateServiceEndpointRequest struct {
 	Name         string   `json:"name,omitempty"`
@@ -42,29 +42,29 @@ type UpdateServiceEndpointRequest struct {
 	AllowedCIDRs []string `json:"allowedCidrs"`
 }
 
-// ServiceEndpointResponse matches the iac-proxy-v2 ServiceEndpointResponse proto message.
+// ServiceEndpointResponse matches the backend ServiceEndpointResponse proto message.
 type ServiceEndpointResponse struct {
 	ServiceEndpoint ServiceEndpoint `json:"serviceEndpoint"`
 }
 
-// ListServiceEndpointsResponse matches the iac-proxy-v2 ListServiceEndpointsResponse proto message.
+// ListServiceEndpointsResponse matches the backend ListServiceEndpointsResponse proto message.
 type ListServiceEndpointsResponse struct {
 	ServiceEndpoints []ServiceEndpoint `json:"serviceEndpoints"`
 }
 
-// ServiceProvider matches the iac-proxy-v2 ServiceProvider proto message.
+// ServiceProvider matches the backend ServiceProvider proto message.
 type ServiceProvider struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Status string `json:"status"`
 }
 
-// ListServiceProvidersResponse matches the iac-proxy-v2 ListServiceProvidersResponse proto message.
+// ListServiceProvidersResponse matches the backend ListServiceProvidersResponse proto message.
 type ListServiceProvidersResponse struct {
 	Providers []ServiceProvider `json:"providers"`
 }
 
-// Service matches the iac-proxy-v2 Service proto message.
+// Service matches the backend Service proto message.
 type Service struct {
 	ID            string `json:"id"`
 	Name          string `json:"name"`
@@ -75,7 +75,7 @@ type Service struct {
 	Status        string `json:"status"`
 }
 
-// ListServicesResponse matches the iac-proxy-v2 ListServicesResponse proto message.
+// ListServicesResponse matches the backend ListServicesResponse proto message.
 type ListServicesResponse struct {
 	Services []Service `json:"services"`
 }

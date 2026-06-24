@@ -1,6 +1,6 @@
 package dto
 
-// SecurityGroupRule matches the iac-proxy-v2 SecurityGroupRule proto message.
+// SecurityGroupRule matches the backend SecurityGroupRule proto message.
 type SecurityGroupRule struct {
 	ID              string `json:"id"`
 	SecurityGroupID string `json:"securityGroupId"`
@@ -15,7 +15,7 @@ type SecurityGroupRule struct {
 	ZoneID          string `json:"zoneId"`
 }
 
-// SecurityGroup matches the iac-proxy-v2 SecurityGroup proto message.
+// SecurityGroup matches the backend SecurityGroup proto message.
 type SecurityGroup struct {
 	ID           string              `json:"id"`
 	Name         string              `json:"name"`
@@ -29,14 +29,14 @@ type SecurityGroup struct {
 	ZoneID       string              `json:"zoneId"`
 }
 
-// CreateSecurityGroupRequest matches the iac-proxy-v2 CreateSecurityGroupRequest proto message.
+// CreateSecurityGroupRequest matches the backend CreateSecurityGroupRequest proto message.
 // project_id is passed via URL path, not in the body.
 type CreateSecurityGroupRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 }
 
-// UpdateSecurityGroupRequest matches the iac-proxy-v2 UpdateSecurityGroupRequest proto message.
+// UpdateSecurityGroupRequest matches the backend UpdateSecurityGroupRequest proto message.
 // project_id and id are passed via URL path. Network logging is set separately via
 // UpdateSecurityGroupLogRequest.
 type UpdateSecurityGroupRequest struct {
@@ -44,23 +44,23 @@ type UpdateSecurityGroupRequest struct {
 	Description string `json:"description,omitempty"`
 }
 
-// UpdateSecurityGroupLogRequest matches the iac-proxy-v2 UpdateSecurityGroupLogRequest proto message.
+// UpdateSecurityGroupLogRequest matches the backend UpdateSecurityGroupLogRequest proto message.
 // project_id and id are passed via URL path.
 type UpdateSecurityGroupLogRequest struct {
 	EnableLog bool `json:"enableLog"`
 }
 
-// SecurityGroupResponse matches the iac-proxy-v2 SecurityGroupResponse proto message.
+// SecurityGroupResponse matches the backend SecurityGroupResponse proto message.
 type SecurityGroupResponse struct {
 	SecurityGroup SecurityGroup `json:"securityGroup"`
 }
 
-// ListSecurityGroupsResponse matches the iac-proxy-v2 ListSecurityGroupsResponse proto message.
+// ListSecurityGroupsResponse matches the backend ListSecurityGroupsResponse proto message.
 type ListSecurityGroupsResponse struct {
 	SecurityGroups []SecurityGroup `json:"securityGroups"`
 }
 
-// CreateSecurityGroupRuleRequest matches the iac-proxy-v2 CreateSecurityGroupRuleRequest proto message.
+// CreateSecurityGroupRuleRequest matches the backend CreateSecurityGroupRuleRequest proto message.
 // project_id is passed via URL path, not in the body.
 type CreateSecurityGroupRuleRequest struct {
 	SecurityGroupID string `json:"securityGroupId"`
@@ -78,7 +78,7 @@ type UpdateSecurityGroupRuleRequest struct {
 	Description    string `json:"description,omitempty"`
 }
 
-// SecurityGroupRuleResponse matches the iac-proxy-v2 SecurityGroupRuleResponse proto message.
+// SecurityGroupRuleResponse matches the backend SecurityGroupRuleResponse proto message.
 type SecurityGroupRuleResponse struct {
 	Rule SecurityGroupRule `json:"rule"`
 }

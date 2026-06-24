@@ -1,6 +1,6 @@
 package dto
 
-// Listener matches the iac-proxy-v2 Listener proto message.
+// Listener matches the backend Listener proto message.
 type Listener struct {
 	ID                     string   `json:"id"`
 	Name                   string   `json:"name"`
@@ -24,7 +24,7 @@ type Listener struct {
 	CreatedAt              string   `json:"createdAt"`
 }
 
-// CreateListenerRequest matches the iac-proxy-v2 CreateListenerRequest proto message.
+// CreateListenerRequest matches the backend CreateListenerRequest proto message.
 // project_id is passed via URL path.
 type CreateListenerRequest struct {
 	Name                   string   `json:"name"`
@@ -44,7 +44,7 @@ type CreateListenerRequest struct {
 	SniCertificateIDs      []string `json:"sniCertificateIds,omitempty"`
 }
 
-// UpdateListenerRequest matches the iac-proxy-v2 UpdateListenerRequest proto message.
+// UpdateListenerRequest matches the backend UpdateListenerRequest proto message.
 // project_id and id are passed via URL path.
 type UpdateListenerRequest struct {
 	Name                   string   `json:"name,omitempty"`
@@ -61,12 +61,12 @@ type UpdateListenerRequest struct {
 	SniCertificateIDs      []string `json:"sniCertificateIds"`
 }
 
-// ListenerResponse matches the iac-proxy-v2 ListenerResponse proto message.
+// ListenerResponse matches the backend ListenerResponse proto message.
 type ListenerResponse struct {
 	Listener Listener `json:"listener"`
 }
 
-// ListListenersResponse matches the iac-proxy-v2 ListListenersResponse proto message.
+// ListListenersResponse matches the backend ListListenersResponse proto message.
 type ListListenersResponse struct {
 	Listeners []Listener `json:"listeners"`
 }

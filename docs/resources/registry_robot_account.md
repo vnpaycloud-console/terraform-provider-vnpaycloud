@@ -13,6 +13,8 @@ Manages a system-level robot account for the VNPayCloud container registry. Robo
 
 ~> **Docker login uses `username`, not `name`** — the registry injects a prefix into the principal it accepts, so the field you pass to `docker login` is `username` (e.g. `bot$260513-nokjb3-ci`), not the friendly `name` you wrote in the HCL.
 
+~> **Robot account `name` is a friendly label** — multiple robot accounts may use the same `name`. The backend-generated `username` remains unique and is the value used for registry authentication.
+
 ## Example Usage
 
 ### CI robot for one project (push & pull)
@@ -136,13 +138,13 @@ provider "docker" {
 
 ### Required
 
-- `name` (String, ForceNew) Robot account name. Must contain only letters, digits, `.`, `_`, `-` (no spaces). Length 3–100. Must be unique. The full registry principal is exposed via [`username`](#username).
+- `name` (String, ForceNew) Friendly robot account name. Must contain only letters, digits, `.`, `_`, `-` (no spaces). Length 3–100. Duplicate names are allowed; the full unique registry principal is exposed via [`username`](#username).
 - `permission` (Block List, `MinItems: 1`) One or more permission blocks. Each block grants a set of actions on one registry project. Editable in-place — changes do not recreate the robot account.
 
 #### permission block
 
 - `registry_id` (String, Required) The ID of the registry project to grant access to. Must belong to the caller (foreign projects return `NotFound`).
-- `actions` (List of String, `MinItems: 1`, Required) Each entry must match `^[a-z]+:[a-z-]+$` (e.g. `repository:push`, `artifact:read`). Use [`vnpaycloud_registry_permissions`](../data-sources/registry_permissions.md) to discover the valid list.
+- `actions` (List of String, `MinItems: 1`, Required) Registry permission keys such as `repository:push` or `artifact:read`. The proxy validates each value against the live registry permission catalogue. Use [`vnpaycloud_registry_permissions`](../data-sources/registry_permissions.md) to discover the valid list.
 
 ### Optional
 
@@ -171,9 +173,8 @@ In-place updates **do not rotate** the secret. Any CI/CD job using the previous 
 
 ## Validation errors
 
-- `expires_in_days` outside `{-1, >0}` is rejected at `terraform plan` time.
-- Actions not matching `<resource>:<action>` format are rejected at plan time.
-- Empty `permission` list, or empty `actions` list inside a permission, are rejected at plan time.
+- `name`, `expires_in_days`, registry project ownership, and permission action validity are validated by the backend during apply.
+- Empty `permission` list, or empty `actions` list inside a permission, are still rejected by Terraform schema before the request is sent.
 - Actions whose `<resource>:<action>` pair is not in the registry catalogue are rejected by the proxy and include the full valid list in the error message.
 
 ## Timeouts

@@ -76,3 +76,58 @@ func dataSourceL7PolicyRead(ctx context.Context, d *schema.ResourceData, meta in
 
 	return nil
 }
+
+func DataSourceL7Policies() *schema.Resource {
+	return &schema.Resource{
+		ReadContext: dataSourceL7PoliciesRead,
+		Schema: map[string]*schema.Schema{
+			"l7policies": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"id":               {Type: schema.TypeString, Computed: true},
+						"name":             {Type: schema.TypeString, Computed: true},
+						"description":      {Type: schema.TypeString, Computed: true},
+						"listener_id":      {Type: schema.TypeString, Computed: true},
+						"action":           {Type: schema.TypeString, Computed: true},
+						"position":         {Type: schema.TypeInt, Computed: true},
+						"redirect_pool_id": {Type: schema.TypeString, Computed: true},
+						"redirect_url":     {Type: schema.TypeString, Computed: true},
+						"status":           {Type: schema.TypeString, Computed: true},
+					},
+				},
+			},
+		},
+	}
+}
+
+func dataSourceL7PoliciesRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	cfg := meta.(*config.Config)
+
+	resp := &dto.ListL7PoliciesResponse{}
+	_, err := cfg.Client.Get(ctx, client.ApiPath.L7Policies(cfg.ProjectID), resp, nil)
+	if err != nil {
+		return diag.Errorf("Error listing vnpaycloud_lb_l7policies: %s", err)
+	}
+
+	var policies []map[string]interface{}
+	for _, p := range resp.L7Policies {
+		policies = append(policies, map[string]interface{}{
+			"id":               p.ID,
+			"name":             p.Name,
+			"description":      p.Description,
+			"listener_id":      p.ListenerID,
+			"action":           p.Action,
+			"position":         p.Position,
+			"redirect_pool_id": p.RedirectPoolID,
+			"redirect_url":     p.RedirectURL,
+			"status":           p.Status,
+		})
+	}
+
+	d.SetId("l7policies")
+	d.Set("l7policies", policies)
+
+	return nil
+}

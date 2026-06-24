@@ -237,3 +237,11 @@ func RetryLBPendingPut(ctx context.Context, timeout time.Duration, write func() 
 		return retry.NonRetryableError(err)
 	})
 }
+
+func NormalizeStatus(status string) string {
+	if status == "" {
+		return "unknown"
+	}
+
+	return status
+}

@@ -19,11 +19,11 @@ func testRobotAccount() dto.RobotAccount {
 		Permissions: []dto.RobotAccountPermission{
 			{
 				RegistryID: "reg-001",
-				Actions:    []string{"push", "pull"},
+				Actions:    []string{"repository:push", "repository:pull"},
 			},
 			{
 				RegistryID: "reg-002",
-				Actions:    []string{"pull"},
+				Actions:    []string{"repository:pull"},
 			},
 		},
 		ExpiresAt: "2026-06-01T10:00:00Z",
@@ -61,11 +61,11 @@ func TestResourceRobotAccountCreate(t *testing.T) {
 		"permission": []interface{}{
 			map[string]interface{}{
 				"registry_id": "reg-001",
-				"actions":     []interface{}{"push", "pull"},
+				"actions":     []interface{}{"repository:push", "repository:pull"},
 			},
 			map[string]interface{}{
 				"registry_id": "reg-002",
-				"actions":     []interface{}{"pull"},
+				"actions":     []interface{}{"repository:pull"},
 			},
 		},
 		"expires_in_days": 365,
@@ -161,11 +161,11 @@ func TestResourceRobotAccountRead(t *testing.T) {
 	if len(actions0) != 2 {
 		t.Fatalf("expected 2 actions in first permission, got %d", len(actions0))
 	}
-	if actions0[0].(string) != "push" {
-		t.Errorf("expected first action push, got %s", actions0[0])
+	if actions0[0].(string) != "repository:push" {
+		t.Errorf("expected first action repository:push, got %s", actions0[0])
 	}
-	if actions0[1].(string) != "pull" {
-		t.Errorf("expected second action pull, got %s", actions0[1])
+	if actions0[1].(string) != "repository:pull" {
+		t.Errorf("expected second action repository:pull, got %s", actions0[1])
 	}
 }
 
@@ -236,7 +236,7 @@ func TestResourceRobotAccountDelete(t *testing.T) {
 		"permission": []interface{}{
 			map[string]interface{}{
 				"registry_id": "reg-001",
-				"actions":     []interface{}{"push", "pull"},
+				"actions":     []interface{}{"repository:push", "repository:pull"},
 			},
 		},
 		"expires_in_days": 365,

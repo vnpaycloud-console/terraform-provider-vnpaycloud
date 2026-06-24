@@ -1,6 +1,6 @@
 package dto
 
-// Image matches the iac-proxy-v2 Image proto message.
+// Image matches the backend Image proto message.
 type Image struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
@@ -11,12 +11,12 @@ type Image struct {
 	Zone      string `json:"zone"`
 }
 
-// ImageResponse matches the iac-proxy-v2 ImageResponse proto message.
+// ImageResponse matches the backend ImageResponse proto message.
 type ImageResponse struct {
 	Image Image `json:"image"`
 }
 
-// ListImagesResponse matches the iac-proxy-v2 ListImagesResponse proto message.
+// ListImagesResponse matches the backend ListImagesResponse proto message.
 type ListImagesResponse struct {
 	Images []Image `json:"images"`
 }

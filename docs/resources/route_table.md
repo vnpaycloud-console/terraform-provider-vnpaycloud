@@ -21,9 +21,16 @@ resource "vnpaycloud_vpc" "main" {
   cidr = "10.0.0.0/16"
 }
 
-resource "vnpaycloud_internet_gateway" "igw" {
-  name   = "my-igw"
+resource "vnpaycloud_subnet" "app" {
+  name   = "app-subnet"
   vpc_id = vnpaycloud_vpc.main.id
+  cidr   = "10.0.1.0/24"
+}
+
+resource "vnpaycloud_internet_gateway" "igw" {
+  name       = "my-igw"
+  vpc_id     = vnpaycloud_vpc.main.id
+  depends_on = [vnpaycloud_subnet.app]
 }
 
 resource "vnpaycloud_route_table" "internet" {
@@ -45,20 +52,22 @@ resource "vnpaycloud_route_table" "peering_route" {
 }
 ```
 
+~> **Note:** A peering has two directional connection objects. A route's `vpc_id` must match the source side of the `target_id` you use: the peering's **source** VPC uses `vnpaycloud_vpc_peering.peer.id`, while the **destination** VPC must use `vnpaycloud_vpc_peering.peer.reverse_peering_id`. Using the wrong one fails with `Please peering with this vpc before creating route table`.
+
 ## Schema
 
 ### Required
 
 - `vpc_id` (String, ForceNew) The ID of the VPC to which this route belongs. Changing this creates a new route.
-- `dest_cidr` (String, ForceNew) The destination CIDR block for the route. Traffic matching this CIDR is forwarded to the specified target. Changing this creates a new route.
+- `dest_cidr` (String, ForceNew) The destination CIDR block for the route (must be a valid CIDR, e.g. `0.0.0.0/0`). Traffic matching this CIDR is forwarded to the specified target. Changing this creates a new route.
 - `target_id` (String, ForceNew) The ID of the route target (e.g., internet gateway ID, peering connection ID). Changing this creates a new route.
-- `target_type` (String, ForceNew) The type of the route target (e.g., `internet_gateway`, `peering_connection`). Changing this creates a new route.
+- `target_type` (String, ForceNew) The type of the route target. One of `internet_gateway`, `peering_connection`, `service_instance`, `vpn_gateway`. Changing this creates a new route.
 
 ### Read-Only
 
 - `id` (String) The ID of the route table entry.
 - `name` (String) The system-assigned name of the route.
-- `target_name` (String) The name of the route target resource.
+- `target_name` (String) The name of the route target resource. Populated only for `peering_connection` targets; empty for other target types.
 - `status` (String) The current status of the route.
 - `created_at` (String) The creation timestamp of the route.
 
@@ -66,3 +75,7 @@ resource "vnpaycloud_route_table" "peering_route" {
 
 - `create` - (Default `10 minutes`) Used for creating the route.
 - `delete` - (Default `10 minutes`) Used for deleting the route.
+
+## Import
+
+Route table entries do not support import.

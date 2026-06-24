@@ -68,8 +68,8 @@ resource "vnpaycloud_service_endpoint" "example" {
 - `pool_id` (String) The ID of the underlying pool.
 - `health_monitor_id` (String) The ID of the underlying health monitor.
 - `pool_member_ids` (List of String) The IDs of the underlying pool members.
-- `operating_status` (String) The Octavia operating status.
-- `provisioning_status` (String) The Octavia provisioning status.
+- `operating_status` (String) The operating status.
+- `provisioning_status` (String) The provisioning status.
 - `status` (String) Lifecycle status: `active`, `creating`, `deleting`, `error`, `deleted`, `unknown`.
 - `created_at` (String) Creation timestamp (RFC 3339).
 

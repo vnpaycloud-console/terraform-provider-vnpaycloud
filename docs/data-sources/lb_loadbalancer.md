@@ -32,6 +32,7 @@ output "lb_vip_address" {
 - `name` (String) The name of the load balancer.
 - `description` (String) A human-readable description of the load balancer.
 - `vip_address` (String) The virtual IP address (VIP) of the load balancer.
+- `vip_port_id` (String) The network interface port backing the load balancer VIP.
 - `vip_subnet_id` (String) The ID of the subnet in which the virtual IP is allocated.
 - `status` (String) Lifecycle status: `active`, `creating`, `pending_create`, `pending_update`, `pending_delete`, `deleting`, `disabled`, `error`, `unknown`.
 - `created_at` (String) The timestamp when the load balancer was created, in ISO 8601 format.

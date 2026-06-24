@@ -3,7 +3,6 @@ package healthmonitor
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
@@ -15,7 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceHealthMonitor() *schema.Resource {
@@ -24,14 +22,6 @@ func ResourceHealthMonitor() *schema.Resource {
 		ReadContext:   resourceHealthMonitorRead,
 		UpdateContext: resourceHealthMonitorUpdate,
 		DeleteContext: resourceHealthMonitorDelete,
-		CustomizeDiff: func(_ context.Context, d *schema.ResourceDiff, _ interface{}) error {
-			delay := d.Get("delay").(int)
-			timeout := d.Get("timeout").(int)
-			if delay > 0 && timeout > 0 && timeout > delay {
-				return fmt.Errorf("timeout (%d) must be <= delay (%d)", timeout, delay)
-			}
-			return nil
-		},
 		Importer: &schema.ResourceImporter{
 			StateContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 				cfg := meta.(*config.Config)
@@ -52,10 +42,6 @@ func ResourceHealthMonitor() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
-				ValidateFunc: validation.All(
-					validation.StringLenBetween(0, 250),
-					validation.StringMatch(regexp.MustCompile(`^([^ ].*[^ ])?$`), "name must not start or end with whitespace"),
-				),
 			},
 			"pool_id": {
 				Type:     schema.TypeString,
@@ -66,55 +52,38 @@ func ResourceHealthMonitor() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
-				ValidateFunc: validation.StringInSlice(
-					[]string{"HTTP", "HTTPS", "TCP", "PING", "TLS-HELLO", "UDP-CONNECT", "SCTP"}, false,
-				),
 			},
 			"delay": {
-				Type:         schema.TypeInt,
-				Required:     true,
-				ValidateFunc: validation.IntAtLeast(1),
+				Type:     schema.TypeInt,
+				Required: true,
 			},
 			"timeout": {
-				Type:         schema.TypeInt,
-				Required:     true,
-				ValidateFunc: validation.IntAtLeast(1),
+				Type:     schema.TypeInt,
+				Required: true,
 			},
 			"max_retries": {
-				Type:         schema.TypeInt,
-				Required:     true,
-				ValidateFunc: validation.IntBetween(1, 10),
+				Type:     schema.TypeInt,
+				Required: true,
 			},
 			"max_retries_down": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				Computed:     true,
-				ValidateFunc: validation.IntBetween(1, 10),
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
 			},
 			"http_method": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
-				ValidateFunc: validation.StringInSlice(
-					[]string{"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "CONNECT", "TRACE"}, false,
-				),
 			},
 			"url_path": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
-				ValidateFunc: validation.StringMatch(
-					regexp.MustCompile(`^/`), "url_path must start with /",
-				),
 			},
 			"expected_codes": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
-				ValidateFunc: validation.StringMatch(
-					regexp.MustCompile(`^(\d{3}(,\d{3})*|\d{3}-\d{3})$`),
-					"expected_codes must be a single code (200), a list (200,201,302), or a range (200-299)",
-				),
 			},
 			"status": {
 				Type:     schema.TypeString,
@@ -224,7 +193,7 @@ func resourceHealthMonitorUpdate(ctx context.Context, d *schema.ResourceData, me
 			MaxRetriesDown: d.Get("max_retries_down").(int),
 			HTTPMethod:     d.Get("http_method").(string),
 			URLPath:        d.Get("url_path").(string),
-			ExpectedCodes: d.Get("expected_codes").(string),
+			ExpectedCodes:  d.Get("expected_codes").(string),
 		}
 
 		tflog.Debug(ctx, "vnpaycloud_lb_health_monitor update options", map[string]interface{}{"update_opts": updateOpts})

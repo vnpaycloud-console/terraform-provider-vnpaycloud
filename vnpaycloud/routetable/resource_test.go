@@ -38,14 +38,15 @@ func TestResourceRouteTableCreate(t *testing.T) {
 				switch r.Method {
 				case "POST":
 					testhelpers.JSONHandler(t, http.StatusOK, dto.RouteTableResponse{RouteTable: rt})(w, r)
-				case "GET":
-					testhelpers.JSONHandler(t, http.StatusOK, dto.ListRouteTablesResponse{
-						RouteTables: []dto.RouteTable{rt},
-					})(w, r)
 				default:
 					http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 				}
 			},
+		},
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/route-tables/rt-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.RouteTableResponse{RouteTable: rt}),
 		},
 	})
 	cfg := testhelpers.NewMockConfig(t, srv.URL)
@@ -97,12 +98,9 @@ func TestResourceRouteTableRead(t *testing.T) {
 
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
 		{
-			// Read uses list endpoint and searches by ID
 			Method:  "GET",
-			Pattern: "/v2/iac/projects/test-project-id/route-tables",
-			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.ListRouteTablesResponse{
-				RouteTables: []dto.RouteTable{rt},
-			}),
+			Pattern: "/v2/iac/projects/test-project-id/route-tables/rt-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.RouteTableResponse{RouteTable: rt}),
 		},
 	})
 	cfg := testhelpers.NewMockConfig(t, srv.URL)
@@ -148,14 +146,11 @@ func TestResourceRouteTableRead(t *testing.T) {
 }
 
 func TestResourceRouteTableRead_NotFound(t *testing.T) {
-	// Read uses list endpoint; route table not found when list returns no matching ID
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
 		{
 			Method:  "GET",
-			Pattern: "/v2/iac/projects/test-project-id/route-tables",
-			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.ListRouteTablesResponse{
-				RouteTables: []dto.RouteTable{},
-			}),
+			Pattern: "/v2/iac/projects/test-project-id/route-tables/rt-gone",
+			Handler: testhelpers.EmptyHandler(http.StatusNotFound),
 		},
 	})
 	cfg := testhelpers.NewMockConfig(t, srv.URL)
@@ -175,7 +170,7 @@ func TestResourceRouteTableRead_NotFound(t *testing.T) {
 	}
 
 	if d.Id() != "" {
-		t.Errorf("expected resource ID to be cleared when not found in list, got %s", d.Id())
+		t.Errorf("expected resource ID to be cleared when not found, got %s", d.Id())
 	}
 }
 
@@ -184,20 +179,18 @@ func TestResourceRouteTableDelete(t *testing.T) {
 
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
 		{
-			Method:  "DELETE",
 			Pattern: "/v2/iac/projects/test-project-id/route-tables/rt-001",
 			Handler: func(w http.ResponseWriter, r *http.Request) {
-				deletedCalled = true
-				w.WriteHeader(http.StatusAccepted)
+				switch r.Method {
+				case "DELETE":
+					deletedCalled = true
+					w.WriteHeader(http.StatusAccepted)
+				case "GET":
+					w.WriteHeader(http.StatusNotFound)
+				default:
+					http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				}
 			},
-		},
-		{
-			// State refresh uses list endpoint to check deletion status
-			Method:  "GET",
-			Pattern: "/v2/iac/projects/test-project-id/route-tables",
-			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.ListRouteTablesResponse{
-				RouteTables: []dto.RouteTable{},
-			}),
 		},
 	})
 	cfg := testhelpers.NewMockConfig(t, srv.URL)

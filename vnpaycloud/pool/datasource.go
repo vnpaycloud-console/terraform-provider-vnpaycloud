@@ -132,3 +132,80 @@ func dataSourcePoolRead(ctx context.Context, d *schema.ResourceData, meta interf
 
 	return nil
 }
+
+func DataSourcePools() *schema.Resource {
+	memberElem := &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"id":            {Type: schema.TypeString, Computed: true},
+			"name":          {Type: schema.TypeString, Computed: true},
+			"address":       {Type: schema.TypeString, Computed: true},
+			"protocol_port": {Type: schema.TypeInt, Computed: true},
+			"weight":        {Type: schema.TypeInt, Computed: true},
+			"status":        {Type: schema.TypeString, Computed: true},
+		},
+	}
+	spElem := &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"type":        {Type: schema.TypeString, Computed: true},
+			"cookie_name": {Type: schema.TypeString, Computed: true},
+		},
+	}
+	return &schema.Resource{
+		ReadContext: dataSourcePoolsRead,
+		Schema: map[string]*schema.Schema{
+			"pools": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"id":                  {Type: schema.TypeString, Computed: true},
+						"name":                {Type: schema.TypeString, Computed: true},
+						"description":         {Type: schema.TypeString, Computed: true},
+						"load_balancer_id":    {Type: schema.TypeString, Computed: true},
+						"listener_id":         {Type: schema.TypeString, Computed: true},
+						"lb_algorithm":        {Type: schema.TypeString, Computed: true},
+						"protocol":            {Type: schema.TypeString, Computed: true},
+						"session_persistence": {Type: schema.TypeList, Computed: true, Elem: spElem},
+						"tls_enabled":         {Type: schema.TypeBool, Computed: true},
+						"member":              {Type: schema.TypeList, Computed: true, Elem: memberElem},
+						"status":              {Type: schema.TypeString, Computed: true},
+						"created_at":          {Type: schema.TypeString, Computed: true},
+					},
+				},
+			},
+		},
+	}
+}
+
+func dataSourcePoolsRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	cfg := meta.(*config.Config)
+
+	resp := &dto.ListPoolsResponse{}
+	_, err := cfg.Client.Get(ctx, client.ApiPath.Pools(cfg.ProjectID), resp, nil)
+	if err != nil {
+		return diag.Errorf("Error listing vnpaycloud_lb_pools: %s", err)
+	}
+
+	var pools []map[string]interface{}
+	for _, p := range resp.Pools {
+		pools = append(pools, map[string]interface{}{
+			"id":                  p.ID,
+			"name":                p.Name,
+			"description":         p.Description,
+			"load_balancer_id":    p.LoadBalancerID,
+			"listener_id":         p.ListenerID,
+			"lb_algorithm":        p.LBAlgorithm,
+			"protocol":            p.Protocol,
+			"session_persistence": flattenSessionPersistence(p.SessionPersistence),
+			"tls_enabled":         p.TlsEnabled,
+			"member":              flattenPoolMembers(p.Members),
+			"status":              p.Status,
+			"created_at":          p.CreatedAt,
+		})
+	}
+
+	d.SetId("pools")
+	d.Set("pools", pools)
+
+	return nil
+}

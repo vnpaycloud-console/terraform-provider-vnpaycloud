@@ -1,12 +1,13 @@
 package dto
 
-// LoadBalancer matches the iac-proxy-v2 LoadBalancer proto message.
+// LoadBalancer matches the backend LoadBalancer proto message.
 type LoadBalancer struct {
 	ID                 string `json:"id"`
 	Name               string `json:"name"`
 	Description        string `json:"description"`
 	Flavor             string `json:"flavor"`
 	VipAddress         string `json:"vipAddress"`
+	VipPortID          string `json:"vipPortId"`
 	VipSubnetID        string `json:"vipSubnetId"`
 	Status             string `json:"status"`
 	ProvisioningStatus string `json:"provisioningStatus"`
@@ -15,7 +16,7 @@ type LoadBalancer struct {
 	FloatingIPID       string `json:"floatingIpId"`
 }
 
-// CreateLoadBalancerRequest matches the iac-proxy-v2 CreateLoadBalancerRequest proto message.
+// CreateLoadBalancerRequest matches the backend CreateLoadBalancerRequest proto message.
 // project_id is passed via URL path.
 type CreateLoadBalancerRequest struct {
 	Name         string `json:"name"`
@@ -26,30 +27,30 @@ type CreateLoadBalancerRequest struct {
 	FloatingIPID string `json:"floatingIpId,omitempty"`
 }
 
-// UpdateLoadBalancerRequest matches the iac-proxy-v2 UpdateLoadBalancerRequest proto message.
+// UpdateLoadBalancerRequest matches the backend UpdateLoadBalancerRequest proto message.
 // project_id and id are passed via URL path.
 type UpdateLoadBalancerRequest struct {
 	Name        string `json:"name,omitempty"`
 	Description string `json:"description,omitempty"`
 }
 
-// ChangeFlavorLoadBalancerRequest matches the iac-proxy-v2 ChangeFlavorLoadBalancerRequest proto message.
+// ChangeFlavorLoadBalancerRequest matches the backend ChangeFlavorLoadBalancerRequest proto message.
 // project_id and id are passed via URL path. flavor is the flavor name (resolved to ID by the backend).
 type ChangeFlavorLoadBalancerRequest struct {
 	Flavor string `json:"flavor"`
 }
 
-// LoadBalancerResponse matches the iac-proxy-v2 LoadBalancerResponse proto message.
+// LoadBalancerResponse matches the backend LoadBalancerResponse proto message.
 type LoadBalancerResponse struct {
 	LoadBalancer LoadBalancer `json:"loadBalancer"`
 }
 
-// ListLoadBalancersResponse matches the iac-proxy-v2 ListLoadBalancersResponse proto message.
+// ListLoadBalancersResponse matches the backend ListLoadBalancersResponse proto message.
 type ListLoadBalancersResponse struct {
 	LoadBalancers []LoadBalancer `json:"loadBalancers"`
 }
 
-// LoadBalancerFlavor matches the iac-proxy-v2 LoadBalancerFlavor proto message.
+// LoadBalancerFlavor matches the backend LoadBalancerFlavor proto message.
 type LoadBalancerFlavor struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -57,7 +58,7 @@ type LoadBalancerFlavor struct {
 	ZoneID      string `json:"zoneId"`
 }
 
-// ListLoadBalancerFlavorsResponse matches the iac-proxy-v2 ListLoadBalancerFlavorsResponse proto message.
+// ListLoadBalancerFlavorsResponse matches the backend ListLoadBalancerFlavorsResponse proto message.
 type ListLoadBalancerFlavorsResponse struct {
 	Flavors []LoadBalancerFlavor `json:"flavors"`
 }

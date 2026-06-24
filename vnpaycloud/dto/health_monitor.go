@@ -1,6 +1,6 @@
 package dto
 
-// HealthMonitor matches the iac-proxy-v2 HealthMonitor proto message.
+// HealthMonitor matches the backend HealthMonitor proto message.
 type HealthMonitor struct {
 	ID                 string `json:"id"`
 	Name               string `json:"name"`
@@ -18,7 +18,7 @@ type HealthMonitor struct {
 	OperatingStatus    string `json:"operatingStatus"`
 }
 
-// CreateHealthMonitorRequest matches the iac-proxy-v2 CreateHealthMonitorRequest proto message.
+// CreateHealthMonitorRequest matches the backend CreateHealthMonitorRequest proto message.
 // project_id is passed via URL path.
 type CreateHealthMonitorRequest struct {
 	Name           string `json:"name,omitempty"`
@@ -33,7 +33,7 @@ type CreateHealthMonitorRequest struct {
 	ExpectedCodes  string `json:"expectedCodes,omitempty"`
 }
 
-// UpdateHealthMonitorRequest matches the iac-proxy-v2 UpdateHealthMonitorRequest proto message.
+// UpdateHealthMonitorRequest matches the backend UpdateHealthMonitorRequest proto message.
 // project_id and id are passed via URL path.
 type UpdateHealthMonitorRequest struct {
 	Name           string `json:"name,omitempty"`
@@ -46,7 +46,12 @@ type UpdateHealthMonitorRequest struct {
 	ExpectedCodes  string `json:"expectedCodes,omitempty"`
 }
 
-// HealthMonitorResponse matches the iac-proxy-v2 HealthMonitorResponse proto message.
+// HealthMonitorResponse matches the backend HealthMonitorResponse proto message.
 type HealthMonitorResponse struct {
 	HealthMonitor HealthMonitor `json:"healthMonitor"`
+}
+
+// ListHealthMonitorsResponse matches the backend ListHealthMonitorsResponse proto message.
+type ListHealthMonitorsResponse struct {
+	HealthMonitors []HealthMonitor `json:"healthMonitors"`
 }

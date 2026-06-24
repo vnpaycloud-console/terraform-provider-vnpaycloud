@@ -3,7 +3,6 @@ package l7policy
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
@@ -15,7 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceL7Policy() *schema.Resource {
@@ -24,34 +22,6 @@ func ResourceL7Policy() *schema.Resource {
 		ReadContext:   resourceL7PolicyRead,
 		UpdateContext: resourceL7PolicyUpdate,
 		DeleteContext: resourceL7PolicyDelete,
-		CustomizeDiff: func(_ context.Context, d *schema.ResourceDiff, _ interface{}) error {
-			action := d.Get("action").(string)
-			redirectPool := d.Get("redirect_pool_id").(string)
-			redirectURL := d.Get("redirect_url").(string)
-			redirectPoolKnown := d.NewValueKnown("redirect_pool_id")
-			redirectURLKnown := d.NewValueKnown("redirect_url")
-			switch action {
-			case "REDIRECT_TO_URL":
-				if redirectURLKnown && redirectURL == "" {
-					return fmt.Errorf("redirect_url is required when action=%s", action)
-				}
-				if redirectPoolKnown && redirectPool != "" {
-					return fmt.Errorf("redirect_pool_id must be empty when action=%s", action)
-				}
-			case "REDIRECT_TO_POOL":
-				if redirectPoolKnown && redirectPool == "" {
-					return fmt.Errorf("redirect_pool_id is required when action=REDIRECT_TO_POOL")
-				}
-				if redirectURLKnown && redirectURL != "" {
-					return fmt.Errorf("redirect_url must be empty when action=REDIRECT_TO_POOL")
-				}
-			case "REJECT":
-				if (redirectPoolKnown && redirectPool != "") || (redirectURLKnown && redirectURL != "") {
-					return fmt.Errorf("redirect_pool_id and redirect_url must be empty when action=REJECT")
-				}
-			}
-			return nil
-		},
 		Importer: &schema.ResourceImporter{
 			StateContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 				cfg := meta.(*config.Config)
@@ -72,15 +42,10 @@ func ResourceL7Policy() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
-				ValidateFunc: validation.All(
-					validation.StringLenBetween(3, 250),
-					validation.StringMatch(regexp.MustCompile(`^([^ ].*[^ ])?$`), "name must not start or end with whitespace"),
-				),
 			},
 			"description": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validation.StringLenBetween(0, 255),
+				Type:     schema.TypeString,
+				Optional: true,
 			},
 			"listener_id": {
 				Type:     schema.TypeString,
@@ -90,15 +55,11 @@ func ResourceL7Policy() *schema.Resource {
 			"action": {
 				Type:     schema.TypeString,
 				Required: true,
-				ValidateFunc: validation.StringInSlice(
-					[]string{"REJECT", "REDIRECT_TO_URL", "REDIRECT_TO_POOL"}, false,
-				),
 			},
 			"position": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				Computed:     true,
-				ValidateFunc: validation.IntAtLeast(1),
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
 			},
 			"redirect_pool_id": {
 				Type:     schema.TypeString,
@@ -107,10 +68,6 @@ func ResourceL7Policy() *schema.Resource {
 			"redirect_url": {
 				Type:     schema.TypeString,
 				Optional: true,
-				ValidateFunc: validation.StringMatch(
-					regexp.MustCompile(`^(https?://|/).*`),
-					"redirect_url must start with http://, https:// or /",
-				),
 			},
 			"status": {
 				Type:     schema.TypeString,

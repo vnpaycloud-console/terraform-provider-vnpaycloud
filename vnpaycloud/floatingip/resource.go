@@ -2,6 +2,7 @@ package floatingip
 
 import (
 	"context"
+	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
@@ -20,11 +21,29 @@ func ResourceFloatingIP() *schema.Resource {
 		ReadContext:   resourceFloatingIPRead,
 		UpdateContext: resourceFloatingIPUpdate,
 		DeleteContext: resourceFloatingIPDelete,
+		CustomizeDiff: func(_ context.Context, d *schema.ResourceDiff, _ interface{}) error {
+			raw := d.GetRawConfig()
+			if raw.IsNull() {
+				return nil
+			}
+			for _, field := range []string{"vpc_id", "port_id"} {
+				cv := raw.GetAttr(field)
+				oldRaw, _ := d.GetChange(field)
+				oldValue, _ := oldRaw.(string)
+				if cv.IsKnown() && !cv.IsNull() && cv.AsString() == "" && oldValue != "" {
+					if err := d.SetNew(field, ""); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		},
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
+			Update: schema.DefaultTimeout(10 * time.Minute),
 			Delete: schema.DefaultTimeout(10 * time.Minute),
 		},
 		Schema: map[string]*schema.Schema{
@@ -53,6 +72,10 @@ func ResourceFloatingIP() *schema.Resource {
 				Computed: true,
 			},
 			"instance_name": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"fixed_ip": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -93,17 +116,29 @@ func resourceFloatingIPCreate(ctx context.Context, d *schema.ResourceData, meta 
 		return diag.Errorf("Error waiting for vnpaycloud_floating_ip %s to become ready: %s", createResp.FloatingIP.ID, err)
 	}
 
-	// Associate if port_id or vpc_id is set
 	assocReq := buildAssociateRequest(d)
 	if assocReq != nil {
-		assocResp := &dto.FloatingIPResponse{}
-		_, err := cfg.Client.Post(ctx, client.ApiPath.FloatingIPAssociate(cfg.ProjectID, d.Id()), assocReq, assocResp, nil)
-		if err != nil {
+		if err := associateFloatingIPWithRetry(ctx, cfg, d.Id(), assocReq, d.Timeout(schema.TimeoutCreate)); err != nil {
 			return diag.Errorf("Error associating vnpaycloud_floating_ip %s: %s", d.Id(), err)
 		}
 	}
 
 	return resourceFloatingIPRead(ctx, d, meta)
+}
+
+func associateFloatingIPWithRetry(ctx context.Context, cfg *config.Config, id string, assocReq *dto.AssociateFloatingIPRequest, timeout time.Duration) error {
+	return retry.RetryContext(ctx, timeout, func() *retry.RetryError {
+		assocResp := &dto.FloatingIPResponse{}
+		_, err := cfg.Client.Post(ctx, client.ApiPath.FloatingIPAssociate(cfg.ProjectID, id), assocReq, assocResp, nil)
+		if err == nil {
+			return nil
+		}
+
+		if strings.Contains(err.Error(), "port has been associated to another floating IP") {
+			return retry.RetryableError(err)
+		}
+		return retry.NonRetryableError(err)
+	})
 }
 
 func resourceFloatingIPRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -123,6 +158,7 @@ func resourceFloatingIPRead(ctx context.Context, d *schema.ResourceData, meta in
 	d.Set("vpc_id", fipResp.FloatingIP.VpcID)
 	d.Set("instance_id", fipResp.FloatingIP.InstanceID)
 	d.Set("instance_name", fipResp.FloatingIP.InstanceName)
+	d.Set("fixed_ip", fipResp.FloatingIP.FixedIP)
 	d.Set("created_at", fipResp.FloatingIP.CreatedAt)
 
 	return nil
@@ -131,27 +167,29 @@ func resourceFloatingIPRead(ctx context.Context, d *schema.ResourceData, meta in
 func resourceFloatingIPUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
-	if d.HasChange("port_id") || d.HasChange("vpc_id") {
-		// Disassociate from old target if it was set
-		oldPortID, _ := d.GetChange("port_id")
-		oldVpcID, _ := d.GetChange("vpc_id")
-		if oldPortID.(string) != "" || oldVpcID.(string) != "" {
-			tflog.Debug(ctx, "Disassociating vnpaycloud_floating_ip", map[string]interface{}{"floating_ip_id": d.Id()})
-			disassocResp := &dto.FloatingIPResponse{}
-			_, err := cfg.Client.Post(ctx, client.ApiPath.FloatingIPDisassociate(cfg.ProjectID, d.Id()), dto.DisassociateFloatingIPRequest{}, disassocResp, nil)
-			if err != nil {
-				return diag.Errorf("Error disassociating vnpaycloud_floating_ip %s: %s", d.Id(), err)
-			}
-		}
+	assocReq, managesAssociation := buildAssociateRequestFromRawConfig(d)
+	if !managesAssociation {
+		return resourceFloatingIPRead(ctx, d, meta)
+	}
 
-		// Associate with new target
-		assocReq := buildAssociateRequest(d)
-		if assocReq != nil {
-			assocResp := &dto.FloatingIPResponse{}
-			_, err := cfg.Client.Post(ctx, client.ApiPath.FloatingIPAssociate(cfg.ProjectID, d.Id()), assocReq, assocResp, nil)
-			if err != nil {
-				return diag.Errorf("Error associating vnpaycloud_floating_ip %s: %s", d.Id(), err)
-			}
+	currentResp := &dto.FloatingIPResponse{}
+	_, err := cfg.Client.Get(ctx, client.ApiPath.FloatingIPWithID(cfg.ProjectID, d.Id()), currentResp, nil)
+	if err != nil {
+		return diag.FromErr(util.CheckNotFound(d, err, "Error retrieving vnpaycloud_floating_ip before update"))
+	}
+
+	if currentResp.FloatingIP.PortID != "" || currentResp.FloatingIP.VpcID != "" {
+		tflog.Debug(ctx, "Disassociating vnpaycloud_floating_ip", map[string]interface{}{"floating_ip_id": d.Id()})
+		disassocResp := &dto.FloatingIPResponse{}
+		_, err = cfg.Client.Post(ctx, client.ApiPath.FloatingIPDisassociate(cfg.ProjectID, d.Id()), dto.DisassociateFloatingIPRequest{}, disassocResp, nil)
+		if err != nil {
+			return diag.Errorf("Error disassociating vnpaycloud_floating_ip %s: %s", d.Id(), err)
+		}
+	}
+
+	if assocReq != nil {
+		if err := associateFloatingIPWithRetry(ctx, cfg, d.Id(), assocReq, d.Timeout(schema.TimeoutUpdate)); err != nil {
+			return diag.Errorf("Error associating vnpaycloud_floating_ip %s: %s", d.Id(), err)
 		}
 	}
 
@@ -166,6 +204,33 @@ func buildAssociateRequest(d *schema.ResourceData) *dto.AssociateFloatingIPReque
 		return &dto.AssociateFloatingIPRequest{VpcID: vpcID.(string)}
 	}
 	return nil
+}
+
+func buildAssociateRequestFromRawConfig(d *schema.ResourceData) (*dto.AssociateFloatingIPRequest, bool) {
+	raw := d.GetRawConfig()
+	if raw.IsNull() {
+		return nil, false
+	}
+
+	portID := raw.GetAttr("port_id")
+	if portID.IsKnown() && !portID.IsNull() {
+		value := portID.AsString()
+		if value == "" {
+			return nil, true
+		}
+		return &dto.AssociateFloatingIPRequest{PortID: value}, true
+	}
+
+	vpcID := raw.GetAttr("vpc_id")
+	if vpcID.IsKnown() && !vpcID.IsNull() {
+		value := vpcID.AsString()
+		if value == "" {
+			return nil, true
+		}
+		return &dto.AssociateFloatingIPRequest{VpcID: value}, true
+	}
+
+	return nil, false
 }
 
 func resourceFloatingIPDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

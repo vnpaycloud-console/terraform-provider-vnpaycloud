@@ -46,7 +46,9 @@ func ResourceVPCPeering() *schema.Resource {
 			"description": {
 				Type:     schema.TypeString,
 				Optional: true,
-				ForceNew: true,
+				DiffSuppressFunc: func(k, oldValue, newValue string, d *schema.ResourceData) bool {
+					return d.Id() != ""
+				},
 			},
 			"status": {
 				Type:     schema.TypeString,
@@ -80,24 +82,18 @@ func resourceVPCPeeringCreate(ctx context.Context, d *schema.ResourceData, meta 
 	cfg := meta.(*config.Config)
 
 	srcVpcID := d.Get("src_vpc_id").(string)
-
 	createOpts := dto.CreatePeeringConnectionRequest{
 		SrcVpcID:    srcVpcID,
 		DestVpcID:   d.Get("dest_vpc_id").(string),
 		Description: d.Get("description").(string),
 	}
 
-	tflog.Debug(ctx, "vnpaycloud_vpc_peering create options", map[string]interface{}{"create_opts": createOpts})
-
-	// Create returns ListPeeringConnectionsResponse (both directions).
-	// We need to find the one matching our src_vpc_id.
 	createResp := &dto.ListPeeringConnectionsResponse{}
 	_, err := cfg.Client.Post(ctx, client.ApiPath.PeeringConnections(), createOpts, createResp, nil)
 	if err != nil {
 		return diag.Errorf("Error creating vnpaycloud_vpc_peering: %s", err)
 	}
 
-	// Create returns peerings (bidirectional). Pick our direction as primary.
 	if len(createResp.PeeringConnections) == 0 {
 		return diag.Errorf("Error creating vnpaycloud_vpc_peering: no peering connection returned")
 	}
@@ -106,7 +102,6 @@ func resourceVPCPeeringCreate(ctx context.Context, d *schema.ResourceData, meta 
 	var reversePeeringID string
 
 	if len(createResp.PeeringConnections) >= 2 {
-		// Both directions returned — pick by src_vpc_id match
 		p0 := &createResp.PeeringConnections[0]
 		p1 := &createResp.PeeringConnections[1]
 		if p0.SrcVpcID == srcVpcID {
@@ -115,15 +110,10 @@ func resourceVPCPeeringCreate(ctx context.Context, d *schema.ResourceData, meta 
 			primary, reversePeeringID = p1, p0.ID
 		}
 	} else {
-		// Only 1 returned — use it, find reverse via list after state poll
 		primary = &createResp.PeeringConnections[0]
 	}
 
 	d.SetId(primary.ID)
-
-	tflog.Info(ctx, "Created peering", map[string]interface{}{
-		"primary_id": primary.ID, "reverse_id": reversePeeringID,
-	})
 
 	stateConf := &retry.StateChangeConf{
 		Pending:    []string{"creating", "unknown"},
@@ -139,11 +129,17 @@ func resourceVPCPeeringCreate(ctx context.Context, d *schema.ResourceData, meta 
 		return diag.Errorf("Error waiting for vnpaycloud_vpc_peering %s to become ready: %s", primary.ID, err)
 	}
 
-	// Find reverse peering if not already known (bidirectional cleanup)
 	if reversePeeringID == "" {
 		reversePeeringID = findReversePeeringID(ctx, cfg.Client, primary.ID)
 	}
 	d.Set("reverse_peering_id", reversePeeringID)
+
+	if name := d.Get("name").(string); name != "" {
+		updateOpts := dto.UpdatePeeringConnectionRequest{Name: name}
+		if _, err := cfg.Client.Put(ctx, client.ApiPath.PeeringConnectionWithID(primary.ID), updateOpts, nil, nil); err != nil {
+			return diag.Errorf("Error setting name on vnpaycloud_vpc_peering %s after create: %s", primary.ID, err)
+		}
+	}
 
 	return resourceVPCPeeringRead(ctx, d, meta)
 }
@@ -157,8 +153,6 @@ func resourceVPCPeeringRead(ctx context.Context, d *schema.ResourceData, meta in
 		return diag.FromErr(util.CheckNotFound(d, err, "Error retrieving vnpaycloud_vpc_peering"))
 	}
 
-	tflog.Debug(ctx, "Retrieved vnpaycloud_vpc_peering "+d.Id(), map[string]interface{}{"peering": peeringResp.PeeringConnection})
-
 	d.Set("name", peeringResp.PeeringConnection.Name)
 	d.Set("src_vpc_id", peeringResp.PeeringConnection.SrcVpcID)
 	d.Set("dest_vpc_id", peeringResp.PeeringConnection.DestVpcID)
@@ -167,6 +161,12 @@ func resourceVPCPeeringRead(ctx context.Context, d *schema.ResourceData, meta in
 	d.Set("src_vpc_cidr", peeringResp.PeeringConnection.SrcVpcCIDR)
 	d.Set("dest_vpc_cidr", peeringResp.PeeringConnection.DestVpcCIDR)
 	d.Set("created_at", peeringResp.PeeringConnection.CreatedAt)
+
+	if d.Get("reverse_peering_id").(string) == "" {
+		if rev := findReversePeeringID(ctx, cfg.Client, d.Id()); rev != "" {
+			d.Set("reverse_peering_id", rev)
+		}
+	}
 
 	return nil
 }
@@ -178,8 +178,6 @@ func resourceVPCPeeringUpdate(ctx context.Context, d *schema.ResourceData, meta 
 		updateOpts := dto.UpdatePeeringConnectionRequest{
 			Name: d.Get("name").(string),
 		}
-
-		tflog.Debug(ctx, "vnpaycloud_vpc_peering update options", map[string]interface{}{"update_opts": updateOpts})
 
 		_, err := cfg.Client.Put(ctx, client.ApiPath.PeeringConnectionWithID(d.Id()), updateOpts, nil, nil)
 		if err != nil {
@@ -193,12 +191,10 @@ func resourceVPCPeeringUpdate(ctx context.Context, d *schema.ResourceData, meta 
 func resourceVPCPeeringDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
-	// Delete primary peering
 	if diags := deletePeeringByID(ctx, cfg, d, d.Id()); diags != nil {
 		return diags
 	}
 
-	// Delete reverse peering (bidirectional: backend creates both directions)
 	if reverseID, ok := d.GetOk("reverse_peering_id"); ok && reverseID.(string) != "" {
 		tflog.Info(ctx, "Deleting reverse peering connection", map[string]interface{}{"reverse_peering_id": reverseID})
 		if diags := deletePeeringByID(ctx, cfg, d, reverseID.(string)); diags != nil {
@@ -213,7 +209,6 @@ func deletePeeringByID(ctx context.Context, cfg *config.Config, d *schema.Resour
 	peeringResp := &dto.PeeringConnectionResponse{}
 	_, err := cfg.Client.Get(ctx, client.ApiPath.PeeringConnectionWithID(peeringID), peeringResp, nil)
 	if err != nil {
-		// Already gone
 		if util.ResponseCodeIs(err, 404) {
 			return nil
 		}

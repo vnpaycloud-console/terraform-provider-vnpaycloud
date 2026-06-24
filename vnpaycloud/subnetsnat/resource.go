@@ -3,7 +3,6 @@ package subnetsnat
 import (
 	"context"
 	"fmt"
-	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
@@ -38,21 +37,33 @@ func resourceSubnetSNATCreate(ctx context.Context, d *schema.ResourceData, meta 
 
 	subnetID := d.Get("subnet_id").(string)
 	floatingIPID := d.Get("floating_ip_id").(string)
+	lockKey := fmt.Sprintf("subnet_snat:%s", subnetID)
+
+	cfg.MutexKV.Lock(lockKey)
+	defer cfg.MutexKV.Unlock(lockKey)
 
 	tflog.Debug(ctx, "Enabling SNAT for subnet", map[string]interface{}{
 		"subnet_id":      subnetID,
 		"floating_ip_id": floatingIPID,
 	})
 
-	snatReq := dto.EnableSubnetSNATRequest{FloatingIpID: floatingIPID}
-	_, err := cfg.Client.Put(ctx, client.ApiPath.SubnetEnableSNAT(cfg.ProjectID, subnetID), snatReq, nil, nil)
+	subnetResp := &dto.SubnetResponse{}
+	_, err := cfg.Client.Get(ctx, client.ApiPath.SubnetWithID(cfg.ProjectID, subnetID), subnetResp, nil)
 	if err != nil {
-		// If SNAT is already enabled, adopt the existing state
-		if strings.Contains(err.Error(), "already has SNAT enabled") {
-			tflog.Info(ctx, "SNAT already enabled for subnet, adopting existing state", map[string]interface{}{"subnet_id": subnetID})
-		} else {
-			return diag.Errorf("Error enabling SNAT for subnet %s: %s", subnetID, err)
+		return diag.Errorf("Error reading subnet %s before enabling SNAT: %s", subnetID, err)
+	}
+
+	if subnetResp.Subnet.EnableSnat {
+		if subnetResp.Subnet.ExternalIpID == floatingIPID {
+			return diag.Errorf("SNAT is already enabled for subnet %s with floating IP %s; duplicate vnpaycloud_subnet_snat resources are not allowed", subnetID, floatingIPID)
 		}
+		return diag.Errorf("SNAT is already enabled for subnet %s with floating IP %s; disable it before switching to floating IP %s", subnetID, subnetResp.Subnet.ExternalIpID, floatingIPID)
+	}
+
+	snatReq := dto.EnableSubnetSNATRequest{FloatingIpID: floatingIPID}
+	_, err = cfg.Client.Put(ctx, client.ApiPath.SubnetEnableSNAT(cfg.ProjectID, subnetID), snatReq, nil, nil)
+	if err != nil {
+		return diag.Errorf("Error enabling SNAT for subnet %s: %s", subnetID, err)
 	}
 
 	d.SetId(fmt.Sprintf("%s/snat", subnetID))

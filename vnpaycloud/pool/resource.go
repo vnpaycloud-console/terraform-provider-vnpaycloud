@@ -3,7 +3,6 @@ package pool
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
@@ -16,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourcePool() *schema.Resource {
@@ -25,20 +23,6 @@ func ResourcePool() *schema.Resource {
 		ReadContext:   resourcePoolRead,
 		UpdateContext: resourcePoolUpdate,
 		DeleteContext: resourcePoolDelete,
-		CustomizeDiff: func(_ context.Context, d *schema.ResourceDiff, _ interface{}) error {
-			sp, ok := d.Get("session_persistence").([]interface{})
-			if !ok || len(sp) == 0 {
-				return nil
-			}
-			m, ok := sp[0].(map[string]interface{})
-			if !ok {
-				return nil
-			}
-			if m["type"].(string) == "APP_COOKIE" && m["cookie_name"].(string) == "" {
-				return fmt.Errorf("session_persistence.cookie_name is required when session_persistence.type = APP_COOKIE")
-			}
-			return nil
-		},
 		Importer: &schema.ResourceImporter{
 			StateContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 				cfg := meta.(*config.Config)
@@ -58,15 +42,10 @@ func ResourcePool() *schema.Resource {
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
-				ValidateFunc: validation.All(
-					validation.StringLenBetween(3, 250),
-					validation.StringMatch(regexp.MustCompile(`^[^ ].*[^ ]$`), "name must not start or end with whitespace"),
-				),
 			},
 			"description": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validation.StringLenBetween(0, 255),
+				Type:     schema.TypeString,
+				Optional: true,
 			},
 			"load_balancer_id": {
 				Type:        schema.TypeString,
@@ -83,15 +62,13 @@ func ResourcePool() *schema.Resource {
 					"`Computed`: if the listener attaches this pool as its default out-of-band (e.g. you set `vnpaycloud_lb_listener.default_pool_id`), the backend writes this back-pointer and Terraform keeps it in state instead of forcing a spurious recreate.",
 			},
 			"lb_algorithm": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.StringInSlice([]string{"ROUND_ROBIN", "LEAST_CONNECTIONS", "SOURCE_IP"}, false),
+				Type:     schema.TypeString,
+				Required: true,
 			},
 			"protocol": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringInSlice([]string{"HTTP", "HTTPS", "TCP", "UDP", "PROXY"}, false),
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
 			},
 			"session_persistence": {
 				Type:     schema.TypeList,
@@ -100,9 +77,8 @@ func ResourcePool() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"type": {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.StringInSlice([]string{"SOURCE_IP", "HTTP_COOKIE", "APP_COOKIE"}, false),
+							Type:     schema.TypeString,
+							Required: true,
 						},
 						"cookie_name": {
 							Type:     schema.TypeString,
@@ -130,20 +106,17 @@ func ResourcePool() *schema.Resource {
 							Computed: true,
 						},
 						"address": {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.IsIPAddress,
+							Type:     schema.TypeString,
+							Required: true,
 						},
 						"protocol_port": {
-							Type:         schema.TypeInt,
-							Required:     true,
-							ValidateFunc: validation.IntBetween(1, 65535),
+							Type:     schema.TypeInt,
+							Required: true,
 						},
 						"weight": {
-							Type:         schema.TypeInt,
-							Optional:     true,
-							Default:      1,
-							ValidateFunc: validation.IntBetween(0, 256),
+							Type:     schema.TypeInt,
+							Optional: true,
+							Default:  1,
 						},
 						"status": {
 							Type:     schema.TypeString,

@@ -1,12 +1,12 @@
 package dto
 
-// NetworkInterfaceAddressPair matches the iac-proxy-v2 NetworkInterfaceAddressPair proto message.
+// NetworkInterfaceAddressPair matches the backend NetworkInterfaceAddressPair proto message.
 type NetworkInterfaceAddressPair struct {
 	IPAddress  string `json:"ipAddress"`
 	MACAddress string `json:"macAddress"`
 }
 
-// NetworkInterface matches the iac-proxy-v2 NetworkInterface proto message.
+// NetworkInterface matches the backend NetworkInterface proto message.
 type NetworkInterface struct {
 	ID                  string                        `json:"id"`
 	Name                string                        `json:"name"`
@@ -27,7 +27,7 @@ type NetworkInterface struct {
 	ZoneID              string                        `json:"zoneId"`
 }
 
-// CreateNetworkInterfaceRequest matches the iac-proxy-v2 CreateNetworkInterfaceRequest proto message.
+// CreateNetworkInterfaceRequest matches the backend CreateNetworkInterfaceRequest proto message.
 // project_id is passed via URL path, not in the body.
 type CreateNetworkInterfaceRequest struct {
 	Name        string `json:"name"`
@@ -59,24 +59,24 @@ type UpdateNetworkInterfaceSecurityGroupsRequest struct {
 	SecurityGroupIDs []string `json:"securityGroupIds"`
 }
 
-// AttachNetworkInterfaceRequest matches the iac-proxy-v2 AttachNetworkInterfaceRequest proto message.
+// AttachNetworkInterfaceRequest matches the backend AttachNetworkInterfaceRequest proto message.
 // project_id and id are passed via URL path.
 type AttachNetworkInterfaceRequest struct {
 	ServerID string `json:"serverId"`
 }
 
-// DetachNetworkInterfaceRequest matches the iac-proxy-v2 DetachNetworkInterfaceRequest proto message.
+// DetachNetworkInterfaceRequest matches the backend DetachNetworkInterfaceRequest proto message.
 // project_id and id are passed via URL path.
 type DetachNetworkInterfaceRequest struct {
 	ServerID string `json:"serverId"`
 }
 
-// NetworkInterfaceResponse matches the iac-proxy-v2 NetworkInterfaceResponse proto message.
+// NetworkInterfaceResponse matches the backend NetworkInterfaceResponse proto message.
 type NetworkInterfaceResponse struct {
 	NetworkInterface NetworkInterface `json:"networkInterface"`
 }
 
-// ListNetworkInterfacesResponse matches the iac-proxy-v2 ListNetworkInterfacesResponse proto message.
+// ListNetworkInterfacesResponse matches the backend ListNetworkInterfacesResponse proto message.
 type ListNetworkInterfacesResponse struct {
 	NetworkInterfaces []NetworkInterface `json:"networkInterfaces"`
 }

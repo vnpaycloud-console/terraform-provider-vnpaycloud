@@ -30,6 +30,10 @@ func DataSourceLoadBalancer() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"vip_port_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"vip_subnet_id": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -65,6 +69,7 @@ func dataSourceLoadBalancerRead(ctx context.Context, d *schema.ResourceData, met
 	d.Set("name", lbResp.LoadBalancer.Name)
 	d.Set("description", lbResp.LoadBalancer.Description)
 	d.Set("vip_address", lbResp.LoadBalancer.VipAddress)
+	d.Set("vip_port_id", lbResp.LoadBalancer.VipPortID)
 	d.Set("vip_subnet_id", lbResp.LoadBalancer.VipSubnetID)
 	d.Set("status", lbResp.LoadBalancer.Status)
 	d.Set("created_at", lbResp.LoadBalancer.CreatedAt)
@@ -95,6 +100,10 @@ func DataSourceLoadBalancers() *schema.Resource {
 							Computed: true,
 						},
 						"vip_address": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"vip_port_id": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
@@ -137,6 +146,7 @@ func dataSourceLoadBalancersRead(ctx context.Context, d *schema.ResourceData, me
 			"name":           lb.Name,
 			"description":    lb.Description,
 			"vip_address":    lb.VipAddress,
+			"vip_port_id":    lb.VipPortID,
 			"vip_subnet_id":  lb.VipSubnetID,
 			"status":         lb.Status,
 			"created_at":     lb.CreatedAt,

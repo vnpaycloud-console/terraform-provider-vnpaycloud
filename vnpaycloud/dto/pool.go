@@ -1,12 +1,12 @@
 package dto
 
-// SessionPersistence matches the iac-proxy-v2 SessionPersistence proto message.
+// SessionPersistence matches the backend SessionPersistence proto message.
 type SessionPersistence struct {
 	Type       string `json:"type"`
 	CookieName string `json:"cookieName,omitempty"`
 }
 
-// Pool matches the iac-proxy-v2 Pool proto message.
+// Pool matches the backend Pool proto message.
 type Pool struct {
 	ID                 string              `json:"id"`
 	Name               string              `json:"name"`
@@ -24,7 +24,7 @@ type Pool struct {
 	CreatedAt          string              `json:"createdAt"`
 }
 
-// PoolMember matches the iac-proxy-v2 PoolMember proto message.
+// PoolMember matches the backend PoolMember proto message.
 type PoolMember struct {
 	ID                 string `json:"id"`
 	Name               string `json:"name,omitempty"`
@@ -36,7 +36,7 @@ type PoolMember struct {
 	OperatingStatus    string `json:"operatingStatus"`
 }
 
-// CreatePoolRequest matches the iac-proxy-v2 CreatePoolRequest proto message.
+// CreatePoolRequest matches the backend CreatePoolRequest proto message.
 // project_id is passed via URL path.
 type CreatePoolRequest struct {
 	Name               string              `json:"name"`
@@ -50,7 +50,7 @@ type CreatePoolRequest struct {
 	Members            []PoolMember        `json:"members,omitempty"`
 }
 
-// UpdatePoolRequest matches the iac-proxy-v2 UpdatePoolRequest proto message.
+// UpdatePoolRequest matches the backend UpdatePoolRequest proto message.
 // project_id and id are passed via URL path.
 type UpdatePoolRequest struct {
 	Name               string              `json:"name,omitempty"`
@@ -61,12 +61,12 @@ type UpdatePoolRequest struct {
 	Members            []PoolMember        `json:"members,omitempty"`
 }
 
-// PoolResponse matches the iac-proxy-v2 PoolResponse proto message.
+// PoolResponse matches the backend PoolResponse proto message.
 type PoolResponse struct {
 	Pool Pool `json:"pool"`
 }
 
-// ListPoolsResponse matches the iac-proxy-v2 ListPoolsResponse proto message.
+// ListPoolsResponse matches the backend ListPoolsResponse proto message.
 type ListPoolsResponse struct {
 	Pools []Pool `json:"pools"`
 }

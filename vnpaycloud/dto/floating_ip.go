@@ -1,6 +1,6 @@
 package dto
 
-// FloatingIP matches the iac-proxy-v2 FloatingIP proto message.
+// FloatingIP matches the backend FloatingIP proto message.
 type FloatingIP struct {
 	ID           string `json:"id"`
 	Address      string `json:"address"`
@@ -8,6 +8,7 @@ type FloatingIP struct {
 	PortID       string `json:"portId"`
 	Type         string `json:"type"`
 	VpcID        string `json:"vpcId"`
+	FixedIP      string `json:"fixedIp"`
 	InstanceID   string `json:"instanceId"`
 	InstanceName string `json:"instanceName"`
 	CreatedAt    string `json:"createdAt"`
@@ -15,12 +16,12 @@ type FloatingIP struct {
 	ZoneID       string `json:"zoneId"`
 }
 
-// CreateFloatingIPRequest matches the iac-proxy-v2 CreateFloatingIPRequest proto message.
+// CreateFloatingIPRequest matches the backend CreateFloatingIPRequest proto message.
 // project_id is passed via URL path, not in the body.
 // zone is resolved server-side from project_id.
 type CreateFloatingIPRequest struct{}
 
-// AssociateFloatingIPRequest matches the iac-proxy-v2 AssociateFloatingIPRequest proto message.
+// AssociateFloatingIPRequest matches the backend AssociateFloatingIPRequest proto message.
 // project_id and id are passed via URL path.
 // port_id and vpc_id are mutually exclusive.
 type AssociateFloatingIPRequest struct {
@@ -32,12 +33,12 @@ type AssociateFloatingIPRequest struct {
 // project_id and id are passed via URL path.
 type DisassociateFloatingIPRequest struct{}
 
-// FloatingIPResponse matches the iac-proxy-v2 FloatingIPResponse proto message.
+// FloatingIPResponse matches the backend FloatingIPResponse proto message.
 type FloatingIPResponse struct {
 	FloatingIP FloatingIP `json:"floatingIp"`
 }
 
-// ListFloatingIPsResponse matches the iac-proxy-v2 ListFloatingIPsResponse proto message.
+// ListFloatingIPsResponse matches the backend ListFloatingIPsResponse proto message.
 type ListFloatingIPsResponse struct {
 	FloatingIPs []FloatingIP `json:"floatingIps"`
 }

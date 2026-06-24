@@ -38,7 +38,7 @@ output "gateway_vip" {
 - `vip_address` (String) The virtual IP address.
 - `load_balancer_id` (String) The underlying managed load balancer ID.
 - `port_id` (String) The VIP port ID.
-- `operating_status` (String) The Octavia operating status.
-- `provisioning_status` (String) The Octavia provisioning status.
+- `operating_status` (String) The operating status.
+- `provisioning_status` (String) The provisioning status.
 - `status` (String) Lifecycle status.
 - `created_at` (String) Creation timestamp.

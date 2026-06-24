@@ -14,13 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
-
-// Rule types that require the `key` attribute (the cookie name to match against).
-var keyRequiredRuleTypes = map[string]bool{
-	"COOKIE": true,
-}
 
 func ResourceL7Rule() *schema.Resource {
 	return &schema.Resource{
@@ -28,20 +22,6 @@ func ResourceL7Rule() *schema.Resource {
 		ReadContext:   resourceL7RuleRead,
 		UpdateContext: resourceL7RuleUpdate,
 		DeleteContext: resourceL7RuleDelete,
-		CustomizeDiff: func(_ context.Context, d *schema.ResourceDiff, _ interface{}) error {
-			if !d.NewValueKnown("rule_type") || !d.NewValueKnown("key") {
-				return nil
-			}
-			ruleType := d.Get("rule_type").(string)
-			key := d.Get("key").(string)
-			if keyRequiredRuleTypes[ruleType] && key == "" {
-				return fmt.Errorf("key is required when rule_type=%s", ruleType)
-			}
-			if !keyRequiredRuleTypes[ruleType] && key != "" {
-				return fmt.Errorf("key must be empty when rule_type=%s (only COOKIE uses key)", ruleType)
-			}
-			return nil
-		},
 		Importer: &schema.ResourceImporter{
 			StateContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 				// Import ID format: <l7policy_id>/<rule_id>
@@ -73,21 +53,14 @@ func ResourceL7Rule() *schema.Resource {
 			"rule_type": {
 				Type:     schema.TypeString,
 				Required: true,
-				ValidateFunc: validation.StringInSlice([]string{
-					"HOST_NAME", "PATH", "COOKIE",
-				}, false),
 			},
 			"compare_type": {
 				Type:     schema.TypeString,
 				Required: true,
-				ValidateFunc: validation.StringInSlice([]string{
-					"REGEX", "STARTS_WITH", "ENDS_WITH", "CONTAINS", "EQUAL_TO",
-				}, false),
 			},
 			"value": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.StringLenBetween(1, 255),
+				Type:     schema.TypeString,
+				Required: true,
 			},
 			"key": {
 				Type:        schema.TypeString,
