@@ -2,13 +2,13 @@ package instance
 
 import (
 	"context"
+	"fmt"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -20,6 +20,7 @@ func ResourceInstance() *schema.Resource {
 		ReadContext:   resourceInstanceRead,
 		UpdateContext: resourceInstanceUpdate,
 		DeleteContext: resourceInstanceDelete,
+		CustomizeDiff: validateInstanceDiff,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -34,14 +35,16 @@ func ResourceInstance() *schema.Resource {
 				Required: true,
 			},
 			"image": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				ExactlyOneOf: []string{"image", "snapshot_id"},
 			},
 			"snapshot_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				ExactlyOneOf: []string{"image", "snapshot_id"},
 			},
 			"flavor": {
 				Type:     schema.TypeString,
@@ -75,15 +78,15 @@ func ResourceInstance() *schema.Resource {
 				Computed: true,
 				ForceNew: true,
 			},
-			"security_groups": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Computed: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
-			},
 			"network_interface_ids": {
 				Type:     schema.TypeList,
 				Optional: true,
+				Computed: true,
+				ForceNew: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"security_groups": {
+				Type:     schema.TypeList,
 				Computed: true,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
@@ -141,8 +144,25 @@ func ResourceInstance() *schema.Resource {
 	}
 }
 
+func validateInstanceDiff(ctx context.Context, d *schema.ResourceDiff, meta interface{}) error {
+	if d.Get("is_custom_flavor").(bool) {
+		return fmt.Errorf("custom flavor is not supported: set is_custom_flavor = false and specify a named 'flavor'")
+	}
+	if d.Get("flavor").(string) == "" {
+		return fmt.Errorf("'flavor' is required: specify a named flavor (custom flavor is not supported)")
+	}
+	return nil
+}
+
 func resourceInstanceCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+
+	if d.Get("is_custom_flavor").(bool) {
+		return diag.Errorf("custom flavor is not supported: set is_custom_flavor = false and specify a named 'flavor'")
+	}
+	if d.Get("flavor").(string) == "" {
+		return diag.Errorf("'flavor' is required: specify a named flavor (custom flavor is not supported)")
+	}
 
 	createOpts := dto.CreateInstanceRequest{
 		Name:               d.Get("name").(string),
@@ -165,8 +185,6 @@ func resourceInstanceCreate(ctx context.Context, d *schema.ResourceData, meta in
 		}
 		createOpts.NetworkInterfaceIDs = nids
 	}
-
-	tflog.Debug(ctx, "vnpaycloud_instance create options", map[string]interface{}{"create_opts": createOpts})
 
 	createResp := &dto.InstanceResponse{}
 	_, err := cfg.Client.Post(ctx, client.ApiPath.Instances(cfg.ProjectID), createOpts, createResp, nil)
@@ -202,8 +220,6 @@ func resourceInstanceRead(ctx context.Context, d *schema.ResourceData, meta inte
 		return diag.FromErr(util.CheckNotFound(d, err, "Error retrieving vnpaycloud_instance"))
 	}
 
-	tflog.Debug(ctx, "Retrieved vnpaycloud_instance "+d.Id(), map[string]interface{}{"instance": instResp.Instance})
-
 	inst := instResp.Instance
 	d.Set("name", inst.Name)
 	d.Set("image_name", inst.ImageName)
@@ -212,12 +228,39 @@ func resourceInstanceRead(ctx context.Context, d *schema.ResourceData, meta inte
 	d.Set("volume_ids", inst.VolumeIDs)
 	d.Set("status", inst.Status)
 	d.Set("power_state", inst.PowerState)
-	d.Set("network_interface_ids", inst.NetworkInterfaceIDs)
-	d.Set("key_pair", inst.KeyPairID)
+	if inst.KeyPairName != "" {
+		d.Set("key_pair", inst.KeyPairName)
+	}
 	d.Set("security_groups", inst.SecurityGroupIDs)
 	d.Set("server_group_id", inst.ServerGroupID)
 	d.Set("zone_id", inst.ZoneID)
 	d.Set("created_at", inst.CreatedAt)
+
+	if v, ok := d.GetOk("image"); !ok || v.(string) == "" {
+		if inst.ImageName != "" {
+			d.Set("image", inst.ImageName)
+		}
+	}
+	if v, ok := d.GetOk("flavor"); !ok || v.(string) == "" {
+		if inst.FlavorName != "" {
+			d.Set("flavor", inst.FlavorName)
+		}
+	}
+	if v, ok := d.GetOk("root_disk_gb"); !ok || v.(int) == 0 {
+		if inst.RootDiskGB > 0 {
+			d.Set("root_disk_gb", int(inst.RootDiskGB))
+		}
+	}
+	if v, ok := d.GetOk("root_disk_type"); !ok || v.(string) == "" {
+		if inst.RootDiskVolumeType != "" {
+			d.Set("root_disk_type", inst.RootDiskVolumeType)
+		}
+	}
+	if v, ok := d.GetOk("network_interface_ids"); !ok || len(v.([]interface{})) == 0 {
+		if len(inst.NetworkInterfaceIDs) > 0 {
+			d.Set("network_interface_ids", inst.NetworkInterfaceIDs)
+		}
+	}
 
 	return nil
 }
@@ -225,33 +268,24 @@ func resourceInstanceRead(ctx context.Context, d *schema.ResourceData, meta inte
 func resourceInstanceUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
-	// Update name and/or security_groups
-	if d.HasChanges("name", "security_groups") {
-		updateOpts := dto.UpdateInstanceRequest{}
-
-		if d.HasChange("name") {
-			updateOpts.Name = d.Get("name").(string)
+	if d.HasChange("name") {
+		updateOpts := dto.UpdateInstanceRequest{
+			Name: d.Get("name").(string),
 		}
-
-		if d.HasChange("security_groups") {
-			sgList := d.Get("security_groups").([]interface{})
-			sgs := make([]string, len(sgList))
-			for i, sg := range sgList {
-				sgs[i] = sg.(string)
-			}
-			updateOpts.SecurityGroups = sgs
-		}
-
-		tflog.Debug(ctx, "vnpaycloud_instance update options", map[string]interface{}{"update_opts": updateOpts})
-
 		_, err := cfg.Client.Put(ctx, client.ApiPath.InstanceWithID(cfg.ProjectID, d.Id()), updateOpts, nil, nil)
 		if err != nil {
 			return diag.Errorf("Error updating vnpaycloud_instance %s: %s", d.Id(), err)
 		}
 	}
 
-	// Resize (flavor change)
 	if d.HasChanges("flavor", "custom_vcpus", "custom_ram_mb") {
+		if d.Get("is_custom_flavor").(bool) {
+			return diag.Errorf("custom flavor is not supported: set is_custom_flavor = false and specify a named 'flavor'")
+		}
+		if d.Get("flavor").(string) == "" {
+			return diag.Errorf("'flavor' is required: specify a named flavor (custom flavor is not supported)")
+		}
+
 		resizeOpts := dto.ResizeInstanceRequest{
 			Flavor:         d.Get("flavor").(string),
 			IsCustomFlavor: d.Get("is_custom_flavor").(bool),
@@ -259,20 +293,33 @@ func resourceInstanceUpdate(ctx context.Context, d *schema.ResourceData, meta in
 			CustomRAMMB:    int32(d.Get("custom_ram_mb").(int)),
 		}
 
-		tflog.Debug(ctx, "vnpaycloud_instance resize options", map[string]interface{}{"resize_opts": resizeOpts})
-
 		_, err := cfg.Client.Post(ctx, client.ApiPath.InstanceResize(cfg.ProjectID, d.Id()), resizeOpts, nil, nil)
 		if err != nil {
+			oldFlavor, _ := d.GetChange("flavor")
+			d.Set("flavor", oldFlavor)
 			return diag.Errorf("Error resizing vnpaycloud_instance %s: %s", d.Id(), err)
 		}
 
-		stateConf := &retry.StateChangeConf{
-			Pending:    []string{"resizing", "verify_resize", "migrating"},
-			Target:     []string{"active", "running"},
-			Refresh:    instanceStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, d.Id()),
-			Timeout:    d.Timeout(schema.TimeoutUpdate),
-			Delay:      10 * time.Second,
-			MinTimeout: 5 * time.Second,
+		targetFlavor := d.Get("flavor").(string)
+		var stateConf *retry.StateChangeConf
+		if targetFlavor != "" {
+			stateConf = &retry.StateChangeConf{
+				Pending:    []string{"resizing"},
+				Target:     []string{"done"},
+				Refresh:    instanceFlavorRefreshFunc(ctx, cfg.Client, cfg.ProjectID, d.Id(), targetFlavor),
+				Timeout:    d.Timeout(schema.TimeoutUpdate),
+				Delay:      10 * time.Second,
+				MinTimeout: 5 * time.Second,
+			}
+		} else {
+			stateConf = &retry.StateChangeConf{
+				Pending:    []string{"resizing", "verify_resize", "migrating"},
+				Target:     []string{"active", "running"},
+				Refresh:    instanceStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, d.Id()),
+				Timeout:    d.Timeout(schema.TimeoutUpdate),
+				Delay:      10 * time.Second,
+				MinTimeout: 5 * time.Second,
+			}
 		}
 
 		_, err = stateConf.WaitForStateContext(ctx)

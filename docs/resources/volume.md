@@ -11,6 +11,16 @@ Manages a block storage volume within VNPayCloud. Volumes provide persistent blo
 
 ~> **Note:** The `size` attribute can only be increased (grown). Shrinking a volume is not supported and will result in an error.
 
+~> **Expand the filesystem inside the guest after resizing.** Growing `size` only enlarges the underlying block device — it does **not** automatically extend the partition or filesystem, so the extra space is not usable until you resize them on the VM. For an attached volume, log in to the instance and grow the partition and filesystem to match, for example:
+
+```shell
+# Example: grow partition 2 on /dev/sda, then resize its ext filesystem
+growpart /dev/sda 2
+resize2fs /dev/sda2
+```
+
+Run `df -h` first to see where the volume is mounted and confirm your disk and partition names — they may differ. Adjust the partition number and use the matching filesystem tool for your layout (e.g. `xfs_growfs <mountpoint>` for XFS).
+
 ## Example Usage
 
 ### Creating a standard volume
@@ -19,7 +29,7 @@ Manages a block storage volume within VNPayCloud. Volumes provide persistent blo
 resource "vnpaycloud_volume" "data" {
   name        = "app-data-volume"
   size        = 100
-  volume_type = "SSD"
+  volume_type = "c1-standard"
   description = "Persistent data volume for the application"
 }
 ```
@@ -30,7 +40,7 @@ resource "vnpaycloud_volume" "data" {
 resource "vnpaycloud_volume" "shared" {
   name        = "shared-data-volume"
   size        = 200
-  volume_type = "SSD"
+  volume_type = "c1-standard"
   description = "Shared encrypted volume"
   encrypt     = true
   multiattach = true
@@ -43,8 +53,8 @@ resource "vnpaycloud_volume" "shared" {
 ### Required
 
 - `name` (String) The name of the volume.
-- `size` (Number) The size of the volume in gigabytes. Can only be increased after creation.
-- `volume_type` (String, ForceNew) The type of the volume (e.g., `SSD`, `HDD`). Changing this creates a new volume.
+- `size` (Number) The size of the volume in gigabytes. Minimum `10`. Can only be increased after creation.
+- `volume_type` (String) The type of the volume (e.g., `c1-standard`). Use the `vnpaycloud_volume_types` data source to list available values. Changing this updates the volume type in place (data is preserved) as long as the new type shares the same features as the current one. Switching between types with different features — encrypted vs. unencrypted, or multi-attach vs. single-attach — is rejected by the backend; create a new volume instead. Changing the volume type requires the volume to be attached to a server; changing it on a detached volume is rejected.
 
 ### Optional
 
@@ -79,3 +89,8 @@ Volumes can be imported using the `id`:
 ```shell
 terraform import vnpaycloud_volume.example <volume-id>
 ```
+
+When importing a volume that was originally created from a snapshot, omit
+`snapshot_id` from the imported configuration unless you intend Terraform to
+replace the volume. `snapshot_id` is a create-only input and is not returned by
+the read API.

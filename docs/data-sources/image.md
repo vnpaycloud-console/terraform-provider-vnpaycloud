@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get information about an existing compute image, including its OS type, version, and status.
 
+Specify exactly one of `id` or `name`.
+
 ## Example Usage
 
 ```hcl
@@ -29,7 +31,7 @@ data "vnpaycloud_image" "by_id" {
 
 ## Schema
 
-### Optional (filter)
+### Required (filter)
 
 - `id` (String) The ID of the image.
 - `name` (String) The name of the image.

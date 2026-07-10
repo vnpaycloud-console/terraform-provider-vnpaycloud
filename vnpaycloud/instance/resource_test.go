@@ -23,7 +23,7 @@ func testInstance() dto.Instance {
 		Status:              "active",
 		PowerState:          "running",
 		NetworkInterfaceIDs: []string{"ni-001"},
-		KeyPairID:           "kp-001",
+		KeyPairName:         "kp-001",
 		SecurityGroupIDs:    []string{"sg-001"},
 		ServerGroupID:       "sgrp-001",
 		CreatedAt:           "2025-01-15T10:00:00Z",

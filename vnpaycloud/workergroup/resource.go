@@ -2,6 +2,8 @@ package workergroup
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
@@ -22,7 +24,15 @@ func ResourceWorkerGroup() *schema.Resource {
 		UpdateContext: resourceWorkerGroupUpdate,
 		DeleteContext: resourceWorkerGroupDelete,
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+				parts := strings.SplitN(d.Id(), "/", 2)
+				if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+					return nil, fmt.Errorf("invalid import ID %q, expected \"<cluster_id>/<worker_group_id>\"", d.Id())
+				}
+				d.Set("cluster_id", parts[0])
+				d.SetId(parts[1])
+				return []*schema.ResourceData{d}, nil
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(30 * time.Minute),
@@ -49,6 +59,12 @@ func ResourceWorkerGroup() *schema.Resource {
 				Type:         schema.TypeInt,
 				Required:     true,
 				ValidateFunc: validation.IntAtLeast(1),
+				// When autoscaling is enabled, the cluster autoscaler manages the node
+				// count, so ignore drift on num_workers to avoid perpetual diffs (and a
+				// manual resize the backend would reject).
+				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+					return d.Id() != "" && d.Get("auto_scaling").(bool)
+				},
 			},
 			"auto_scaling": {
 				Type:     schema.TypeBool,
@@ -83,8 +99,12 @@ func ResourceWorkerGroup() *schema.Resource {
 			"labels": {
 				Type:     schema.TypeMap,
 				Optional: true,
-				ForceNew: true,
 				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"auto_healing": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Computed: true,
 			},
 
 			// Computed attributes
@@ -182,6 +202,11 @@ func resourceWorkerGroupRead(ctx context.Context, d *schema.ResourceData, meta i
 	d.Set("auto_scaling", resp.WorkerGroup.AutoScaling)
 	d.Set("min_workers", resp.WorkerGroup.MinWorkers)
 	d.Set("max_workers", resp.WorkerGroup.MaxWorkers)
+	d.Set("volume_type", resp.WorkerGroup.VolumeType)
+	d.Set("volume_size", resp.WorkerGroup.VolumeSize)
+	d.Set("ssh_key_id", resp.WorkerGroup.SshKeyID)
+	d.Set("labels", resp.WorkerGroup.Labels)
+	d.Set("auto_healing", resp.WorkerGroup.AutoHealing)
 	d.Set("status", resp.WorkerGroup.Status)
 	d.Set("created_at", resp.WorkerGroup.CreatedAt)
 
@@ -192,12 +217,20 @@ func resourceWorkerGroupUpdate(ctx context.Context, d *schema.ResourceData, meta
 	cfg := meta.(*config.Config)
 	clusterID := d.Get("cluster_id").(string)
 
-	if d.HasChanges("num_workers", "auto_scaling", "min_workers", "max_workers") {
+	if d.HasChanges("num_workers", "auto_scaling", "min_workers", "max_workers", "labels", "auto_healing") {
 		updateOpts := dto.UpdateWorkerGroupRequest{
 			NumWorkers:  d.Get("num_workers").(int),
 			AutoScaling: d.Get("auto_scaling").(bool),
 			MinWorkers:  d.Get("min_workers").(int),
 			MaxWorkers:  d.Get("max_workers").(int),
+			AutoHealing: d.Get("auto_healing").(bool),
+		}
+		if v, ok := d.GetOk("labels"); ok {
+			labels := make(map[string]string)
+			for k, val := range v.(map[string]interface{}) {
+				labels[k] = val.(string)
+			}
+			updateOpts.Labels = labels
 		}
 
 		tflog.Debug(ctx, "vnpaycloud_kubernetes_worker_group update options", map[string]interface{}{"update_opts": updateOpts})
@@ -208,7 +241,7 @@ func resourceWorkerGroupUpdate(ctx context.Context, d *schema.ResourceData, meta
 		}
 
 		stateConf := &retry.StateChangeConf{
-			Pending:    []string{"updating", "resizing", "unknown"},
+			Pending:    []string{"updating", "resizing", "scaling", "creating", "pending_update", "unknown"},
 			Target:     []string{"active"},
 			Refresh:    workerGroupStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, clusterID, d.Id()),
 			Timeout:    d.Timeout(schema.TimeoutUpdate),

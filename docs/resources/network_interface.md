@@ -35,8 +35,6 @@ resource "vnpaycloud_network_interface" "example" {
 
 ~> **Note:** When `ip_address` is set explicitly, the host portion of the address must be in the range `[16, 250]` (the first 15 and the last few host addresses of each subnet are reserved). For example, in a `/24` subnet, `.16`–`.250` are assignable; `.1`–`.15`, `.251`–`.255` are rejected. Leave `ip_address` unset to let the platform auto-assign a valid address.
 
-~> **Note:** `description` may contain only letters, digits, spaces, hyphens (`-`), underscores (`_`), and periods (`.`). Other punctuation, such as `:`, is rejected by the backend.
-
 ~> **Note:** A reserved interface (`reserved = true`) cannot be deleted by the backend. Before running `terraform destroy` (or otherwise removing the resource), set `reserved = false` and `terraform apply` first; attempting to delete a reserved interface fails with `This is a reserved port. You cannot delete.`
 
 ~> **Note:** On create, when `port_security_enabled` is left enabled (its default) and `security_groups` is omitted, the interface is automatically assigned — and keeps — the project's **default security group** and the **system security group**; Terraform does not manage the list in this case. Do not set `security_groups = []`; an explicit empty set is not supported and is rejected at plan time. If `security_groups` is set, `port_security_enabled` must be enabled and the system security group must remain in the list. Setting `port_security_enabled = false` clears the security groups, so it cannot be combined with `security_groups`.
@@ -122,7 +120,7 @@ resource "vnpaycloud_network_interface" "with_sg" {
 ### Optional
 
 - `ip_address` (String, ForceNew, Computed) The IP address to assign to the network interface. If set, the backend validates that it is a valid IP within the subnet CIDR with host ID in range `[16, 250]` (see note above). If not specified, an IP address is automatically assigned from the subnet. Changing this creates a new network interface.
-- `description` (String) A description of the network interface. It may contain only letters, digits, spaces, hyphens (`-`), underscores (`_`), and periods (`.`). Can be updated in place.
+- `description` (String) A description of the network interface. Can be updated in place.
 - `reserved` (Boolean, Computed) Whether the interface (its IP) is reserved. Can be set at create and updated in place. A reserved interface cannot be deleted — set `reserved = false` and apply before destroying it (see note above).
 - `virtual_ip` (Boolean, Computed) Whether the interface is marked as a virtual IP (VIP). Can be set at create and updated in place.
 - `allowed_address_pairs` (Block List, Computed) Additional IP address (or CIDR) / MAC pairs allowed to pass through this interface — used for VIP/HA setups. Can be set at create and updated in place. Each block supports:

@@ -16,14 +16,16 @@ func DataSourceFlavor() *schema.Resource {
 		ReadContext: dataSourceFlavorRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "name"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "name"},
 			},
 			"vcpus": {
 				Type:     schema.TypeInt,
@@ -67,16 +69,24 @@ func dataSourceFlavorRead(ctx context.Context, d *schema.ResourceData, meta inte
 		return diag.Errorf("Error listing vnpaycloud_flavor: %s", err)
 	}
 
-	nameFilter, nameOk := d.GetOk("name")
+	nameFilter := d.Get("name").(string)
+	var matched []dto.Flavor
 
 	for _, f := range listResp.Flavors {
-		if nameOk && f.Name != nameFilter.(string) {
+		if f.Name != nameFilter {
 			continue
 		}
-		return setFlavorData(d, &f)
+		matched = append(matched, f)
 	}
 
-	return diag.Errorf("No vnpaycloud_flavor found matching the criteria")
+	if len(matched) == 0 {
+		return diag.Errorf("No vnpaycloud_flavor found matching the criteria")
+	}
+	if len(matched) > 1 {
+		return diag.Errorf("Your vnpaycloud_flavor query returned multiple results")
+	}
+
+	return setFlavorData(d, &matched[0])
 }
 
 func setFlavorData(d *schema.ResourceData, f *dto.Flavor) diag.Diagnostics {

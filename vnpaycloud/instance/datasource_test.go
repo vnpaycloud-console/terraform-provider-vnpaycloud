@@ -132,7 +132,7 @@ func TestDataSourceInstancesRead(t *testing.T) {
 		FlavorName:    "v1.medium",
 		Status:        "active",
 		PowerState:    "running",
-		KeyPairID:     "kp-002",
+		KeyPairName:   "kp-002",
 		ServerGroupID: "",
 		ZoneID:        testhelpers.TestZoneID,
 		CreatedAt:     "2025-01-16T12:00:00Z",

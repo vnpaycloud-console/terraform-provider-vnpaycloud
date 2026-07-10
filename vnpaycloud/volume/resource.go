@@ -44,7 +44,6 @@ func ResourceVolume() *schema.Resource {
 			"volume_type": {
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"zone": {
 				Type:     schema.TypeString,
@@ -172,10 +171,11 @@ func resourceVolumeRead(ctx context.Context, d *schema.ResourceData, meta interf
 func resourceVolumeUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
-	if d.HasChanges("name", "description") {
+	if d.HasChanges("name", "description", "volume_type") {
 		updateOpts := dto.UpdateVolumeRequest{
 			Name:        d.Get("name").(string),
 			Description: d.Get("description").(string),
+			VolumeType:  d.Get("volume_type").(string),
 		}
 
 		tflog.Debug(ctx, "vnpaycloud_volume update options", map[string]interface{}{"update_opts": updateOpts})

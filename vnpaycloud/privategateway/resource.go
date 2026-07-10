@@ -44,10 +44,6 @@ func ResourcePrivateGateway() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"flavor_id": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
 			"status": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -79,7 +75,7 @@ func resourcePrivateGatewayCreate(ctx context.Context, d *schema.ResourceData, m
 	d.SetId(createResp.PrivateGateway.ID)
 
 	stateConf := &retry.StateChangeConf{
-		Pending:    []string{"initiating", "creating"},
+		Pending:    []string{"initiating", "creating", pgwTransientRefreshStatus},
 		Target:     []string{"active", "created"},
 		Refresh:    privateGatewayStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, createResp.PrivateGateway.ID),
 		Timeout:    d.Timeout(schema.TimeoutCreate),
@@ -110,7 +106,6 @@ func resourcePrivateGatewayRead(ctx context.Context, d *schema.ResourceData, met
 	d.Set("description", pgwResp.PrivateGateway.Description)
 	d.Set("load_balancer_id", pgwResp.PrivateGateway.LoadBalancerID)
 	d.Set("subnet_id", pgwResp.PrivateGateway.SubnetID)
-	d.Set("flavor_id", pgwResp.PrivateGateway.FlavorID)
 	d.Set("status", pgwResp.PrivateGateway.Status)
 	d.Set("created_at", pgwResp.PrivateGateway.CreatedAt)
 
@@ -156,7 +151,7 @@ func resourcePrivateGatewayDelete(ctx context.Context, d *schema.ResourceData, m
 	}
 
 	stateConf := &retry.StateChangeConf{
-		Pending:    []string{"deleting", "active", "created"},
+		Pending:    []string{"deleting", "active", "created", pgwTransientRefreshStatus},
 		Target:     []string{"deleted"},
 		Refresh:    privateGatewayStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, d.Id()),
 		Timeout:    d.Timeout(schema.TimeoutDelete),

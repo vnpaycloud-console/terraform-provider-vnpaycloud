@@ -44,12 +44,12 @@ output "private_key_pem" {
 ### Optional
 
 - `public_key` (String, ForceNew, Computed) The OpenSSH-formatted public key to import. If omitted, VNPayCloud will generate a new key pair and the private key will be returned in `private_key`. Changing this creates a new key pair.
+- `passphrase` (String, ForceNew, Sensitive) Passphrase used to encrypt the generated private key. Only applies when `public_key` is omitted (key auto-generation). Changing this creates a new key pair.
 
 ### Read-Only
 
 - `id` (String) The ID of the key pair.
 - `private_key` (String, Sensitive) The private key in PEM format. Only populated when VNPayCloud generates the key pair (i.e., `public_key` was not provided). This value is only available at creation time.
-- `fingerprint` (String) The MD5 fingerprint of the public key.
 - `created_at` (String) The creation timestamp of the key pair in ISO 8601 format.
 
 ## Timeouts

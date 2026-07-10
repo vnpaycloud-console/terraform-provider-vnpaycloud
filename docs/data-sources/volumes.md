@@ -39,7 +39,7 @@ output "total_storage_gb" {
   - `name` (String) The name of the volume.
   - `description` (String) A human-readable description of the volume.
   - `size` (Number) The size of the volume in GB.
-  - `volume_type` (String) The type of the volume (e.g., `SSD`, `HDD`).
+  - `volume_type` (String) The type of the volume (e.g., `c1-standard`).
   - `zone` (String) The availability zone where the volume resides.
   - `status` (String) The current status of the volume (e.g., `available`, `in-use`, `error`).
   - `iops` (Number) The IOPS provisioned for this volume, if applicable.

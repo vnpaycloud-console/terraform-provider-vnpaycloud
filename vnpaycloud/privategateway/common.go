@@ -11,7 +11,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 )
 
+const pgwTransientRefreshStatus = "transient_refresh"
+const maxTransientPgwErrors = 20
+
 func privateGatewayStateRefreshFunc(ctx context.Context, c *client.Client, projectID, pgwID string) retry.StateRefreshFunc {
+	transientErrors := 0
 	return func() (interface{}, string, error) {
 		pgwResp := &dto.PrivateGatewayResponse{}
 		_, err := c.Get(ctx, client.ApiPath.PrivateGatewayWithID(projectID, pgwID), pgwResp, nil)
@@ -20,8 +24,14 @@ func privateGatewayStateRefreshFunc(ctx context.Context, c *client.Client, proje
 			if util.ResponseCodeIs(err, http.StatusNotFound) {
 				return pgwResp.PrivateGateway, "deleted", nil
 			}
-			return nil, "", err
+			transientErrors++
+			if transientErrors > maxTransientPgwErrors {
+				return nil, "", err
+			}
+
+			return pgwResp.PrivateGateway, pgwTransientRefreshStatus, nil
 		}
+		transientErrors = 0
 
 		if pgwResp.PrivateGateway.Status == "failed" || pgwResp.PrivateGateway.Status == "error" {
 			return pgwResp.PrivateGateway, pgwResp.PrivateGateway.Status, fmt.Errorf("The private gateway is in error status. " +

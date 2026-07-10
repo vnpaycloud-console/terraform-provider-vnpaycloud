@@ -48,7 +48,7 @@ output "peering_cidr_map" {
   - `src_vpc_id` (String) The ID of the source VPC in the peering connection.
   - `dest_vpc_id` (String) The ID of the destination VPC in the peering connection.
   - `status` (String) The provisioning status of the peering connection (e.g., `ACTIVE`, `PENDING`, `ERROR`).
-  - `peering_status` (String) The negotiation status of the peering connection (e.g., `ACTIVE`, `PENDING_ACCEPTANCE`, `REJECTED`).
+  - `peering_status` (String) The negotiation status of the peering connection (e.g., `pending-acceptance`, `established`, `rejected`, `expired`, `deleted`).
   - `src_vpc_cidr` (String) The CIDR block of the source VPC.
   - `dest_vpc_cidr` (String) The CIDR block of the destination VPC.
   - `created_at` (String) The timestamp when the peering connection was created, in ISO 8601 format.

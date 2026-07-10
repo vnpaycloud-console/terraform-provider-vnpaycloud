@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get information about an existing block storage volume, including its size, type, encryption status, and current attachment.
 
+Specify exactly one of `id` or `name`. Volume names are not guaranteed to be unique; if multiple volumes match the same `name`, this data source returns an error. Prefer `id` when possible.
+
 ## Example Usage
 
 ```hcl
@@ -29,7 +31,7 @@ data "vnpaycloud_volume" "by_id" {
 
 ## Schema
 
-### Optional (filter)
+### Required (filter)
 
 - `id` (String) The ID of the volume.
 - `name` (String) The name of the volume.
@@ -38,7 +40,7 @@ data "vnpaycloud_volume" "by_id" {
 
 - `description` (String) A human-readable description of the volume.
 - `size` (Number) The size of the volume in gigabytes (GB).
-- `volume_type` (String) The type of the volume (e.g., `SSD`, `HDD`, `NVMe`).
+- `volume_type` (String) The type of the volume (e.g., `c1-standard`).
 - `zone` (String) The availability zone where the volume resides.
 - `status` (String) The current status of the volume (e.g., `available`, `in-use`, `error`, `creating`, `deleting`).
 - `iops` (Number) The provisioned IOPS for the volume, if applicable.

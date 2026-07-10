@@ -16,14 +16,16 @@ func DataSourceVolume() *schema.Resource {
 		ReadContext: dataSourceVolumeRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "name"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "name"},
 			},
 			"description": {
 				Type:     schema.TypeString,
@@ -95,16 +97,24 @@ func dataSourceVolumeRead(ctx context.Context, d *schema.ResourceData, meta inte
 		return diag.Errorf("Error listing vnpaycloud_volume: %s", err)
 	}
 
-	nameFilter, nameOk := d.GetOk("name")
+	nameFilter := d.Get("name").(string)
+	var matched []dto.Volume
 
 	for _, vol := range listResp.Volumes {
-		if nameOk && vol.Name != nameFilter.(string) {
+		if vol.Name != nameFilter {
 			continue
 		}
-		return setVolumeData(d, &vol)
+		matched = append(matched, vol)
 	}
 
-	return diag.Errorf("No vnpaycloud_volume found matching the criteria")
+	if len(matched) == 0 {
+		return diag.Errorf("No vnpaycloud_volume found matching the criteria")
+	}
+	if len(matched) > 1 {
+		return diag.Errorf("Your vnpaycloud_volume query returned multiple results")
+	}
+
+	return setVolumeData(d, &matched[0])
 }
 
 func setVolumeData(d *schema.ResourceData, vol *dto.Volume) diag.Diagnostics {

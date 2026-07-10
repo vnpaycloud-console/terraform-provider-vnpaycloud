@@ -16,14 +16,16 @@ func DataSourceInstance() *schema.Resource {
 		ReadContext: dataSourceInstanceRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "name"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "name"},
 			},
 			"image_name": {
 				Type:     schema.TypeString,
@@ -98,16 +100,24 @@ func dataSourceInstanceRead(ctx context.Context, d *schema.ResourceData, meta in
 		return diag.Errorf("Error listing vnpaycloud_instance: %s", err)
 	}
 
-	nameFilter, nameOk := d.GetOk("name")
+	nameFilter := d.Get("name").(string)
+	var matched []dto.Instance
 
 	for _, inst := range listResp.Instances {
-		if nameOk && inst.Name != nameFilter.(string) {
+		if inst.Name != nameFilter {
 			continue
 		}
-		return setInstanceData(d, &inst)
+		matched = append(matched, inst)
 	}
 
-	return diag.Errorf("No vnpaycloud_instance found matching the criteria")
+	if len(matched) == 0 {
+		return diag.Errorf("No vnpaycloud_instance found matching the criteria")
+	}
+	if len(matched) > 1 {
+		return diag.Errorf("Your vnpaycloud_instance query returned multiple results")
+	}
+
+	return setInstanceData(d, &matched[0])
 }
 
 func setInstanceData(d *schema.ResourceData, inst *dto.Instance) diag.Diagnostics {
@@ -120,7 +130,7 @@ func setInstanceData(d *schema.ResourceData, inst *dto.Instance) diag.Diagnostic
 	d.Set("status", inst.Status)
 	d.Set("power_state", inst.PowerState)
 	d.Set("network_interface_ids", inst.NetworkInterfaceIDs)
-	d.Set("key_pair", inst.KeyPairID)
+	d.Set("key_pair", inst.KeyPairName)
 	d.Set("security_groups", inst.SecurityGroupIDs)
 	d.Set("server_group_id", inst.ServerGroupID)
 	d.Set("zone_id", inst.ZoneID)
@@ -172,7 +182,7 @@ func dataSourceInstancesRead(ctx context.Context, d *schema.ResourceData, meta i
 			"flavor_name":     inst.FlavorName,
 			"status":          inst.Status,
 			"power_state":     inst.PowerState,
-			"key_pair":        inst.KeyPairID,
+			"key_pair":        inst.KeyPairName,
 			"server_group_id": inst.ServerGroupID,
 			"zone_id":         inst.ZoneID,
 			"created_at":      inst.CreatedAt,

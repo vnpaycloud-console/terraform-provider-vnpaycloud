@@ -7,7 +7,7 @@ description: |-
 
 # vnpaycloud_kubernetes_worker_groups (Data Source)
 
-Use this data source to list all worker groups belonging to a specific Kubernetes cluster.
+Use this data source to list all worker groups belonging to a specific Kubernetes cluster. The `cluster_id` must refer to an existing, accessible cluster.
 
 ## Example Usage
 
@@ -55,5 +55,10 @@ output "total_worker_count" {
   - `auto_scaling` (Boolean) Whether auto-scaling is enabled for this worker group.
   - `min_workers` (Number) The minimum number of workers when auto-scaling is enabled.
   - `max_workers` (Number) The maximum number of workers when auto-scaling is enabled.
-  - `status` (String) The current status of the worker group (e.g., `ACTIVE`, `SCALING`, `ERROR`).
+  - `volume_type` (String) The volume type for worker node root disks.
+  - `volume_size` (Number) The root disk size in gigabytes for worker nodes.
+  - `ssh_key_id` (String) The ID of the SSH key pair injected into the worker nodes.
+  - `labels` (Map of String) Kubernetes node labels applied to all nodes in this worker group.
+  - `auto_healing` (Boolean) Whether machine health checking (auto-healing) is enabled for this worker group.
+  - `status` (String) The current status of the worker group, lowercase (e.g., `active`, `creating`, `error`).
   - `created_at` (String) The timestamp when the worker group was created, in ISO 8601 format.

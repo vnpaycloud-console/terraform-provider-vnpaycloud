@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get information about an existing compute instance (virtual machine), including its configuration, attached volumes, and network interfaces.
 
+Specify exactly one of `id` or `name`. Instance names are not guaranteed to be unique; if multiple instances match the same `name`, this data source returns an error. Prefer `id` when possible.
+
 ## Example Usage
 
 ```hcl
@@ -29,7 +31,7 @@ data "vnpaycloud_instance" "by_id" {
 
 ## Schema
 
-### Optional (filter)
+### Required (filter)
 
 - `id` (String) The ID of the instance.
 - `name` (String) The name of the instance.
@@ -38,11 +40,9 @@ data "vnpaycloud_instance" "by_id" {
 
 - `image_name` (String) The name of the OS image used to boot the instance.
 - `image_id` (String) The ID of the OS image used to boot the instance.
-- `flavor_name` (String) The name of the compute flavor (e.g., `2c-4g`, `4c-8g`).
-- `root_disk_gb` (Number) The size of the root disk in gigabytes (GB).
-- `root_disk_type` (String) The storage type of the root disk (e.g., `SSD`, `HDD`).
+- `flavor_name` (String) The name of the compute flavor.
 - `volume_ids` (List of String) A list of additional block volume IDs currently attached to the instance.
-- `status` (String) The current status of the instance (e.g., `ACTIVE`, `SHUTOFF`, `ERROR`, `BUILD`).
+- `status` (String) The current status of the instance (e.g., `active`, `shutoff`, `error`, `build`).
 - `power_state` (String) The power state of the instance (e.g., `running`, `shutdown`, `paused`).
 - `network_interface_ids` (List of String) A list of network interface IDs attached to the instance.
 - `key_pair` (String) The name of the SSH key pair associated with the instance.

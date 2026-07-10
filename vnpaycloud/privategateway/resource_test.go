@@ -19,7 +19,6 @@ func testPrivateGateway() dto.PrivateGateway {
 		Description:    "a test private gateway",
 		LoadBalancerID: "lb-001",
 		SubnetID:       "subnet-001",
-		FlavorID:       "flavor-001",
 		Status:         "active",
 		CreatedAt:      "2025-01-15T10:00:00Z",
 		ProjectID:      testhelpers.TestProjectID,
@@ -70,9 +69,6 @@ func TestResourcePrivateGatewayCreate(t *testing.T) {
 	if v := d.Get("subnet_id").(string); v != "subnet-001" {
 		t.Errorf("expected subnet_id subnet-001, got %s", v)
 	}
-	if v := d.Get("flavor_id").(string); v != "flavor-001" {
-		t.Errorf("expected flavor_id flavor-001, got %s", v)
-	}
 	if v := d.Get("status").(string); v != "active" {
 		t.Errorf("expected status active, got %s", v)
 	}
@@ -116,9 +112,6 @@ func TestResourcePrivateGatewayRead(t *testing.T) {
 	}
 	if v := d.Get("subnet_id").(string); v != "subnet-001" {
 		t.Errorf("expected subnet_id subnet-001, got %s", v)
-	}
-	if v := d.Get("flavor_id").(string); v != "flavor-001" {
-		t.Errorf("expected flavor_id flavor-001, got %s", v)
 	}
 	if v := d.Get("status").(string); v != "active" {
 		t.Errorf("expected status active, got %s", v)

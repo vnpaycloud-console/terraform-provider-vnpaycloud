@@ -65,9 +65,32 @@ type K8sClusterResponse struct {
 	Cluster K8sCluster `json:"cluster"`
 }
 
+// UpgradeClusterVersionRequest is the body for an in-place control-plane version upgrade.
+// project_id and cluster id are passed via the URL path.
+type UpgradeClusterVersionRequest struct {
+	K8sVersion string `json:"k8sVersion"`
+}
+
+// ChangeClusterSizeRequest is the body for an in-place control-plane deployment-size change.
+// project_id and cluster id are passed via the URL path.
+type ChangeClusterSizeRequest struct {
+	ClusterSize string `json:"clusterSize"`
+}
+
 // ListK8sClustersResponse matches the backend ListK8sClustersResponse proto message.
 type ListK8sClustersResponse struct {
 	Clusters []K8sCluster `json:"clusters"`
+}
+
+// K8sVersion matches the backend K8sVersion proto message.
+type K8sVersion struct {
+	Version   string `json:"version"`
+	IsDefault bool   `json:"isDefault"`
+}
+
+// ListK8sVersionsResponse matches the backend ListK8sVersionsResponse proto message.
+type ListK8sVersionsResponse struct {
+	Versions []K8sVersion `json:"versions"`
 }
 
 // KubeconfigResponse matches the backend KubeconfigResponse proto message.
@@ -77,16 +100,21 @@ type KubeconfigResponse struct {
 
 // WorkerGroup matches the backend WorkerGroup proto message.
 type WorkerGroup struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	ClusterID   string `json:"clusterId"`
-	Flavor      string `json:"flavor"`
-	NumWorkers  int    `json:"numWorkers"`
-	MinWorkers  int    `json:"minWorkers"`
-	MaxWorkers  int    `json:"maxWorkers"`
-	AutoScaling bool   `json:"autoScaling"`
-	Status      string `json:"status"`
-	CreatedAt   string `json:"createdAt"`
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	ClusterID   string            `json:"clusterId"`
+	Flavor      string            `json:"flavor"`
+	NumWorkers  int               `json:"numWorkers"`
+	MinWorkers  int               `json:"minWorkers"`
+	MaxWorkers  int               `json:"maxWorkers"`
+	AutoScaling bool              `json:"autoScaling"`
+	VolumeType  string            `json:"volumeType"`
+	VolumeSize  int               `json:"volumeSize"`
+	SshKeyID    string            `json:"sshKeyId"`
+	Labels      map[string]string `json:"labels"`
+	AutoHealing bool              `json:"autoHealing"`
+	Status      string            `json:"status"`
+	CreatedAt   string            `json:"createdAt"`
 }
 
 // CreateWorkerGroupRequest matches the backend CreateWorkerGroupRequest proto message.
@@ -106,10 +134,12 @@ type CreateWorkerGroupRequest struct {
 
 // UpdateWorkerGroupRequest matches the backend UpdateWorkerGroupRequest proto message.
 type UpdateWorkerGroupRequest struct {
-	NumWorkers  int  `json:"numWorkers"`
-	AutoScaling bool `json:"autoScaling,omitempty"`
-	MinWorkers  int  `json:"minWorkers,omitempty"`
-	MaxWorkers  int  `json:"maxWorkers,omitempty"`
+	NumWorkers  int               `json:"numWorkers"`
+	AutoScaling bool              `json:"autoScaling"`
+	MinWorkers  int               `json:"minWorkers"`
+	MaxWorkers  int               `json:"maxWorkers"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	AutoHealing bool              `json:"autoHealing"`
 }
 
 // WorkerGroupResponse matches the backend WorkerGroupResponse proto message.

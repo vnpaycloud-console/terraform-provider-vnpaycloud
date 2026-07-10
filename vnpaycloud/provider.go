@@ -27,6 +27,7 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/internetgateway"
 	"terraform-provider-vnpaycloud/vnpaycloud/keypair"
 	"terraform-provider-vnpaycloud/vnpaycloud/kubernetescluster"
+	"terraform-provider-vnpaycloud/vnpaycloud/kubernetesrbac"
 	"terraform-provider-vnpaycloud/vnpaycloud/l7policy"
 	"terraform-provider-vnpaycloud/vnpaycloud/l7rule"
 	"terraform-provider-vnpaycloud/vnpaycloud/lbflavor"
@@ -50,6 +51,7 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/snapshot"
 	"terraform-provider-vnpaycloud/vnpaycloud/subnet"
 	"terraform-provider-vnpaycloud/vnpaycloud/subnetsnat"
+	"terraform-provider-vnpaycloud/vnpaycloud/user"
 	"terraform-provider-vnpaycloud/vnpaycloud/volume"
 	"terraform-provider-vnpaycloud/vnpaycloud/volumeattachment"
 	"terraform-provider-vnpaycloud/vnpaycloud/volumetype"
@@ -143,8 +145,14 @@ func Provider() *schema.Provider {
 			"vnpaycloud_kubernetes_cluster":                kubernetescluster.DataSourceKubernetesCluster(),
 			"vnpaycloud_kubernetes_clusters":               kubernetescluster.DataSourceKubernetesClusters(),
 			"vnpaycloud_kubernetes_kubeconfig":             kubernetescluster.DataSourceKubernetesKubeconfig(),
+			"vnpaycloud_kubernetes_versions":               kubernetescluster.DataSourceKubernetesVersions(),
 			"vnpaycloud_kubernetes_worker_group":           workergroup.DataSourceWorkerGroup(),
 			"vnpaycloud_kubernetes_worker_groups":          workergroup.DataSourceWorkerGroups(),
+			"vnpaycloud_kubernetes_roles":                  kubernetesrbac.DataSourceKubernetesRoles(),
+			"vnpaycloud_kubernetes_rbacs":                  kubernetesrbac.DataSourceKubernetesRbacs(),
+			"vnpaycloud_users":                             user.DataSourceUsers(),
+			"vnpaycloud_private_gateway":                   privategateway.DataSourcePrivateGateway(),
+			"vnpaycloud_private_gateways":                  privategateway.DataSourcePrivateGateways(),
 			"vnpaycloud_bucket":                            bucket.DataSourceBucket(),
 			"vnpaycloud_buckets":                           bucket.DataSourceBuckets(),
 			"vnpaycloud_database_postgres_instance":        databasepostgres.DataSourceDatabasePostgresInstance(),
@@ -198,6 +206,7 @@ func Provider() *schema.Provider {
 			"vnpaycloud_instance":                         instance.ResourceInstance(),
 			"vnpaycloud_keypair":                          keypair.ResourceKeyPair(),
 			"vnpaycloud_snapshot":                         snapshot.ResourceSnapshot(),
+			"vnpaycloud_certificate":                      certificate.ResourceCertificate(),
 			"vnpaycloud_internet_gateway":                 internetgateway.ResourceInternetGateway(),
 			"vnpaycloud_service_gateway":                  servicegateway.ResourceServiceGateway(),
 			"vnpaycloud_service_endpoint":                 serviceendpoint.ResourceServiceEndpoint(),
@@ -211,6 +220,7 @@ func Provider() *schema.Provider {
 			"vnpaycloud_registry_robot_account":           robotaccount.ResourceRobotAccount(),
 			"vnpaycloud_kubernetes_cluster":               kubernetescluster.ResourceKubernetesCluster(),
 			"vnpaycloud_kubernetes_worker_group":          workergroup.ResourceWorkerGroup(),
+			"vnpaycloud_kubernetes_rbac":                  kubernetesrbac.ResourceKubernetesRbac(),
 			"vnpaycloud_route_table":                      routetable.ResourceRouteTable(),
 			"vnpaycloud_network_acl":                      networkacl.ResourceNetworkACL(),
 			"vnpaycloud_network_acl_rule":                 networkaclrule.ResourceNetworkACLRule(),

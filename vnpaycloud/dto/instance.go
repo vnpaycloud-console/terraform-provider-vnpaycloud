@@ -11,10 +11,12 @@ type Instance struct {
 	Status              string   `json:"status"`
 	PowerState          string   `json:"powerState"`
 	NetworkInterfaceIDs []string `json:"networkInterfaceIds"`
-	KeyPairID           string   `json:"keyPairId"`
+	KeyPairName         string   `json:"keyPairName"`
 	SecurityGroupIDs    []string `json:"securityGroupIds"`
 	ServerGroupID       string   `json:"serverGroupId"`
 	CreatedAt           string   `json:"createdAt"`
+	RootDiskGB          int32    `json:"rootDiskGb"`
+	RootDiskVolumeType  string   `json:"rootDiskVolumeType"`
 	ProjectID           string   `json:"projectId"`
 	ZoneID              string   `json:"zoneId"`
 }
@@ -38,8 +40,7 @@ type CreateInstanceRequest struct {
 // UpdateInstanceRequest matches the backend UpdateInstanceRequest proto message.
 // project_id and id are passed via URL path.
 type UpdateInstanceRequest struct {
-	Name           string   `json:"name,omitempty"`
-	SecurityGroups []string `json:"securityGroups,omitempty"`
+	Name string `json:"name,omitempty"`
 }
 
 // ResizeInstanceRequest matches the backend ResizeInstanceRequest proto message.

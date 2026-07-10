@@ -15,16 +15,22 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
+func suppressForceNewOnImport(k, old, new string, d *schema.ResourceData) bool {
+	return d.Id() != "" && (old == "" || old == "0")
+}
+
 func ResourceKubernetesCluster() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceClusterCreate,
 		ReadContext:   resourceClusterRead,
+		UpdateContext: resourceClusterUpdate,
 		DeleteContext: resourceClusterDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(30 * time.Minute),
+			Update: schema.DefaultTimeout(30 * time.Minute),
 			Delete: schema.DefaultTimeout(15 * time.Minute),
 		},
 		Schema: map[string]*schema.Schema{
@@ -38,7 +44,6 @@ func ResourceKubernetesCluster() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
-				ForceNew: true,
 			},
 			"purpose": {
 				Type:     schema.TypeString,
@@ -82,42 +87,47 @@ func ResourceKubernetesCluster() *schema.Resource {
 				Type:         schema.TypeString,
 				Optional:     true,
 				Computed:     true,
-				ForceNew:     true,
 				ValidateFunc: validation.StringInSlice([]string{"small", "medium", "large", "extra_large"}, false),
 			},
 
 			// Initial Worker Group (required for cluster creation)
 			"default_worker_name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
+				Type:             schema.TypeString,
+				Required:         true,
+				ForceNew:         true,
+				DiffSuppressFunc: suppressForceNewOnImport,
 			},
 			"default_worker_flavor": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:             schema.TypeString,
+				Required:         true,
+				ForceNew:         true,
+				DiffSuppressFunc: suppressForceNewOnImport,
 			},
 			"default_worker_count": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				ForceNew:     true,
-				Default:      1,
-				ValidateFunc: validation.IntAtLeast(1),
+				Type:             schema.TypeInt,
+				Optional:         true,
+				ForceNew:         true,
+				Default:          1,
+				ValidateFunc:     validation.IntAtLeast(1),
+				DiffSuppressFunc: suppressForceNewOnImport,
 			},
 			"default_worker_volume_type": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
+				Type:             schema.TypeString,
+				Optional:         true,
+				ForceNew:         true,
+				DiffSuppressFunc: suppressForceNewOnImport,
 			},
 			"default_worker_volume_size": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				ForceNew: true,
+				Type:             schema.TypeInt,
+				Optional:         true,
+				ForceNew:         true,
+				DiffSuppressFunc: suppressForceNewOnImport,
 			},
 			"default_worker_ssh_key_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
+				Type:             schema.TypeString,
+				Optional:         true,
+				ForceNew:         true,
+				DiffSuppressFunc: suppressForceNewOnImport,
 			},
 
 			// Computed attributes
@@ -241,10 +251,12 @@ func resourceClusterRead(ctx context.Context, d *schema.ResourceData, meta inter
 	tflog.Debug(ctx, "Retrieved vnpaycloud_kubernetes_cluster "+d.Id(), map[string]interface{}{"cluster": resp.Cluster})
 
 	d.Set("name", resp.Cluster.Name)
-	// k8s_version: biz layer resolves name→ID; don't read back to avoid drift
+	d.Set("k8s_version", resp.Cluster.K8sVersion)
 	d.Set("purpose", resp.Cluster.Purpose)
 	d.Set("private_gw_id", resp.Cluster.PrivateGwID)
-	d.Set("subnet_id", resp.Cluster.SubnetID)
+	if resp.Cluster.SubnetID != "" {
+		d.Set("subnet_id", resp.Cluster.SubnetID)
+	}
 	d.Set("cni_plugin", resp.Cluster.CniPlugin)
 	d.Set("pod_cidr", resp.Cluster.PodCidr)
 	d.Set("service_cidr", resp.Cluster.ServiceCidr)
@@ -269,15 +281,69 @@ func resourceClusterRead(ctx context.Context, d *schema.ResourceData, meta inter
 	return nil
 }
 
+func resourceClusterUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	cfg := meta.(*config.Config)
+
+	if d.HasChange("k8s_version") {
+		upgradeOpts := dto.UpgradeClusterVersionRequest{
+			K8sVersion: d.Get("k8s_version").(string),
+		}
+		tflog.Debug(ctx, "vnpaycloud_kubernetes_cluster upgrade version", map[string]interface{}{"opts": upgradeOpts})
+
+		if _, err := cfg.Client.Post(ctx, client.ApiPath.ClusterUpgradeVersion(cfg.ProjectID, d.Id()), upgradeOpts, &dto.K8sClusterResponse{}, nil); err != nil {
+			return diag.Errorf("Error upgrading vnpaycloud_kubernetes_cluster %s version: %s", d.Id(), err)
+		}
+		if err := waitClusterActive(ctx, cfg, d); err != nil {
+			return diag.Errorf("Error waiting for vnpaycloud_kubernetes_cluster %s to finish upgrading: %s", d.Id(), err)
+		}
+	}
+
+	if d.HasChange("cluster_size") {
+		sizeOpts := dto.ChangeClusterSizeRequest{
+			ClusterSize: d.Get("cluster_size").(string),
+		}
+		tflog.Debug(ctx, "vnpaycloud_kubernetes_cluster change size", map[string]interface{}{"opts": sizeOpts})
+
+		if _, err := cfg.Client.Post(ctx, client.ApiPath.ClusterChangeSize(cfg.ProjectID, d.Id()), sizeOpts, &dto.K8sClusterResponse{}, nil); err != nil {
+			return diag.Errorf("Error changing vnpaycloud_kubernetes_cluster %s size: %s", d.Id(), err)
+		}
+		if err := waitClusterActive(ctx, cfg, d); err != nil {
+			return diag.Errorf("Error waiting for vnpaycloud_kubernetes_cluster %s to finish resizing: %s", d.Id(), err)
+		}
+	}
+
+	return resourceClusterRead(ctx, d, meta)
+}
+
+func waitClusterActive(ctx context.Context, cfg *config.Config, d *schema.ResourceData) error {
+	stateConf := &retry.StateChangeConf{
+		Pending:    []string{"updating", "creating", "initiating", "pending_update", "unknown"},
+		Target:     []string{"active"},
+		Refresh:    clusterStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, d.Id()),
+		Timeout:    d.Timeout(schema.TimeoutUpdate),
+		Delay:      15 * time.Second,
+		MinTimeout: 10 * time.Second,
+	}
+	_, err := stateConf.WaitForStateContext(ctx)
+	return err
+}
+
 func resourceClusterDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
-	if _, err := cfg.Client.Delete(ctx, client.ApiPath.ClusterWithID(cfg.ProjectID, d.Id()), nil); err != nil {
-		return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_kubernetes_cluster"))
+	resp := &dto.K8sClusterResponse{}
+	if _, err := cfg.Client.Get(ctx, client.ApiPath.ClusterWithID(cfg.ProjectID, d.Id()), resp, nil); err != nil {
+		return diag.FromErr(util.CheckDeleted(d, err, "Error retrieving vnpaycloud_kubernetes_cluster"))
+	}
+
+	if resp.Cluster.Status != "deleting" {
+		if _, err := cfg.Client.Delete(ctx, client.ApiPath.ClusterWithID(cfg.ProjectID, d.Id()), nil); err != nil {
+			return diag.FromErr(util.CheckDeleted(d, err, "Error deleting vnpaycloud_kubernetes_cluster"))
+		}
 	}
 
 	stateConf := &retry.StateChangeConf{
-		Pending:    []string{"deleting", "active", "unknown"},
+		Pending:    []string{"deleting", "active", "error", "failed", "unknown"},
 		Target:     []string{"deleted"},
 		Refresh:    clusterStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, d.Id()),
 		Timeout:    d.Timeout(schema.TimeoutDelete),

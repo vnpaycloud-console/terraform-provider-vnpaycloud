@@ -38,6 +38,7 @@ type CreateVolumeRequest struct {
 type UpdateVolumeRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	VolumeType  string `json:"volumeType,omitempty"`
 }
 
 // ResizeVolumeRequest matches the backend ResizeVolumeRequest proto message.

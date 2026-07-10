@@ -35,6 +35,6 @@ output "high_cpu_flavors" {
   - `name` (String) The name of the flavor.
   - `vcpus` (Number) The number of virtual CPUs.
   - `ram_mb` (Number) The amount of RAM in megabytes (MB).
-  - `disk_gb` (Number) The root disk size in gigabytes (GB).
+  - `disk_gb` (Number) The disk size in gigabytes (GB) provided by the flavor itself. This is `0` for volume-backed flavors.
   - `is_public` (Boolean) Whether the flavor is publicly available.
   - `zone` (String) The availability zone where this flavor is available.

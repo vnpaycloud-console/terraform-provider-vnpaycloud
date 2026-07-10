@@ -15,11 +15,10 @@ import (
 func TestDataSourceKeyPairRead(t *testing.T) {
 	kpResp := dto.KeyPairResponse{
 		KeyPair: dto.KeyPair{
-			ID:          "kp-ds-1",
-			Name:        "my-keypair",
-			PublicKey:   "ssh-rsa AAAA...",
-			Fingerprint: "aa:bb:cc:dd",
-			CreatedAt:   "2025-01-15T10:00:00Z",
+			ID:        "kp-ds-1",
+			Name:      "my-keypair",
+			PublicKey: "ssh-rsa AAAA...",
+			CreatedAt: "2025-01-15T10:00:00Z",
 		},
 	}
 
@@ -52,9 +51,6 @@ func TestDataSourceKeyPairRead(t *testing.T) {
 	if got := d.Get("public_key").(string); got != "ssh-rsa AAAA..." {
 		t.Errorf("expected public_key 'ssh-rsa AAAA...', got '%s'", got)
 	}
-	if got := d.Get("fingerprint").(string); got != "aa:bb:cc:dd" {
-		t.Errorf("expected fingerprint 'aa:bb:cc:dd', got '%s'", got)
-	}
 	if got := d.Get("created_at").(string); got != "2025-01-15T10:00:00Z" {
 		t.Errorf("expected created_at '2025-01-15T10:00:00Z', got '%s'", got)
 	}
@@ -64,18 +60,16 @@ func TestDataSourceKeyPairsRead(t *testing.T) {
 	listResp := dto.ListKeyPairsResponse{
 		KeyPairs: []dto.KeyPair{
 			{
-				ID:          "kp-1",
-				Name:        "keypair-one",
-				PublicKey:   "ssh-rsa AAA1...",
-				Fingerprint: "11:22:33:44",
-				CreatedAt:   "2025-01-10T08:00:00Z",
+				ID:        "kp-1",
+				Name:      "keypair-one",
+				PublicKey: "ssh-rsa AAA1...",
+				CreatedAt: "2025-01-10T08:00:00Z",
 			},
 			{
-				ID:          "kp-2",
-				Name:        "keypair-two",
-				PublicKey:   "ssh-rsa AAA2...",
-				Fingerprint: "55:66:77:88",
-				CreatedAt:   "2025-01-12T09:00:00Z",
+				ID:        "kp-2",
+				Name:      "keypair-two",
+				PublicKey: "ssh-rsa AAA2...",
+				CreatedAt: "2025-01-12T09:00:00Z",
 			},
 		},
 	}
@@ -110,9 +104,6 @@ func TestDataSourceKeyPairsRead(t *testing.T) {
 	first := keyPairs[0].(map[string]interface{})
 	if first["name"] != "keypair-one" {
 		t.Errorf("expected first key_pair name 'keypair-one', got '%s'", first["name"])
-	}
-	if first["fingerprint"] != "11:22:33:44" {
-		t.Errorf("expected first key_pair fingerprint '11:22:33:44', got '%s'", first["fingerprint"])
 	}
 
 	second := keyPairs[1].(map[string]interface{})

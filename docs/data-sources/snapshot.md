@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get information about an existing volume snapshot, including the source volume and its current status. Snapshots can be used to restore volumes or create new volumes from a known state.
 
+Specify exactly one of `id` or `name`. Snapshot names are not guaranteed to be unique; if multiple snapshots match the same `name`, this data source returns an error. Prefer `id` when possible.
+
 ## Example Usage
 
 ```hcl
@@ -29,7 +31,7 @@ data "vnpaycloud_snapshot" "by_id" {
 
 ## Schema
 
-### Optional (filter)
+### Required (filter)
 
 - `id` (String) The ID of the snapshot.
 - `name` (String) The name of the snapshot.

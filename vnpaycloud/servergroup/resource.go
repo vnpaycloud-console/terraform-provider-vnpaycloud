@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceServerGroup() *schema.Resource {
@@ -36,6 +37,9 @@ func ResourceServerGroup() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
+				ValidateFunc: validation.StringInSlice([]string{
+					"affinity", "anti-affinity", "soft-affinity", "soft-anti-affinity",
+				}, false),
 			},
 			"member_ids": {
 				Type:     schema.TypeList,
