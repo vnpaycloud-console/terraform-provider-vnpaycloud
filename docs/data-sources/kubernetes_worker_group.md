@@ -36,14 +36,15 @@ output "auto_scaling_enabled" {
 ### Read-Only
 
 - `name` (String) The name of the worker group.
-- `flavor` (String) The compute flavor used for the worker nodes (e.g., `4c-8g`, `8c-16g`).
+- `flavor` (String) The compute flavor used for the worker nodes, e.g. `a-pro-small.2x2`.
 - `num_workers` (Number) The current number of worker nodes in the group.
 - `auto_scaling` (Boolean) Whether horizontal auto-scaling is enabled for this worker group.
 - `min_workers` (Number) The minimum number of worker nodes when auto-scaling is enabled.
 - `max_workers` (Number) The maximum number of worker nodes when auto-scaling is enabled.
-- `volume_type` (String) The storage type for the worker node's data disk (e.g., `SSD`, `HDD`).
-- `volume_size` (Number) The size of the worker node's data disk in gigabytes (GB).
-- `ssh_key_id` (String) The ID of the SSH key pair used to access the worker nodes.
-- `labels` (Map of String) A map of Kubernetes labels applied to all nodes in this worker group.
-- `status` (String) The current status of the worker group (e.g., `ACTIVE`, `CREATING`, `SCALING`, `ERROR`).
+- `volume_type` (String) The volume type for the worker node root disks, e.g. `c1-standard`.
+- `volume_size` (Number) The root disk size in gigabytes for the worker nodes.
+- `ssh_key_id` (String) The ID of the SSH key pair injected into the worker nodes.
+- `labels` (Map of String) Kubernetes node labels applied to all nodes in this worker group.
+- `auto_healing` (Boolean) Whether machine health checking (auto-healing) is enabled for this worker group.
+- `status` (String) The current status of the worker group, lowercase (e.g., `active`, `creating`, `error`).
 - `created_at` (String) The timestamp when the worker group was created, in ISO 8601 format.

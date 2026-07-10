@@ -84,6 +84,13 @@ func TestDataSourceWorkerGroupsRead(t *testing.T) {
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
 		{
 			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/clusters/cluster-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.K8sClusterResponse{
+				Cluster: dto.K8sCluster{ID: "cluster-001", Name: "test-cluster"},
+			}),
+		},
+		{
+			Method:  "GET",
 			Pattern: "/v2/iac/projects/test-project-id/clusters/cluster-001/worker-groups",
 			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.ListWorkerGroupsResponse{
 				WorkerGroups: []dto.WorkerGroup{wg1, wg2},

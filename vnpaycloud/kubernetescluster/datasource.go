@@ -16,14 +16,16 @@ func DataSourceKubernetesCluster() *schema.Resource {
 		ReadContext: dataSourceClusterRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "name"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "name"},
 			},
 			"k8s_version": {
 				Type:     schema.TypeString,
@@ -99,16 +101,23 @@ func dataSourceClusterRead(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.Errorf("Error listing vnpaycloud_kubernetes_cluster: %s", err)
 	}
 
-	nameFilter, nameOk := d.GetOk("name")
-
+	nameFilter := d.Get("name").(string)
+	var matched []dto.K8sCluster
 	for _, cluster := range listResp.Clusters {
-		if nameOk && cluster.Name != nameFilter.(string) {
+		if cluster.Name != nameFilter {
 			continue
 		}
-		return setClusterData(d, &cluster)
+		matched = append(matched, cluster)
 	}
 
-	return diag.Errorf("No vnpaycloud_kubernetes_cluster found matching the criteria")
+	if len(matched) < 1 {
+		return diag.Errorf("No vnpaycloud_kubernetes_cluster found matching the criteria")
+	}
+	if len(matched) > 1 {
+		return diag.Errorf("Your vnpaycloud_kubernetes_cluster query returned multiple results")
+	}
+
+	return setClusterData(d, &matched[0])
 }
 
 func setClusterData(d *schema.ResourceData, c *dto.K8sCluster) diag.Diagnostics {

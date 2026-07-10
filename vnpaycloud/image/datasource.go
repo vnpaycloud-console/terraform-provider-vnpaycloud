@@ -16,14 +16,16 @@ func DataSourceImage() *schema.Resource {
 		ReadContext: dataSourceImageRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "name"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "name"},
 			},
 			"os_type": {
 				Type:     schema.TypeString,
@@ -67,16 +69,24 @@ func dataSourceImageRead(ctx context.Context, d *schema.ResourceData, meta inter
 		return diag.Errorf("Error listing vnpaycloud_image: %s", err)
 	}
 
-	nameFilter, nameOk := d.GetOk("name")
+	nameFilter := d.Get("name").(string)
+	var matched []dto.Image
 
 	for _, img := range listResp.Images {
-		if nameOk && img.Name != nameFilter.(string) {
+		if img.Name != nameFilter {
 			continue
 		}
-		return setImageData(d, &img)
+		matched = append(matched, img)
 	}
 
-	return diag.Errorf("No vnpaycloud_image found matching the criteria")
+	if len(matched) == 0 {
+		return diag.Errorf("No vnpaycloud_image found matching the criteria")
+	}
+	if len(matched) > 1 {
+		return diag.Errorf("Your vnpaycloud_image query returned multiple results")
+	}
+
+	return setImageData(d, &matched[0])
 }
 
 func setImageData(d *schema.ResourceData, img *dto.Image) diag.Diagnostics {

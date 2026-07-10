@@ -9,7 +9,7 @@ description: |-
 
 Manages a point-in-time snapshot of a block storage volume within VNPayCloud. Snapshots can be used to back up volume data and to create new volumes with pre-populated content.
 
-~> **Note:** All attributes are ForceNew. Any change to the snapshot configuration will destroy the existing snapshot and create a new one.
+~> **Note:** All configurable attributes are ForceNew. Any change to the snapshot configuration will destroy the existing snapshot and create a new one.
 
 ## Example Usage
 
@@ -17,13 +17,12 @@ Manages a point-in-time snapshot of a block storage volume within VNPayCloud. Sn
 resource "vnpaycloud_volume" "data" {
   name        = "app-data-volume"
   size        = 100
-  volume_type = "SSD"
+  volume_type = "c1-standard"
 }
 
 resource "vnpaycloud_snapshot" "daily_backup" {
-  name        = "app-data-snapshot-2024-01-15"
-  volume_id   = vnpaycloud_volume.data.id
-  description = "Daily backup snapshot of app data volume"
+  name      = "app-data-snapshot-2024-01-15"
+  volume_id = vnpaycloud_volume.data.id
 }
 ```
 
@@ -33,7 +32,7 @@ resource "vnpaycloud_snapshot" "daily_backup" {
 resource "vnpaycloud_volume" "restored" {
   name        = "app-data-restored"
   size        = 100
-  volume_type = "SSD"
+  volume_type = "c1-standard"
   snapshot_id = vnpaycloud_snapshot.daily_backup.id
 }
 ```
@@ -45,13 +44,10 @@ resource "vnpaycloud_volume" "restored" {
 - `name` (String, ForceNew) The name of the snapshot. Changing this creates a new snapshot.
 - `volume_id` (String, ForceNew) The ID of the volume to create a snapshot of. Changing this creates a new snapshot.
 
-### Optional
-
-- `description` (String, ForceNew) A human-readable description of the snapshot. Changing this creates a new snapshot.
-
 ### Read-Only
 
 - `id` (String) The ID of the snapshot.
+- `description` (String) A human-readable description of the snapshot, set by the backend.
 - `size` (Number) The size of the snapshot in gigabytes, inherited from the source volume.
 - `status` (String) The current status of the snapshot (e.g., `available`, `creating`, `error`).
 - `created_at` (String) The creation timestamp of the snapshot in ISO 8601 format.

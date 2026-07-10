@@ -166,7 +166,7 @@ resource "vnpaycloud_lb_listener" "ok_tls" {
 - `timeout_member_connect` (Number, Computed) Backend member connection timeout (ms). Stored as `0` if omitted at create — set an explicit value.
 - `timeout_member_data` (Number, Computed) Backend member inactivity timeout (ms). Stored as `0` if omitted at create — set an explicit value.
 - `certificate_id` (String) Server certificate ID. **Required when `protocol = HTTPS`** (enforced server-side, not at plan time). Server validates the certificate exists and is type `CT_SIGNED` or `CT_SELF_SIGNED`. Forbidden for other protocols.
-- `certificate_authority_id` (String) Client CA certificate ID for mutual TLS. Only valid for `HTTPS`. Server validates type is `CT_CA` or `CT_INTERMEDIATE_CA`.
+- `certificate_authority_id` (String) Client CA certificate ID for mutual TLS. Only valid for `HTTPS`. Server validates type is `CT_CA`.
 - `sni_certificate_ids` (List of String) SNI certificate IDs. Only valid for `HTTPS`. Server validates each exists and is a valid server certificate type.
 
 ### Read-Only

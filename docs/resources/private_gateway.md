@@ -22,18 +22,17 @@ resource "vnpaycloud_private_gateway" "example" {
 
 ### Required
 
-- `name` (String) The name of the private gateway.
+- `name` (String) The name of the private gateway. Must be 1–255 characters and may contain letters, digits, hyphens, underscores, dots, and spaces (`^[a-zA-Z0-9-_. ]*$`). Must be unique within the project. Can be updated in-place.
 
 ### Optional
 
-- `description` (String) A description of the private gateway.
+- `description` (String) A description of the private gateway. Can be updated in-place.
 
 ### Read-Only
 
 - `id` (String) The ID of the private gateway.
 - `load_balancer_id` (String) The ID of the internal load balancer provisioned for the private gateway.
 - `subnet_id` (String) The ID of the subnet the private gateway is deployed into.
-- `flavor_id` (String) The ID of the compute flavor used for the private gateway.
 - `status` (String) The current status of the private gateway.
 - `created_at` (String) The creation timestamp of the private gateway.
 

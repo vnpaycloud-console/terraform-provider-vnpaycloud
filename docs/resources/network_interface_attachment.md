@@ -45,13 +45,6 @@ resource "vnpaycloud_instance" "app" {
   root_disk_gb          = 20
   root_disk_type        = "c1-standard"
   network_interface_ids = [vnpaycloud_network_interface.primary.id]
-
-  # Interfaces added via vnpaycloud_network_interface_attachment also appear in
-  # network_interface_ids; ignore them so the two resources don't fight — see
-  # the note below.
-  lifecycle {
-    ignore_changes = [network_interface_ids]
-  }
 }
 
 resource "vnpaycloud_network_interface" "extra" {
@@ -65,7 +58,7 @@ resource "vnpaycloud_network_interface_attachment" "example" {
 }
 ```
 
-~> **Note:** An interface attached with this resource also shows up in the instance's `network_interface_ids`. Manage a given interface with **either** `network_interface_ids` on `vnpaycloud_instance` **or** this resource — not both; if you use both, add `lifecycle { ignore_changes = [network_interface_ids] }` to the instance.
+~> **Note:** `network_interface_ids` on `vnpaycloud_instance` defines the interfaces attached at launch and is not refreshed afterward, so attaching additional interfaces with this resource does not cause drift on the instance. Use `network_interface_ids` for boot interfaces and this resource for interfaces attached later.
 
 ## Schema
 

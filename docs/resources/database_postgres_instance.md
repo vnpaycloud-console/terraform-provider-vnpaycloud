@@ -9,6 +9,8 @@ description: |-
 
 Manages a VNPayCloud DBaaS PostgreSQL instance. Provisioning is asynchronous — the provider waits until the instance becomes `active` (and fails fast if it reports `error`).
 
+~> **Check zone support first.** Before creating a database instance, call `GET /v2/iac/projects/{project_id}/database/pools?zone_id=<zone>` to confirm that the target zone has a supported database pool (an empty result means the zone is not yet supported).
+
 ~> **Day-2 operations map to discrete actions, not a single update.** Changing `replica` scales, `flavor_database_id` changes flavor, `volume_size` expands the disk, and `enable_tls`/`enable_read_only_endpoint` toggle those features — each is applied independently and waits for the instance to return to `active`.
 
 ## Example Usage

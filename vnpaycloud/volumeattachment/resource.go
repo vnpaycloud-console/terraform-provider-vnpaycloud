@@ -55,11 +55,18 @@ func ResourceVolumeAttachment() *schema.Resource {
 	}
 }
 
+func volumeMutexKey(volumeID string) string {
+	return "vnpaycloud_volume/" + volumeID
+}
+
 func resourceVolumeAttachmentCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	volumeID := d.Get("volume_id").(string)
 	serverID := d.Get("server_id").(string)
+
+	cfg.MutexKV.Lock(volumeMutexKey(volumeID))
+	defer cfg.MutexKV.Unlock(volumeMutexKey(volumeID))
 
 	attachOpts := dto.AttachVolumeRequest{
 		ServerID: serverID,
@@ -120,6 +127,9 @@ func resourceVolumeAttachmentDelete(ctx context.Context, d *schema.ResourceData,
 
 	volumeID := d.Get("volume_id").(string)
 	serverID := d.Get("server_id").(string)
+
+	cfg.MutexKV.Lock(volumeMutexKey(volumeID))
+	defer cfg.MutexKV.Unlock(volumeMutexKey(volumeID))
 
 	detachOpts := dto.DetachVolumeRequest{
 		ServerID: serverID,

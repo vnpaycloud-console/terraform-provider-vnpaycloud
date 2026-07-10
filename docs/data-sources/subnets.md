@@ -46,5 +46,7 @@ output "subnet_ids_in_vpc" {
   - `cidr` (String) The CIDR block of the subnet (e.g., `10.0.1.0/24`).
   - `gateway_ip` (String) The gateway IP address of the subnet.
   - `enable_dhcp` (Boolean) Whether DHCP is enabled on this subnet.
+  - `enable_snat` (Boolean) Whether source NAT is enabled for this subnet.
+  - `floating_ip_id` (String) The ID of the floating IP associated with this subnet's gateway, if any.
   - `status` (String) The current status of the subnet (e.g., `ACTIVE`, `BUILD`, `ERROR`).
   - `created_at` (String) The timestamp when the subnet was created, in ISO 8601 format.

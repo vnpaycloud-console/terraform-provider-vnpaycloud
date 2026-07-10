@@ -14,11 +14,11 @@ type Snapshot struct {
 }
 
 // CreateSnapshotRequest matches the backend CreateSnapshotRequest proto message.
-// project_id is passed via URL path, not in the body.
+// project_id is passed via URL path, not in the body. description is read-only
+// (set by the backend), so it is not part of the create request.
 type CreateSnapshotRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	VolumeID    string `json:"volumeId"`
+	Name     string `json:"name"`
+	VolumeID string `json:"volumeId"`
 }
 
 // SnapshotResponse matches the backend SnapshotResponse proto message.

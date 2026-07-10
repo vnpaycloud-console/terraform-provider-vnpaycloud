@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get information about an existing volume type, including its IOPS, encryption, and multi-attach capabilities.
 
+Specify exactly one of `id` or `name`.
+
 ## Example Usage
 
 ```hcl
@@ -29,7 +31,7 @@ data "vnpaycloud_volume_type" "by_id" {
 
 ## Schema
 
-### Optional (filter)
+### Required (filter)
 
 - `id` (String) The ID of the volume type.
 - `name` (String) The name of the volume type.

@@ -7,7 +7,6 @@ type PrivateGateway struct {
 	Description    string `json:"description"`
 	LoadBalancerID string `json:"loadBalancerId"`
 	SubnetID       string `json:"subnetId"`
-	FlavorID       string `json:"flavorId"`
 	Status         string `json:"status"`
 	CreatedAt      string `json:"createdAt"`
 	ProjectID      string `json:"projectId"`

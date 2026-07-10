@@ -23,10 +23,6 @@ func DataSourceKeyPair() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"fingerprint": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
 			"created_at": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -53,7 +49,6 @@ func setKeyPairData(d *schema.ResourceData, kp *dto.KeyPair) diag.Diagnostics {
 	d.SetId(kp.Name)
 	d.Set("name", kp.Name)
 	d.Set("public_key", kp.PublicKey)
-	d.Set("fingerprint", kp.Fingerprint)
 	d.Set("created_at", kp.CreatedAt)
 	return nil
 }
@@ -67,10 +62,9 @@ func DataSourceKeyPairs() *schema.Resource {
 				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"name":        {Type: schema.TypeString, Computed: true},
-						"public_key":  {Type: schema.TypeString, Computed: true},
-						"fingerprint": {Type: schema.TypeString, Computed: true},
-						"created_at":  {Type: schema.TypeString, Computed: true},
+						"name":       {Type: schema.TypeString, Computed: true},
+						"public_key": {Type: schema.TypeString, Computed: true},
+						"created_at": {Type: schema.TypeString, Computed: true},
 					},
 				},
 			},
@@ -90,10 +84,9 @@ func dataSourceKeyPairsRead(ctx context.Context, d *schema.ResourceData, meta in
 	var keyPairs []map[string]interface{}
 	for _, kp := range listResp.KeyPairs {
 		keyPairs = append(keyPairs, map[string]interface{}{
-			"name":        kp.Name,
-			"public_key":  kp.PublicKey,
-			"fingerprint": kp.Fingerprint,
-			"created_at":  kp.CreatedAt,
+			"name":       kp.Name,
+			"public_key": kp.PublicKey,
+			"created_at": kp.CreatedAt,
 		})
 	}
 

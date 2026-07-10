@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get information about an existing compute flavor, including its vCPU count, RAM, and disk size.
 
+Specify exactly one of `id` or `name`.
+
 ## Example Usage
 
 ```hcl
@@ -29,7 +31,7 @@ data "vnpaycloud_flavor" "by_id" {
 
 ## Schema
 
-### Optional (filter)
+### Required (filter)
 
 - `id` (String) The ID of the flavor.
 - `name` (String) The name of the flavor.
@@ -38,6 +40,6 @@ data "vnpaycloud_flavor" "by_id" {
 
 - `vcpus` (Number) The number of virtual CPUs.
 - `ram_mb` (Number) The amount of RAM in megabytes (MB).
-- `disk_gb` (Number) The root disk size in gigabytes (GB).
+- `disk_gb` (Number) The disk size in gigabytes (GB) provided by the flavor itself. This is `0` for volume-backed flavors; the instance root disk is then configured separately via the instance's `root_disk_gb`.
 - `is_public` (Boolean) Whether the flavor is publicly available.
 - `zone` (String) The availability zone where this flavor is available.

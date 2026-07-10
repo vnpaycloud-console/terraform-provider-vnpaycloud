@@ -34,8 +34,7 @@ func ResourceSnapshot() *schema.Resource {
 			},
 			"description": {
 				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
+				Computed: true,
 			},
 			"volume_id": {
 				Type:     schema.TypeString,
@@ -62,9 +61,8 @@ func resourceSnapshotCreate(ctx context.Context, d *schema.ResourceData, meta in
 	cfg := meta.(*config.Config)
 
 	createOpts := dto.CreateSnapshotRequest{
-		Name:        d.Get("name").(string),
-		Description: d.Get("description").(string),
-		VolumeID:    d.Get("volume_id").(string),
+		Name:     d.Get("name").(string),
+		VolumeID: d.Get("volume_id").(string),
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_snapshot create options", map[string]interface{}{"create_opts": createOpts})

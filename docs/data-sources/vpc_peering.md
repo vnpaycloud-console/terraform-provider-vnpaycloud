@@ -42,9 +42,8 @@ data "vnpaycloud_vpc_peering" "by_id" {
 
 - `src_vpc_id` (String) The ID of the source (requester) VPC in the peering connection.
 - `dest_vpc_id` (String) The ID of the destination (accepter) VPC in the peering connection.
-- `description` (String) A human-readable description of the peering connection.
 - `status` (String) The provisioning status of the peering connection (e.g., `ACTIVE`, `BUILD`, `ERROR`).
-- `peering_status` (String) The negotiation status of the peering connection (e.g., `pending-acceptance`, `active`, `rejected`, `expired`, `deleted`).
+- `peering_status` (String) The negotiation status of the peering connection (e.g., `pending-acceptance`, `established`, `rejected`, `expired`, `deleted`).
 - `src_vpc_cidr` (String) The CIDR block of the source VPC.
 - `dest_vpc_cidr` (String) The CIDR block of the destination VPC.
 - `created_at` (String) The timestamp when the VPC peering connection was created, in ISO 8601 format.

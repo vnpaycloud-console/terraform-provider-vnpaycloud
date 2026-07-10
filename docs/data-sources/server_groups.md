@@ -33,6 +33,6 @@ output "anti_affinity_groups" {
 - `server_groups` (List of Object) List of server groups. Each element contains:
   - `id` (String) The unique identifier of the server group.
   - `name` (String) The name of the server group.
-  - `policy` (String) The scheduling policy of the server group (e.g., `anti-affinity`, `affinity`).
+  - `policy` (String) The scheduling policy of the server group. Supported values are `affinity`, `anti-affinity`, `soft-affinity`, and `soft-anti-affinity`.
   - `member_ids` (List of String) The list of instance IDs that are members of this server group.
   - `created_at` (String) The creation timestamp of the server group.

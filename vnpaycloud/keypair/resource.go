@@ -18,7 +18,10 @@ func ResourceKeyPair() *schema.Resource {
 		ReadContext:   resourceKeyPairRead,
 		DeleteContext: resourceKeyPairDelete,
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: func(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+				d.Set("name", d.Id())
+				return []*schema.ResourceData{d}, nil
+			},
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(5 * time.Minute),
@@ -36,14 +39,16 @@ func ResourceKeyPair() *schema.Resource {
 				Computed: true,
 				ForceNew: true,
 			},
+			"passphrase": {
+				Type:      schema.TypeString,
+				Optional:  true,
+				ForceNew:  true,
+				Sensitive: true,
+			},
 			"private_key": {
 				Type:      schema.TypeString,
 				Computed:  true,
 				Sensitive: true,
-			},
-			"fingerprint": {
-				Type:     schema.TypeString,
-				Computed: true,
 			},
 			"created_at": {
 				Type:     schema.TypeString,
@@ -57,8 +62,9 @@ func resourceKeyPairCreate(ctx context.Context, d *schema.ResourceData, meta int
 	cfg := meta.(*config.Config)
 
 	createOpts := dto.CreateKeyPairRequest{
-		Name:      d.Get("name").(string),
-		PublicKey: d.Get("public_key").(string),
+		Name:       d.Get("name").(string),
+		PublicKey:  d.Get("public_key").(string),
+		Passphrase: d.Get("passphrase").(string),
 	}
 
 	tflog.Debug(ctx, "vnpaycloud_keypair create options", map[string]interface{}{"name": createOpts.Name})
@@ -72,13 +78,11 @@ func resourceKeyPairCreate(ctx context.Context, d *schema.ResourceData, meta int
 	d.SetId(createResp.KeyPair.ID)
 	d.Set("name", createResp.KeyPair.Name)
 
-	// Store private key if auto-generated (only available at creation time)
 	if createResp.PrivateKey != "" {
 		d.Set("private_key", createResp.PrivateKey)
 	}
 
 	d.Set("public_key", createResp.KeyPair.PublicKey)
-	d.Set("fingerprint", createResp.KeyPair.Fingerprint)
 	d.Set("created_at", createResp.KeyPair.CreatedAt)
 
 	return nil
@@ -103,9 +107,7 @@ func resourceKeyPairRead(ctx context.Context, d *schema.ResourceData, meta inter
 
 	d.Set("name", kpResp.KeyPair.Name)
 	d.Set("public_key", kpResp.KeyPair.PublicKey)
-	d.Set("fingerprint", kpResp.KeyPair.Fingerprint)
 	d.Set("created_at", kpResp.KeyPair.CreatedAt)
-	// Note: private_key is only available at creation time, not on subsequent reads
 
 	return nil
 }

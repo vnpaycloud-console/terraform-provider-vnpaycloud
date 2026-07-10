@@ -16,14 +16,16 @@ func DataSourceSnapshot() *schema.Resource {
 		ReadContext: dataSourceSnapshotRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "name"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "name"},
 			},
 			"description": {
 				Type:     schema.TypeString,
@@ -67,16 +69,24 @@ func dataSourceSnapshotRead(ctx context.Context, d *schema.ResourceData, meta in
 		return diag.Errorf("Error listing vnpaycloud_snapshot: %s", err)
 	}
 
-	nameFilter, nameOk := d.GetOk("name")
+	nameFilter := d.Get("name").(string)
+	var matched []dto.Snapshot
 
 	for _, snap := range listResp.Snapshots {
-		if nameOk && snap.Name != nameFilter.(string) {
+		if snap.Name != nameFilter {
 			continue
 		}
-		return setSnapshotData(d, &snap)
+		matched = append(matched, snap)
 	}
 
-	return diag.Errorf("No vnpaycloud_snapshot found matching the criteria")
+	if len(matched) == 0 {
+		return diag.Errorf("No vnpaycloud_snapshot found matching the criteria")
+	}
+	if len(matched) > 1 {
+		return diag.Errorf("Your vnpaycloud_snapshot query returned multiple results")
+	}
+
+	return setSnapshotData(d, &matched[0])
 }
 
 func setSnapshotData(d *schema.ResourceData, snap *dto.Snapshot) diag.Diagnostics {

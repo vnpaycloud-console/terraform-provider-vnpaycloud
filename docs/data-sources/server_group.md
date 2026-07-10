@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get information about an existing server group, including its scheduling policy and member instances.
 
+Specify exactly one of `id` or `name`. When filtering by `name`, the name must match exactly one server group. If multiple server groups have the same name, this data source returns an error; use `id` for an unambiguous lookup.
+
 ## Example Usage
 
 ```hcl
@@ -33,13 +35,13 @@ data "vnpaycloud_server_group" "by_id" {
 
 ## Schema
 
-### Optional (filter)
+### Required (filter)
 
 - `id` (String) The ID of the server group.
 - `name` (String) The name of the server group.
 
 ### Read-Only
 
-- `policy` (String) The scheduling policy of the server group (e.g., `anti-affinity`, `affinity`).
+- `policy` (String) The scheduling policy of the server group. Supported values are `affinity`, `anti-affinity`, `soft-affinity`, and `soft-anti-affinity`.
 - `member_ids` (List of String) The list of instance IDs that are members of this server group.
 - `created_at` (String) The creation timestamp of the server group.

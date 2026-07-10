@@ -38,17 +38,20 @@ data "vnpaycloud_kubernetes_cluster" "by_id" {
 - `id` (String) The ID of the Kubernetes cluster.
 - `name` (String) The name of the Kubernetes cluster.
 
+~> **Deterministic lookup:** Provide exactly one of `id` or `name`. Prefer `id` because cluster names are not guaranteed to be globally unique. If `name` matches multiple clusters, the lookup fails.
+
 ### Read-Only
 
-- `k8s_version` (String) The Kubernetes version running on the cluster (e.g., `v1.29.3`).
+- `k8s_version` (String) The Kubernetes version running on the cluster (e.g., `1.30.14`).
 - `purpose` (String) The intended purpose or environment of the cluster (e.g., `development`, `staging`, `production`).
+- `private_gw_id` (String) The ID of the private gateway associated with the cluster, if any (present only for private clusters).
 - `subnet_id` (String) The ID of the subnet in which the cluster's control plane and nodes are deployed.
-- `cni_plugin` (String) The Container Network Interface (CNI) plugin used by the cluster (e.g., `calico`, `cilium`, `flannel`).
+- `cni_plugin` (String) The Container Network Interface (CNI) plugin used by the cluster. One of `calico` or `cilium`.
 - `pod_cidr` (String) The CIDR block used for pod IP addresses within the cluster (e.g., `192.168.0.0/16`).
 - `service_cidr` (String) The CIDR block used for Kubernetes service IP addresses (e.g., `10.96.0.0/12`).
-- `cluster_size` (Number) The total number of worker nodes across all worker groups in the cluster.
+- `cluster_size` (String) The control plane size, such as `small`, `medium`, `large`, or `extra_large`.
 - `zone` (String) The availability zone where the cluster is deployed.
-- `api_endpoint` (String) The HTTPS endpoint URL for the Kubernetes API server.
+- `api_endpoint` (String) The IP/URL of the Kubernetes API server. Empty for private clusters.
 - `private_ip` (String) The private IP address of the cluster's API server, accessible within the VPC.
-- `status` (String) The current status of the cluster (e.g., `ACTIVE`, `CREATING`, `DELETING`, `ERROR`, `UPGRADING`).
+- `status` (String) The current status of the cluster, lowercase (e.g., `active`, `creating`, `deleting`, `error`, `failed`).
 - `created_at` (String) The timestamp when the cluster was created, in ISO 8601 format.

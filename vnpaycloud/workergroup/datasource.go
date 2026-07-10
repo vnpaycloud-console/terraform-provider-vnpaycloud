@@ -47,6 +47,27 @@ func DataSourceWorkerGroup() *schema.Resource {
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
+			"volume_type": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"volume_size": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"ssh_key_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"labels": {
+				Type:     schema.TypeMap,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"auto_healing": {
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
 			"status": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -79,6 +100,11 @@ func dataSourceWorkerGroupRead(ctx context.Context, d *schema.ResourceData, meta
 	d.Set("auto_scaling", resp.WorkerGroup.AutoScaling)
 	d.Set("min_workers", resp.WorkerGroup.MinWorkers)
 	d.Set("max_workers", resp.WorkerGroup.MaxWorkers)
+	d.Set("volume_type", resp.WorkerGroup.VolumeType)
+	d.Set("volume_size", resp.WorkerGroup.VolumeSize)
+	d.Set("ssh_key_id", resp.WorkerGroup.SshKeyID)
+	d.Set("labels", resp.WorkerGroup.Labels)
+	d.Set("auto_healing", resp.WorkerGroup.AutoHealing)
 	d.Set("status", resp.WorkerGroup.Status)
 	d.Set("created_at", resp.WorkerGroup.CreatedAt)
 
@@ -105,6 +131,11 @@ func DataSourceWorkerGroups() *schema.Resource {
 						"auto_scaling": {Type: schema.TypeBool, Computed: true},
 						"min_workers":  {Type: schema.TypeInt, Computed: true},
 						"max_workers":  {Type: schema.TypeInt, Computed: true},
+						"volume_type":  {Type: schema.TypeString, Computed: true},
+						"volume_size":  {Type: schema.TypeInt, Computed: true},
+						"ssh_key_id":   {Type: schema.TypeString, Computed: true},
+						"labels":       {Type: schema.TypeMap, Computed: true, Elem: &schema.Schema{Type: schema.TypeString}},
+						"auto_healing": {Type: schema.TypeBool, Computed: true},
 						"status":       {Type: schema.TypeString, Computed: true},
 						"created_at":   {Type: schema.TypeString, Computed: true},
 					},
@@ -117,6 +148,11 @@ func DataSourceWorkerGroups() *schema.Resource {
 func dataSourceWorkerGroupsRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 	clusterID := d.Get("cluster_id").(string)
+
+	clusterResp := &dto.K8sClusterResponse{}
+	if _, err := cfg.Client.Get(ctx, client.ApiPath.ClusterWithID(cfg.ProjectID, clusterID), clusterResp, nil); err != nil {
+		return diag.Errorf("Error retrieving vnpaycloud_kubernetes_cluster %s: %s", clusterID, err)
+	}
 
 	listResp := &dto.ListWorkerGroupsResponse{}
 	_, err := cfg.Client.Get(ctx, client.ApiPath.WorkerGroups(cfg.ProjectID, clusterID), listResp, nil)
@@ -134,6 +170,11 @@ func dataSourceWorkerGroupsRead(ctx context.Context, d *schema.ResourceData, met
 			"auto_scaling": wg.AutoScaling,
 			"min_workers":  wg.MinWorkers,
 			"max_workers":  wg.MaxWorkers,
+			"volume_type":  wg.VolumeType,
+			"volume_size":  wg.VolumeSize,
+			"ssh_key_id":   wg.SshKeyID,
+			"labels":       wg.Labels,
+			"auto_healing": wg.AutoHealing,
 			"status":       wg.Status,
 			"created_at":   wg.CreatedAt,
 		})

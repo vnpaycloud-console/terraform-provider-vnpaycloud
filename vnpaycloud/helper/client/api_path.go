@@ -112,7 +112,11 @@ var ApiPath = struct {
 	LBFlavors                func(projectID string) string
 
 	// Certificate (shared — not LB-specific)
-	Certificates func(projectID string) string
+	Certificates          func(projectID string) string
+	CertificateWithID     func(projectID, id string) string
+	CertificateSelfSigned func(projectID string) string
+	CertificateUpload     func(projectID string) string
+	CertificateUploadCA   func(projectID string) string
 
 	// Listener
 	Listeners      func(projectID string) string
@@ -146,13 +150,24 @@ var ApiPath = struct {
 	RegistryPermissions func(projectID string) string
 
 	// Kubernetes Cluster
-	Clusters          func(projectID string) string
-	ClusterWithID     func(projectID, id string) string
-	ClusterKubeconfig func(projectID, id string) string
+	Clusters              func(projectID string) string
+	ClusterWithID         func(projectID, id string) string
+	ClusterKubeconfig     func(projectID, id string) string
+	ClusterUpgradeVersion func(projectID, id string) string
+	ClusterChangeSize     func(projectID, id string) string
+	KubernetesVersions    func(projectID string) string
 
 	// Worker Group
 	WorkerGroups      func(projectID, clusterID string) string
 	WorkerGroupWithID func(projectID, clusterID, id string) string
+
+	// Kubernetes RBAC
+	KubernetesRoles      func(projectID, clusterID string) string
+	KubernetesRbacs      func(projectID, clusterID string) string
+	KubernetesRbacWithID func(projectID, clusterID, id string) string
+
+	// User
+	Users func(projectID string) string
 
 	// Route Table
 	RouteTables      func(projectID string) string
@@ -477,6 +492,18 @@ var ApiPath = struct {
 	Certificates: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/certificates", projectID)
 	},
+	CertificateWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/certificates/%s", projectID, id)
+	},
+	CertificateSelfSigned: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/certificates/self-signed", projectID)
+	},
+	CertificateUpload: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/certificates/upload", projectID)
+	},
+	CertificateUploadCA: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/certificates/upload-ca", projectID)
+	},
 	Listeners: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/listeners", projectID)
 	},
@@ -531,11 +558,32 @@ var ApiPath = struct {
 	ClusterKubeconfig: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/kubeconfig", projectID, id)
 	},
+	ClusterUpgradeVersion: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/upgrade-version", projectID, id)
+	},
+	ClusterChangeSize: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/change-size", projectID, id)
+	},
+	KubernetesVersions: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/kubernetes-versions", projectID)
+	},
 	WorkerGroups: func(projectID, clusterID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/worker-groups", projectID, clusterID)
 	},
 	WorkerGroupWithID: func(projectID, clusterID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/worker-groups/%s", projectID, clusterID, id)
+	},
+	KubernetesRoles: func(projectID, clusterID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/kubernetes-roles", projectID, clusterID)
+	},
+	KubernetesRbacs: func(projectID, clusterID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/rbac", projectID, clusterID)
+	},
+	KubernetesRbacWithID: func(projectID, clusterID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/rbac/%s", projectID, clusterID, id)
+	},
+	Users: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/users", projectID)
 	},
 	RouteTables: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/route-tables", projectID)

@@ -9,6 +9,8 @@ description: |-
 
 Manages a VNPayCloud DBaaS Redis Sentinel instance — a highly-available Redis topology with a separate data tier and sentinel tier, each with its own replica count, flavor and volume. Provisioning is asynchronous; the provider waits until the instance is `active` (and fails fast on `error`).
 
+~> **Check zone support first.** Before creating a database instance, call `GET /v2/iac/projects/{project_id}/database/pools?zone_id=<zone>` to confirm that the target zone has a supported database pool (an empty result means the zone is not yet supported).
+
 ~> **Two tiers.** Data-tier fields (`replica`, `flavor_database_id`, `volume_size`) and sentinel-tier fields (`sentinel_replica`, `sentinel_flavor_database_id`, `sentinel_volume_size`) scale/change independently via their own actions.
 
 ~> **Name length.** The combined length of `name` and `sentinel_name` must not exceed 20 characters.

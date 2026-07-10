@@ -15,11 +15,10 @@ import (
 func TestResourceKeyPairCreate_WithoutPublicKey(t *testing.T) {
 	createResp := dto.KeyPairResponse{
 		KeyPair: dto.KeyPair{
-			ID:          "kp-123",
-			Name:        "my-keypair",
-			PublicKey:   "ssh-rsa AAAA...",
-			Fingerprint: "aa:bb:cc:dd",
-			CreatedAt:   "2025-01-15T10:00:00Z",
+			ID:        "kp-123",
+			Name:      "my-keypair",
+			PublicKey: "ssh-rsa AAAA...",
+			CreatedAt: "2025-01-15T10:00:00Z",
 		},
 		PrivateKey: "-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----",
 	}
@@ -55,9 +54,6 @@ func TestResourceKeyPairCreate_WithoutPublicKey(t *testing.T) {
 	if got := d.Get("private_key").(string); got == "" {
 		t.Error("expected private_key to be set when server generates keypair")
 	}
-	if got := d.Get("fingerprint").(string); got != "aa:bb:cc:dd" {
-		t.Errorf("expected fingerprint 'aa:bb:cc:dd', got '%s'", got)
-	}
 	if got := d.Get("created_at").(string); got != "2025-01-15T10:00:00Z" {
 		t.Errorf("expected created_at '2025-01-15T10:00:00Z', got '%s'", got)
 	}
@@ -66,11 +62,10 @@ func TestResourceKeyPairCreate_WithoutPublicKey(t *testing.T) {
 func TestResourceKeyPairCreate_WithPublicKey(t *testing.T) {
 	createResp := dto.KeyPairResponse{
 		KeyPair: dto.KeyPair{
-			ID:          "kp-456",
-			Name:        "my-keypair-2",
-			PublicKey:   "ssh-rsa BBBBuser-provided",
-			Fingerprint: "ee:ff:00:11",
-			CreatedAt:   "2025-01-15T11:00:00Z",
+			ID:        "kp-456",
+			Name:      "my-keypair-2",
+			PublicKey: "ssh-rsa BBBBuser-provided",
+			CreatedAt: "2025-01-15T11:00:00Z",
 		},
 		// No PrivateKey when user provides their own public key
 	}
@@ -109,11 +104,10 @@ func TestResourceKeyPairCreate_WithPublicKey(t *testing.T) {
 func TestResourceKeyPairRead(t *testing.T) {
 	readResp := dto.KeyPairResponse{
 		KeyPair: dto.KeyPair{
-			ID:          "kp-123",
-			Name:        "my-keypair",
-			PublicKey:   "ssh-rsa AAAA...",
-			Fingerprint: "aa:bb:cc:dd",
-			CreatedAt:   "2025-01-15T10:00:00Z",
+			ID:        "kp-123",
+			Name:      "my-keypair",
+			PublicKey: "ssh-rsa AAAA...",
+			CreatedAt: "2025-01-15T10:00:00Z",
 		},
 	}
 
@@ -145,9 +139,6 @@ func TestResourceKeyPairRead(t *testing.T) {
 	}
 	if got := d.Get("public_key").(string); got != "ssh-rsa AAAA..." {
 		t.Errorf("expected public_key 'ssh-rsa AAAA...', got '%s'", got)
-	}
-	if got := d.Get("fingerprint").(string); got != "aa:bb:cc:dd" {
-		t.Errorf("expected fingerprint 'aa:bb:cc:dd', got '%s'", got)
 	}
 }
 
