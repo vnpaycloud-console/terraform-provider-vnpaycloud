@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourcePool() *schema.Resource {
@@ -106,17 +107,20 @@ func ResourcePool() *schema.Resource {
 							Computed: true,
 						},
 						"address": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validation.IsIPAddress,
 						},
 						"protocol_port": {
-							Type:     schema.TypeInt,
-							Required: true,
+							Type:         schema.TypeInt,
+							Required:     true,
+							ValidateFunc: validation.IsPortNumber,
 						},
 						"weight": {
-							Type:     schema.TypeInt,
-							Optional: true,
-							Default:  1,
+							Type:         schema.TypeInt,
+							Optional:     true,
+							Default:      1,
+							ValidateFunc: validation.IntBetween(0, 256),
 						},
 						"status": {
 							Type:     schema.TypeString,
@@ -212,7 +216,10 @@ func resourcePoolCreate(ctx context.Context, d *schema.ResourceData, meta interf
 	tflog.Debug(ctx, "vnpaycloud_lb_pool create options", map[string]interface{}{"create_opts": createOpts})
 
 	createResp := &dto.PoolResponse{}
-	_, err := cfg.Client.Post(ctx, client.ApiPath.Pools(cfg.ProjectID), createOpts, createResp, nil)
+	err := util.RetryLBPendingPut(ctx, d.Timeout(schema.TimeoutCreate), func() error {
+		_, e := cfg.Client.Post(ctx, client.ApiPath.Pools(cfg.ProjectID), createOpts, createResp, nil)
+		return e
+	})
 	if err != nil {
 		return diag.Errorf("Error creating vnpaycloud_lb_pool: %s", err)
 	}
@@ -326,7 +333,8 @@ func resourcePoolUpdate(ctx context.Context, d *schema.ResourceData, meta interf
 			MinTimeout: 3 * time.Second,
 		}
 		if _, err := waitBefore.WaitForStateContext(ctx); err != nil {
-			return diag.Errorf("Error waiting for vnpaycloud_lb_pool %s to become ready before update: %s", d.Id(), err)
+			readDiags := resourcePoolRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error waiting for vnpaycloud_lb_pool %s to become ready before update: %s", d.Id(), err)...)
 		}
 
 		updateOpts := dto.UpdatePoolRequest{
@@ -348,7 +356,8 @@ func resourcePoolUpdate(ctx context.Context, d *schema.ResourceData, meta interf
 			return putErr
 		})
 		if err != nil {
-			return diag.Errorf("Error updating vnpaycloud_lb_pool %s: %s", d.Id(), err)
+			readDiags := resourcePoolRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error updating vnpaycloud_lb_pool %s: %s", d.Id(), err)...)
 		}
 
 		waitAfter := &retry.StateChangeConf{

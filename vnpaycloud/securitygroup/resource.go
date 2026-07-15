@@ -168,6 +168,14 @@ func resourceSecurityGroupRead(ctx context.Context, d *schema.ResourceData, meta
 }
 
 func resourceSecurityGroupUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceSecurityGroupUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceSecurityGroupRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceSecurityGroupUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChanges("name", "description") {

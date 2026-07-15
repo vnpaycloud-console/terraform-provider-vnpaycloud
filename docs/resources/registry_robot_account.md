@@ -175,7 +175,7 @@ In-place updates **do not rotate** the secret. Any CI/CD job using the previous 
 
 - `name`, `expires_in_days`, registry project ownership, and permission action validity are validated by the backend during apply.
 - Empty `permission` list, or empty `actions` list inside a permission, are still rejected by Terraform schema before the request is sent.
-- Actions whose `<resource>:<action>` pair is not in the registry catalogue are rejected by the proxy and include the full valid list in the error message.
+- Actions whose `<resource>:<action>` pair is not in the registry catalogue are rejected by the proxy during apply. Use the [`vnpaycloud_registry_permissions`](../data-sources/registry_permissions.md) data source to look up the valid actions.
 
 ## Timeouts
 

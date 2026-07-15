@@ -53,7 +53,7 @@ resource "vnpaycloud_volume" "shared" {
 ### Required
 
 - `name` (String) The name of the volume.
-- `size` (Number) The size of the volume in gigabytes. Minimum `10`. Can only be increased after creation.
+- `size` (Number) The size of the volume in gigabytes. Minimum `10` (validated at plan time). Can only be increased after creation.
 - `volume_type` (String) The type of the volume (e.g., `c1-standard`). Use the `vnpaycloud_volume_types` data source to list available values. Changing this updates the volume type in place (data is preserved) as long as the new type shares the same features as the current one. Switching between types with different features — encrypted vs. unencrypted, or multi-attach vs. single-attach — is rejected by the backend; create a new volume instead. Changing the volume type requires the volume to be attached to a server; changing it on a detached volume is rejected.
 
 ### Optional

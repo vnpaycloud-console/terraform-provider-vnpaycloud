@@ -127,6 +127,14 @@ func resourceDatabaseRedisAccountRead(ctx context.Context, d *schema.ResourceDat
 }
 
 func resourceDatabaseRedisAccountUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceDatabaseRedisAccountUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceDatabaseRedisAccountRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceDatabaseRedisAccountUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if !d.HasChanges("password", "privilege_template") {

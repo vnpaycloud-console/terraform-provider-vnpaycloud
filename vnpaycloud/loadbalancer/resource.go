@@ -172,7 +172,8 @@ func resourceLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, met
 			MinTimeout: 3 * time.Second,
 		}
 		if _, err := waitBefore.WaitForStateContext(ctx); err != nil {
-			return diag.Errorf("Error waiting for vnpaycloud_lb_loadbalancer %s to become ready before update: %s", d.Id(), err)
+			readDiags := resourceLoadBalancerRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error waiting for vnpaycloud_lb_loadbalancer %s to become ready before update: %s", d.Id(), err)...)
 		}
 
 		updateOpts := dto.UpdateLoadBalancerRequest{
@@ -184,7 +185,8 @@ func resourceLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, met
 
 		_, err := cfg.Client.Put(ctx, client.ApiPath.LoadBalancerWithID(cfg.ProjectID, d.Id()), updateOpts, nil, nil)
 		if err != nil {
-			return diag.Errorf("Error updating vnpaycloud_lb_loadbalancer %s: %s", d.Id(), err)
+			readDiags := resourceLoadBalancerRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error updating vnpaycloud_lb_loadbalancer %s: %s", d.Id(), err)...)
 		}
 
 		stateConf := &retry.StateChangeConf{
@@ -212,7 +214,8 @@ func resourceLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, met
 			MinTimeout: 3 * time.Second,
 		}
 		if _, err := waitBefore.WaitForStateContext(ctx); err != nil {
-			return diag.Errorf("Error waiting for vnpaycloud_lb_loadbalancer %s to become ready before flavor change: %s", d.Id(), err)
+			readDiags := resourceLoadBalancerRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error waiting for vnpaycloud_lb_loadbalancer %s to become ready before flavor change: %s", d.Id(), err)...)
 		}
 
 		changeOpts := dto.ChangeFlavorLoadBalancerRequest{
@@ -223,7 +226,8 @@ func resourceLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, met
 
 		_, err := cfg.Client.Post(ctx, client.ApiPath.LoadBalancerChangeFlavor(cfg.ProjectID, d.Id()), changeOpts, nil, nil)
 		if err != nil {
-			return diag.Errorf("Error changing flavor of vnpaycloud_lb_loadbalancer %s: %s", d.Id(), err)
+			readDiags := resourceLoadBalancerRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error changing flavor of vnpaycloud_lb_loadbalancer %s: %s", d.Id(), err)...)
 		}
 
 		stateConf := &retry.StateChangeConf{

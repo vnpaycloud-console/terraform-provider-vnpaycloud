@@ -34,7 +34,7 @@ resource "vnpaycloud_network_acl" "app" {
 ### Optional
 
 - `description` (String, ForceNew) The ACL description.
-- `subnet_ids` (Set of String) Subnet IDs mapped to the ACL. Updating this set maps and unmaps the backing networks for those subnets.
+- `subnet_ids` (Set of String) Subnet IDs mapped to the ACL. Updating this set maps and unmaps the backing networks for those subnets. A subnet can belong to **at most one** Network ACL — mapping a subnet that is already associated with another ACL is rejected by the backend (`Network mapped by Network ACL`). If that happens during an apply that also creates the ACL, the new ACL is left in state and cleaned up (or completes the mapping) on the next apply once the conflict is resolved.
 
 ### Read-Only
 

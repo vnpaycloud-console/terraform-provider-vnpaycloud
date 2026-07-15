@@ -63,7 +63,6 @@ func ResourceNetworkInterface() *schema.Resource {
 			"allowed_address_pairs": {
 				Type:     schema.TypeList,
 				Optional: true,
-				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"ip_address": {
@@ -299,6 +298,14 @@ func resourceNetworkInterfaceRead(ctx context.Context, d *schema.ResourceData, m
 }
 
 func resourceNetworkInterfaceUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceNetworkInterfaceUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceNetworkInterfaceRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceNetworkInterfaceUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChange("reserved") || d.HasChange("description") {
@@ -320,6 +327,23 @@ func resourceNetworkInterfaceUpdate(ctx context.Context, d *schema.ResourceData,
 		}
 	}
 
+	portSecurityChanged := d.HasChange("port_security_enabled")
+	portSecurityTarget := d.Get("port_security_enabled").(bool)
+
+	updatePortSecurity := func() diag.Diagnostics {
+		req := dto.UpdateNetworkInterfacePortSecurityRequest{PortSecurityEnabled: portSecurityTarget}
+		if _, err := cfg.Client.Put(ctx, client.ApiPath.NetworkInterfacePortSecurity(cfg.ProjectID, d.Id()), req, nil, nil); err != nil {
+			return diag.Errorf("Error updating port security for vnpaycloud_network_interface %s: %s", d.Id(), err)
+		}
+		return nil
+	}
+
+	if portSecurityChanged && portSecurityTarget {
+		if diags := updatePortSecurity(); diags != nil {
+			return diags
+		}
+	}
+
 	if d.HasChange("allowed_address_pairs") {
 		pairsReq := dto.UpdateNetworkInterfaceAllowedAddressPairsRequest{
 			AllowedAddressPairs: expandAllowedAddressPairs(d.Get("allowed_address_pairs").([]interface{}), d.Get("mac_address").(string)),
@@ -329,17 +353,16 @@ func resourceNetworkInterfaceUpdate(ctx context.Context, d *schema.ResourceData,
 		}
 	}
 
-	if d.HasChange("port_security_enabled") {
-		req := dto.UpdateNetworkInterfacePortSecurityRequest{PortSecurityEnabled: d.Get("port_security_enabled").(bool)}
-		if _, err := cfg.Client.Put(ctx, client.ApiPath.NetworkInterfacePortSecurity(cfg.ProjectID, d.Id()), req, nil, nil); err != nil {
-			return diag.Errorf("Error updating port security for vnpaycloud_network_interface %s: %s", d.Id(), err)
-		}
-	}
-
 	if d.HasChange("security_groups") {
 		req := dto.UpdateNetworkInterfaceSecurityGroupsRequest{SecurityGroupIDs: expandStringSet(d.Get("security_groups").(*schema.Set))}
 		if _, err := cfg.Client.Put(ctx, client.ApiPath.NetworkInterfaceSecurityGroups(cfg.ProjectID, d.Id()), req, nil, nil); err != nil {
 			return diag.Errorf("Error updating security groups for vnpaycloud_network_interface %s: %s", d.Id(), err)
+		}
+	}
+
+	if portSecurityChanged && !portSecurityTarget {
+		if diags := updatePortSecurity(); diags != nil {
+			return diags
 		}
 	}
 

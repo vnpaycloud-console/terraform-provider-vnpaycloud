@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceListener() *schema.Resource {
@@ -83,7 +84,8 @@ func ResourceListener() *schema.Resource {
 				Optional: true,
 				Computed: true,
 				Elem: &schema.Schema{
-					Type: schema.TypeString,
+					Type:         schema.TypeString,
+					ValidateFunc: validation.IsCIDR,
 				},
 			},
 			"connection_limit": {
@@ -180,7 +182,10 @@ func resourceListenerCreate(ctx context.Context, d *schema.ResourceData, meta in
 	tflog.Debug(ctx, "vnpaycloud_lb_listener create options", map[string]interface{}{"create_opts": createOpts})
 
 	createResp := &dto.ListenerResponse{}
-	_, err := cfg.Client.Post(ctx, client.ApiPath.Listeners(cfg.ProjectID), createOpts, createResp, nil)
+	err := util.RetryLBPendingPut(ctx, d.Timeout(schema.TimeoutCreate), func() error {
+		_, e := cfg.Client.Post(ctx, client.ApiPath.Listeners(cfg.ProjectID), createOpts, createResp, nil)
+		return e
+	})
 	if err != nil {
 		return diag.Errorf("Error creating vnpaycloud_lb_listener: %s", err)
 	}
@@ -249,7 +254,8 @@ func resourceListenerUpdate(ctx context.Context, d *schema.ResourceData, meta in
 			MinTimeout: 3 * time.Second,
 		}
 		if _, err := waitBefore.WaitForStateContext(ctx); err != nil {
-			return diag.Errorf("Error waiting for vnpaycloud_lb_listener %s to become ready before update: %s", d.Id(), err)
+			readDiags := resourceListenerRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error waiting for vnpaycloud_lb_listener %s to become ready before update: %s", d.Id(), err)...)
 		}
 
 		updateOpts := dto.UpdateListenerRequest{
@@ -287,7 +293,8 @@ func resourceListenerUpdate(ctx context.Context, d *schema.ResourceData, meta in
 			return putErr
 		})
 		if err != nil {
-			return diag.Errorf("Error updating vnpaycloud_lb_listener %s: %s", d.Id(), err)
+			readDiags := resourceListenerRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error updating vnpaycloud_lb_listener %s: %s", d.Id(), err)...)
 		}
 
 		waitAfter := &retry.StateChangeConf{

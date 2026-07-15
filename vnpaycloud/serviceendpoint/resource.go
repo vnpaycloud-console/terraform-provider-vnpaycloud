@@ -201,6 +201,14 @@ func resourceServiceEndpointRead(ctx context.Context, d *schema.ResourceData, me
 }
 
 func resourceServiceEndpointUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceServiceEndpointUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceServiceEndpointRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceServiceEndpointUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChanges("name", "description", "allowed_cidrs") {

@@ -127,6 +127,14 @@ func resourceDatabaseRedisSentinelAccountRead(ctx context.Context, d *schema.Res
 }
 
 func resourceDatabaseRedisSentinelAccountUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceDatabaseRedisSentinelAccountUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceDatabaseRedisSentinelAccountRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceDatabaseRedisSentinelAccountUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if !d.HasChanges("password", "privilege_template") {

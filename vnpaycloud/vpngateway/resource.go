@@ -133,6 +133,14 @@ func resourceVPNGatewayRead(ctx context.Context, d *schema.ResourceData, meta in
 }
 
 func resourceVPNGatewayUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceVPNGatewayUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceVPNGatewayRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceVPNGatewayUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChange("name") || d.HasChange("description") {

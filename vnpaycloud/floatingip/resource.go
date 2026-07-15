@@ -119,7 +119,8 @@ func resourceFloatingIPCreate(ctx context.Context, d *schema.ResourceData, meta 
 	assocReq := buildAssociateRequest(d)
 	if assocReq != nil {
 		if err := associateFloatingIPWithRetry(ctx, cfg, d.Id(), assocReq, d.Timeout(schema.TimeoutCreate)); err != nil {
-			return diag.Errorf("Error associating vnpaycloud_floating_ip %s: %s", d.Id(), err)
+			readDiags := resourceFloatingIPRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error associating vnpaycloud_floating_ip %s: %s", d.Id(), err)...)
 		}
 	}
 
@@ -183,13 +184,15 @@ func resourceFloatingIPUpdate(ctx context.Context, d *schema.ResourceData, meta 
 		disassocResp := &dto.FloatingIPResponse{}
 		_, err = cfg.Client.Post(ctx, client.ApiPath.FloatingIPDisassociate(cfg.ProjectID, d.Id()), dto.DisassociateFloatingIPRequest{}, disassocResp, nil)
 		if err != nil {
-			return diag.Errorf("Error disassociating vnpaycloud_floating_ip %s: %s", d.Id(), err)
+			readDiags := resourceFloatingIPRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error disassociating vnpaycloud_floating_ip %s: %s", d.Id(), err)...)
 		}
 	}
 
 	if assocReq != nil {
 		if err := associateFloatingIPWithRetry(ctx, cfg, d.Id(), assocReq, d.Timeout(schema.TimeoutUpdate)); err != nil {
-			return diag.Errorf("Error associating vnpaycloud_floating_ip %s: %s", d.Id(), err)
+			readDiags := resourceFloatingIPRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error associating vnpaycloud_floating_ip %s: %s", d.Id(), err)...)
 		}
 	}
 

@@ -291,6 +291,14 @@ func resourceRedisSentinelInstanceRead(ctx context.Context, d *schema.ResourceDa
 }
 
 func resourceRedisSentinelInstanceUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceRedisSentinelInstanceUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceRedisSentinelInstanceRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceRedisSentinelInstanceUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChange("replica") {

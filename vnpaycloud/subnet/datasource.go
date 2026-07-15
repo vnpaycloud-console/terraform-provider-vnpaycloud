@@ -84,6 +84,7 @@ func dataSourceSubnetRead(ctx context.Context, d *schema.ResourceData, meta inte
 	nameFilter, nameOk := d.GetOk("name")
 	vpcFilter, vpcOk := d.GetOk("vpc_id")
 
+	var matches []dto.Subnet
 	for _, s := range listResp.Subnets {
 		if nameOk && s.Name != nameFilter.(string) {
 			continue
@@ -91,10 +92,17 @@ func dataSourceSubnetRead(ctx context.Context, d *schema.ResourceData, meta inte
 		if vpcOk && s.VpcID != vpcFilter.(string) {
 			continue
 		}
-		return setSubnetData(d, &s)
+		matches = append(matches, s)
 	}
 
-	return diag.Errorf("No vnpaycloud_subnet found matching the criteria")
+	if len(matches) == 0 {
+		return diag.Errorf("No vnpaycloud_subnet found matching the criteria")
+	}
+	if len(matches) > 1 {
+		return diag.Errorf("%d subnets match the criteria; the result is ambiguous — refine the filter with a unique `name` or use `id` to select exactly one", len(matches))
+	}
+
+	return setSubnetData(d, &matches[0])
 }
 
 func setSubnetData(d *schema.ResourceData, s *dto.Subnet) diag.Diagnostics {

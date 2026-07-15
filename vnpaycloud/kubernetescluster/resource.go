@@ -70,16 +70,18 @@ func ResourceKubernetesCluster() *schema.Resource {
 				ValidateFunc: validation.StringInSlice([]string{"calico", "cilium"}, false),
 			},
 			"pod_cidr": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.IsCIDR,
 			},
 			"service_cidr": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.IsCIDR,
 			},
 
 			// Master Information
@@ -113,7 +115,7 @@ func ResourceKubernetesCluster() *schema.Resource {
 			},
 			"default_worker_volume_type": {
 				Type:             schema.TypeString,
-				Optional:         true,
+				Required:         true,
 				ForceNew:         true,
 				DiffSuppressFunc: suppressForceNewOnImport,
 			},
@@ -121,11 +123,12 @@ func ResourceKubernetesCluster() *schema.Resource {
 				Type:             schema.TypeInt,
 				Optional:         true,
 				ForceNew:         true,
+				ValidateFunc:     validation.IntBetween(50, 200),
 				DiffSuppressFunc: suppressForceNewOnImport,
 			},
 			"default_worker_ssh_key_id": {
 				Type:             schema.TypeString,
-				Optional:         true,
+				Required:         true,
 				ForceNew:         true,
 				DiffSuppressFunc: suppressForceNewOnImport,
 			},
@@ -282,6 +285,14 @@ func resourceClusterRead(ctx context.Context, d *schema.ResourceData, meta inter
 }
 
 func resourceClusterUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceClusterUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceClusterRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceClusterUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChange("k8s_version") {

@@ -76,7 +76,7 @@ resource "vnpaycloud_certificate" "ca" {
 
 The following are **required** when `type = self_signed`:
 
-- `domain_name` (String, ForceNew) Common Name (CN) / domain for the certificate.
+- `domain_name` (String, Optional, Computed, ForceNew) Common Name (CN) / domain for the certificate. You set it for `self_signed`; for imported certificates it is read back from the uploaded certificate (hence also computed). It is a single round-trip attribute — not a separate read-only field.
 - `country` (String, ForceNew) Subject country (e.g. `VN`).
 - `province` (String, ForceNew) Subject state/province.
 - `organization` (String, ForceNew) Subject organization.
@@ -100,7 +100,6 @@ Optional subject fields:
 
 - `id` (String) The ID of the certificate.
 - `cert_type` (String) The backend certificate type (e.g. `CT_SELF_SIGNED`, `CT_SIGNED`, `CT_CA`).
-- `domain_name` (String) The domain name of the certificate.
 - `expires_at` (String) The expiration timestamp in ISO 8601 format.
 - `status` (String) The current status of the certificate.
 - `zone_id` (String) The zone where the certificate resides.

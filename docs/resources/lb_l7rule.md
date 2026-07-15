@@ -71,7 +71,7 @@ resource "vnpaycloud_lb_l7rule" "not_static" {
 
 ### Optional
 
-- `key` (String) The name of the cookie. **Required** when `rule_type` is `COOKIE`; must be **empty** for other types.
+- `key` (String) The name of the cookie. **Required** when `rule_type` is `COOKIE`; must be **empty** for other types. Both rules are enforced by the backend.
 - `invert` (Boolean, Default `false`) Invert the match (NOT). When `true`, the rule matches when the value does **not** satisfy the comparison.
 
 ### Read-Only

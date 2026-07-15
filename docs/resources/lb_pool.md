@@ -154,12 +154,12 @@ resource "vnpaycloud_lb_pool" "tcp_pool" {
 - `description` (String) A human-readable description. Length `0`–`255`.
 - `session_persistence` (Block, Max 1) Configure sticky sessions:
   - `type` (String, Required) `SOURCE_IP`, `HTTP_COOKIE`, or `APP_COOKIE`.
-  - `cookie_name` (String) Required when `type = APP_COOKIE` (enforced at plan time via `CustomizeDiff`).
+  - `cookie_name` (String) Required when `type = APP_COOKIE` (enforced by the backend).
 - `tls_enabled` (Boolean, Optional, Computed) Whether TLS is enabled for backend member connections.
 - `member` (Block Set) Backend members. Each member is keyed by `(address, protocol_port, weight)` — no ordering noise on plan diffs. **Note**: changing `weight` is detected as remove+add of the member (full set PUT to backend, no real connection drain), not update-in-place. Same address+port with different weight = different element in the Set. Per-member fields:
   - `address` (String, Required) Member IP. Must be a valid IP (validated at plan time).
-  - `protocol_port` (Number, Required) Backend port. Range `1`–`65535`.
-  - `weight` (Number, Optional, Default `1`) Relative weight, `0`–`256`. `0` drains traffic from the member.
+  - `protocol_port` (Number, Required) Backend port. Range `1`–`65535` (validated at plan time).
+  - `weight` (Number, Optional, Default `1`) Relative weight, `0`–`256` (validated at plan time). `0` drains traffic from the member.
   - `id` (String, Read-Only) Server-assigned member ID.
   - `name` (String, Read-Only) Member name.
   - `status` (String, Read-Only) Member lifecycle status: `active`, `creating`, `pending_create`, `pending_update`, `pending_delete`, `deleting`, `disabled`, `error`, `unknown`.

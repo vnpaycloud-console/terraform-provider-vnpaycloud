@@ -123,6 +123,14 @@ func resourceNetworkACLRead(ctx context.Context, d *schema.ResourceData, meta in
 }
 
 func resourceNetworkACLUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceNetworkACLUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceNetworkACLRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceNetworkACLUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChange("subnet_ids") {

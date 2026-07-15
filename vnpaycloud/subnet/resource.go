@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func expandSubnetRoutes(raw []interface{}) []dto.HostRoute {
@@ -61,10 +62,11 @@ func ResourceSubnet() *schema.Resource {
 				ForceNew: true,
 			},
 			"cidr": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.IsCIDR,
 			},
 			"gateway_ip": {
 				Type:     schema.TypeString,
@@ -98,16 +100,17 @@ func ResourceSubnet() *schema.Resource {
 			"route": {
 				Type:     schema.TypeList,
 				Optional: true,
-				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"destination": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validation.IsCIDR,
 						},
 						"nexthop": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validation.IsIPAddress,
 						},
 					},
 				},
@@ -203,6 +206,14 @@ func resourceSubnetRead(ctx context.Context, d *schema.ResourceData, meta interf
 }
 
 func resourceSubnetUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceSubnetUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceSubnetRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceSubnetUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChanges("name", "dns_nameservers") {

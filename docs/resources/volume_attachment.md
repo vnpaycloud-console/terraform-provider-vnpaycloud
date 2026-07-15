@@ -14,6 +14,22 @@ Manages the attachment of a block storage volume to a compute instance within VN
 ## Example Usage
 
 ```hcl
+resource "vnpaycloud_vpc" "main" {
+  name = "app-vpc"
+  cidr = "10.0.0.0/16"
+}
+
+resource "vnpaycloud_subnet" "main" {
+  name   = "app-subnet"
+  vpc_id = vnpaycloud_vpc.main.id
+  cidr   = "10.0.1.0/24"
+}
+
+resource "vnpaycloud_network_interface" "primary" {
+  name      = "app-nic"
+  subnet_id = vnpaycloud_subnet.main.id
+}
+
 resource "vnpaycloud_volume" "data" {
   name        = "app-data-volume"
   size        = 50
@@ -21,11 +37,12 @@ resource "vnpaycloud_volume" "data" {
 }
 
 resource "vnpaycloud_instance" "app" {
-  name           = "app-server"
-  image          = "Ubuntu 22.04 LTS"
-  flavor         = "a-pro-small.2x2"
-  root_disk_gb   = 20
-  root_disk_type = "c1-standard"
+  name                  = "app-server"
+  image                 = "Ubuntu 22.04 LTS"
+  flavor                = "a-pro-small.2x2"
+  root_disk_gb          = 20
+  root_disk_type        = "c1-standard"
+  network_interface_ids = [vnpaycloud_network_interface.primary.id]
 }
 
 resource "vnpaycloud_volume_attachment" "data_attach" {

@@ -59,7 +59,7 @@ resource "vnpaycloud_route_table" "peering_route" {
 ### Required
 
 - `vpc_id` (String, ForceNew) The ID of the VPC to which this route belongs. Changing this creates a new route.
-- `dest_cidr` (String, ForceNew) The destination CIDR block for the route (must be a valid CIDR, e.g. `0.0.0.0/0`). Traffic matching this CIDR is forwarded to the specified target. Changing this creates a new route.
+- `dest_cidr` (String, ForceNew) The destination CIDR block for the route (must be a valid CIDR, e.g. `0.0.0.0/0`, validated at plan time). Traffic matching this CIDR is forwarded to the specified target. Changing this creates a new route.
 - `target_id` (String, ForceNew) The ID of the route target (e.g., internet gateway ID, peering connection ID). Changing this creates a new route.
 - `target_type` (String, ForceNew) The type of the route target. One of `internet_gateway`, `peering_connection`, `service_instance`, `vpn_gateway`. Changing this creates a new route.
 

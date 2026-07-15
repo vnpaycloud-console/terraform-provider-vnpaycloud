@@ -107,7 +107,7 @@ resource "vnpaycloud_lb_listener" "ok_tls" {
 }
 
 # ❌ INVALID — X-SSL-* on plain HTTP listener (no TLS termination, header has no value to inject)
-# Server rejects at create with a clear error; nothing prevents this at plan time.
+# Rejected server-side with a clear error (X-SSL-* headers require protocol HTTPS).
 # resource "vnpaycloud_lb_listener" "bad" {
 #   protocol         = "HTTP"
 #   protocol_port    = 80

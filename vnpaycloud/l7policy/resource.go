@@ -40,8 +40,7 @@ func ResourceL7Policy() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Required: true,
 			},
 			"description": {
 				Type:     schema.TypeString,
@@ -93,7 +92,10 @@ func resourceL7PolicyCreate(ctx context.Context, d *schema.ResourceData, meta in
 	tflog.Debug(ctx, "vnpaycloud_lb_l7policy create options", map[string]interface{}{"create_opts": createOpts})
 
 	createResp := &dto.L7PolicyResponse{}
-	_, err := cfg.Client.Post(ctx, client.ApiPath.L7Policies(cfg.ProjectID), createOpts, createResp, nil)
+	err := util.RetryLBPendingPut(ctx, d.Timeout(schema.TimeoutCreate), func() error {
+		_, e := cfg.Client.Post(ctx, client.ApiPath.L7Policies(cfg.ProjectID), createOpts, createResp, nil)
+		return e
+	})
 	if err != nil {
 		return diag.Errorf("Error creating vnpaycloud_lb_l7policy: %s", err)
 	}
@@ -160,7 +162,8 @@ func resourceL7PolicyUpdate(ctx context.Context, d *schema.ResourceData, meta in
 			return putErr
 		})
 		if err != nil {
-			return diag.Errorf("Error updating vnpaycloud_lb_l7policy %s: %s", d.Id(), err)
+			readDiags := resourceL7PolicyRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error updating vnpaycloud_lb_l7policy %s: %s", d.Id(), err)...)
 		}
 
 		stateConf := &retry.StateChangeConf{

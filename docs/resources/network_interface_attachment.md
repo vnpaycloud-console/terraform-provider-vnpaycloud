@@ -11,7 +11,9 @@ Attaches a network interface (port) to a server instance within VNPayCloud. This
 
 ~> **Note:** This resource does not support import. Both `network_interface_id` and `server_id` are immutable; changing either will force creation of a new attachment.
 
-~> **Note:** The attached interface must belong to a **different subnet** than the server's existing interface(s). Attaching a second interface from the same subnet is rejected by the backend with a conflict error. (The example below places the extra NIC in a separate subnet.)
+~> **Note:** The attached interface may be in the **same** subnet as the server's existing interface(s) or in a different subnet. (The example below uses a separate subnet purely for illustration.)
+
+~> **Note:** The interface being attached must have `port_security_enabled = true`. Attaching an interface with port security disabled is rejected by the backend (`Port security <ip> must be enabled`). Enable port security on the `vnpaycloud_network_interface` before attaching it.
 
 ## Example Usage
 

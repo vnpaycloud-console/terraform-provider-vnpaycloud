@@ -42,19 +42,19 @@ resource "vnpaycloud_instance" "web" {
 ### Required
 
 - `name` (String) The name of the instance. Allowed characters are letters, numbers, hyphen (`-`), underscore (`_`), dot (`.`), and space.
-- `root_disk_gb` (Number, ForceNew) The size of the root disk in gigabytes. Minimum value is `20`. Changing this creates a new instance.
+- `root_disk_gb` (Number, ForceNew) The size of the root disk in gigabytes. Minimum `20` (validated at plan time). Changing this creates a new instance.
 - `root_disk_type` (String, ForceNew) The root disk volume type name (e.g., `c1-standard`). Use the `vnpaycloud_volume_types` data source to list available values. Changing this creates a new instance.
 
 ### Optional
 
 - `image` (String, ForceNew) The image name to boot the instance from. Use this field when creating an instance. Changing this creates a new instance.
 - `snapshot_id` (String, ForceNew) Reserved for future support. Booting from a snapshot is not supported yet; setting this field causes create to fail. Use `image` instead.
-- `flavor` (String) The flavor name defining the vCPU and RAM resources for the instance (e.g., `a-pro-small.2x2`). Mutually exclusive with `is_custom_flavor`.
+- `flavor` (String) The flavor name defining the vCPU and RAM resources for the instance (e.g., `a-pro-small.2x2`). Mutually exclusive with `is_custom_flavor`. Changing this resizes the instance in place. A resize attempted immediately after create may be gated by the backend (`Server is in provisioning, please try again after N minutes`); the operation succeeds once the instance finishes provisioning, so re-run `apply` after the indicated cooldown.
 - `is_custom_flavor` (Boolean) Reserved for future use. Custom flavor create/resize is not currently supported by the Terraform provider; use `flavor` with a named flavor.
 - `custom_vcpus` (Number) Reserved for future use.
 - `custom_ram_mb` (Number) Reserved for future use.
 - `key_pair` (String, ForceNew, Computed) The name of the SSH key pair to inject into the instance. Changing this creates a new instance. If not specified and the image supports it, a key pair may be computed.
-- `network_interface_ids` (List of String, ForceNew) The network interface IDs to attach to the instance **at launch**. At least one interface is required. Changing this list creates a new instance — to attach or detach interfaces on a running instance, use [`vnpaycloud_network_interface_attachment`](network_interface_attachment.md) instead.
+- `network_interface_ids` (List of String, Optional, Computed, ForceNew) The network interface IDs to attach to the instance **at launch**. At least one interface is **required when creating** an instance — the provider rejects an empty or omitted value at plan time. It is Optional and Computed in the schema only so that **imported** instances read their interfaces back without you declaring them (see the import note below). Changing this list creates a new instance — to attach or detach interfaces on a running instance, use [`vnpaycloud_network_interface_attachment`](network_interface_attachment.md) instead.
 - `server_group_id` (String, ForceNew) The ID of the server group to place the instance in. Changing this creates a new instance.
 - `user_data` (String, ForceNew, Sensitive) User data script to pass to the instance at boot time. Changing this creates a new instance.
 - `is_user_data_base64` (Boolean, ForceNew) Set to `true` if the `user_data` value is already Base64-encoded. Changing this creates a new instance.

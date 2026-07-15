@@ -9,7 +9,7 @@ description: |-
 
 Manages a subnet resource within a VNPayCloud VPC. Subnets partition the IP address space of a VPC into smaller segments.
 
-~> **Note:** `name` and `dns_nameservers` can be updated in place. All other configurable fields (`vpc_id`, `cidr`, `used_by_k8s`, `used_by_si`) are immutable — changing them forces creation of a new subnet.
+~> **Note:** `name`, `dns_nameservers`, and `route` can be updated in place. All other configurable fields (`vpc_id`, `cidr`, `used_by_k8s`, `used_by_si`) are immutable — changing them forces creation of a new subnet.
 
 ## Example Usage
 
@@ -36,11 +36,11 @@ resource "vnpaycloud_subnet" "example" {
 
 ### Optional
 
-- `cidr` (String, ForceNew) The CIDR block for the subnet. If omitted, the backend auto-allocates an available `/24` within the VPC CIDR range. When provided, it must be a `/24` IPv4 network address within the VPC CIDR. Changing this creates a new subnet.
+- `cidr` (String, ForceNew) The CIDR block for the subnet. If omitted, the backend auto-allocates an available `/24` within the VPC CIDR range. When provided, it must be a `/24` IPv4 network address within the VPC CIDR. A malformed value is rejected at plan time; the `/24` prefix and within-VPC rules are enforced by the backend. Changing this creates a new subnet.
 - `dns_nameservers` (List of String) Override the DNS nameservers for the subnet. If omitted, the backend assigns default nameservers (returned during read). Can be updated in place. Do not set this on a subnet with `used_by_k8s = true` — Kubernetes manages its own DNS and the value will be overridden.
 - `route` (Block List) Static host routes for the subnet. Can be updated in place. Each block contains:
-  - `destination` (String) Destination CIDR (e.g. `192.168.1.0/24`).
-  - `nexthop` (String) Next-hop IP address. Must be a valid IP within one of your subnets.
+  - `destination` (String) Destination CIDR (e.g. `192.168.1.0/24`). Must be a valid CIDR (validated at plan time).
+  - `nexthop` (String) Next-hop IP address (validated at plan time). Typically an address reachable from this subnet; the platform does not restrict it to your own subnet ranges, so ensure the next hop is actually routable or traffic will black-hole.
 - `used_by_k8s` (Boolean, ForceNew) Whether this subnet is reserved for Kubernetes cluster use. Defaults to `false`. Changing this creates a new subnet.
 - `used_by_si` (Boolean, ForceNew) Whether this subnet is reserved for Service Instance use. Defaults to `false`. Write-only — not returned during read. Changing this creates a new subnet.
 

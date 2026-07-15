@@ -524,6 +524,14 @@ func resourceVPNConnectionRead(ctx context.Context, d *schema.ResourceData, meta
 }
 
 func resourceVPNConnectionUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceVPNConnectionUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceVPNConnectionRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceVPNConnectionUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	if d.HasChange("name") || d.HasChange("description") {
 		return diag.Errorf("vnpaycloud_vpn_connection does not currently support updating name or description in Terraform; change is rejected to avoid recreating the VPN tunnel")
 	}

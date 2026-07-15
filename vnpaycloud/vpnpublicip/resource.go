@@ -124,6 +124,14 @@ func resourceVPNPublicIPRead(ctx context.Context, d *schema.ResourceData, meta i
 }
 
 func resourceVPNPublicIPUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceVPNPublicIPUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceVPNPublicIPRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceVPNPublicIPUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	updateOpts := dto.UpdateVPNPublicIPRequest{

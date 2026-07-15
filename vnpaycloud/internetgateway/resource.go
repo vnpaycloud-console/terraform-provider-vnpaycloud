@@ -126,6 +126,14 @@ func resourceInternetGatewayRead(ctx context.Context, d *schema.ResourceData, me
 }
 
 func resourceInternetGatewayUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceInternetGatewayUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceInternetGatewayRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceInternetGatewayUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChange("vpc_id") {
