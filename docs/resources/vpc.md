@@ -40,7 +40,9 @@ resource "vnpaycloud_vpc" "example" {
 
 ### Optional
 
-- `cidr` (String, ForceNew) The CIDR block for the VPC. If omitted, VNPayCloud automatically allocates an available `/16` private CIDR and returns it during read. When provided, it must be a `/16` IPv4 network address in a private range (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). Changing this creates a new VPC.
+- `cidr` (String, ForceNew) The CIDR block for the VPC. If omitted, VNPayCloud automatically allocates an available `/16` private CIDR and returns it during read. When provided, it must be a `/16` IPv4 network address in a private range (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). A malformed value is rejected at plan time; the `/16` prefix and private-range rules are enforced by the backend. Changing this creates a new VPC.
+
+  ~> **Creating several VPCs in one apply:** set an explicit, non-overlapping `cidr` on each. Auto-allocation resolves per-request and can hand two VPCs created at the same time the same `/16`, which then fails any subsequent peering between them with a CIDR-overlap error.
 - `description` (String) A description of the VPC. Set at creation only; changes after creation are ignored (description cannot be updated via the API — only from the console Network page).
 
 ### Read-Only

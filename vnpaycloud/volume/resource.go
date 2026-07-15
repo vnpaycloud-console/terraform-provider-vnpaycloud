@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceVolume() *schema.Resource {
@@ -38,8 +39,9 @@ func ResourceVolume() *schema.Resource {
 				Optional: true,
 			},
 			"size": {
-				Type:     schema.TypeInt,
-				Required: true,
+				Type:         schema.TypeInt,
+				Required:     true,
+				ValidateFunc: validation.IntAtLeast(10),
 			},
 			"volume_type": {
 				Type:     schema.TypeString,
@@ -169,7 +171,22 @@ func resourceVolumeRead(ctx context.Context, d *schema.ResourceData, meta interf
 }
 
 func resourceVolumeUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceVolumeUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceVolumeRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceVolumeUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+
+	if d.HasChange("size") {
+		oldRaw, newRaw := d.GetChange("size")
+		if newRaw.(int) < oldRaw.(int) {
+			return diag.Errorf("Error resizing vnpaycloud_volume %s: cannot shrink volume from %d GB to %d GB", d.Id(), oldRaw.(int), newRaw.(int))
+		}
+	}
 
 	if d.HasChanges("name", "description", "volume_type") {
 		updateOpts := dto.UpdateVolumeRequest{
@@ -187,16 +204,8 @@ func resourceVolumeUpdate(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	if d.HasChange("size") {
-		oldRaw, newRaw := d.GetChange("size")
-		oldSize := oldRaw.(int)
-		newSize := newRaw.(int)
-
-		if newSize < oldSize {
-			return diag.Errorf("Error resizing vnpaycloud_volume %s: cannot shrink volume from %d GB to %d GB", d.Id(), oldSize, newSize)
-		}
-
 		resizeOpts := dto.ResizeVolumeRequest{
-			SizeGB: int64(newSize),
+			SizeGB: int64(d.Get("size").(int)),
 		}
 
 		tflog.Debug(ctx, "vnpaycloud_volume resize options", map[string]interface{}{"resize_opts": resizeOpts})

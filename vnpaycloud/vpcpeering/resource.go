@@ -172,6 +172,14 @@ func resourceVPCPeeringRead(ctx context.Context, d *schema.ResourceData, meta in
 }
 
 func resourceVPCPeeringUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceVPCPeeringUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceVPCPeeringRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceVPCPeeringUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChange("name") {

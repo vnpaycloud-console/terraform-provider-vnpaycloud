@@ -124,6 +124,14 @@ func resourceDatabasePostgresDatabaseRead(ctx context.Context, d *schema.Resourc
 }
 
 func resourceDatabasePostgresDatabaseUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceDatabasePostgresDatabaseUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceDatabasePostgresDatabaseRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceDatabasePostgresDatabaseUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChange("owner") {

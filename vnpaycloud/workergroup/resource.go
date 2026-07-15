@@ -59,9 +59,6 @@ func ResourceWorkerGroup() *schema.Resource {
 				Type:         schema.TypeInt,
 				Required:     true,
 				ValidateFunc: validation.IntAtLeast(1),
-				// When autoscaling is enabled, the cluster autoscaler manages the node
-				// count, so ignore drift on num_workers to avoid perpetual diffs (and a
-				// manual resize the backend would reject).
 				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
 					return d.Id() != "" && d.Get("auto_scaling").(bool)
 				},
@@ -87,9 +84,10 @@ func ResourceWorkerGroup() *schema.Resource {
 				ForceNew: true,
 			},
 			"volume_size": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				ForceNew: true,
+				Type:         schema.TypeInt,
+				Optional:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.IntBetween(50, 200),
 			},
 			"ssh_key_id": {
 				Type:     schema.TypeString,
@@ -214,6 +212,14 @@ func resourceWorkerGroupRead(ctx context.Context, d *schema.ResourceData, meta i
 }
 
 func resourceWorkerGroupUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceWorkerGroupUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceWorkerGroupRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceWorkerGroupUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 	clusterID := d.Get("cluster_id").(string)
 

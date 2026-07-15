@@ -56,8 +56,8 @@ resource "vnpaycloud_security_group_rule" "allow_https" {
 - `protocol` (String, ForceNew) The IP protocol of the rule. Valid values are `tcp`, `udp`, or `icmp`. If omitted, the rule applies to all protocols. Changing this creates a new rule.
 - `ethertype` (String, ForceNew) The Ethernet type. Valid values are `IPv4` or `IPv6`. Defaults to `IPv4`. Changing this creates a new rule.
 - `port_range_min` (Number, ForceNew) The minimum port number in the port range. If omitted for `tcp`/`udp`, the rule applies to all ports. For `icmp`, this is the ICMP type. Changing this creates a new rule.
-- `port_range_max` (Number, ForceNew) The maximum port number in the port range. If omitted for `tcp`/`udp`, the rule applies to all ports. For `icmp`, this is the ICMP code. Changing this creates a new rule.
-- `remote_ip_prefix` (String) The remote CIDR block the rule applies to. Can be updated in place.
+- `port_range_max` (Number, ForceNew) The maximum port number in the port range. If omitted for `tcp`/`udp`, the rule applies to all ports. For `icmp`, this is the ICMP code. When both are set, `port_range_max` must be `>= port_range_min` (enforced by the backend). Changing this creates a new rule.
+- `remote_ip_prefix` (String) The remote CIDR block the rule applies to. Must be a CIDR — a single host is `<ip>/32` (a bare IP without a prefix is rejected). Validated at plan time. Can be updated in place.
 - `description` (String) A description of the rule. May contain letters, digits, spaces, hyphens (`-`), underscores (`_`), and periods (`.`). Can be updated in place.
 
 ### Read-Only

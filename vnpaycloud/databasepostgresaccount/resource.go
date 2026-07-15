@@ -149,6 +149,14 @@ func resourceDatabasePostgresAccountRead(ctx context.Context, d *schema.Resource
 }
 
 func resourceDatabasePostgresAccountUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceDatabasePostgresAccountUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceDatabasePostgresAccountRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceDatabasePostgresAccountUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if !d.HasChanges("password", "grant") {

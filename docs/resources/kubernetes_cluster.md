@@ -141,6 +141,8 @@ resource "vnpaycloud_kubernetes_cluster" "private" {
 - `subnet_id` (String, ForceNew) The ID of the subnet where the cluster nodes will be deployed. The subnet must have `used_by_k8s = true`. Changing this creates a new cluster.
 - `default_worker_flavor` (String, ForceNew) The flavor (instance type) for the default worker node group, e.g. `a-pro-small.2x2`. List available flavors with the `vnpaycloud_flavors` data source. Changing this creates a new cluster.
 - `default_worker_name` (String, ForceNew) The name for the default worker node group. Changing this creates a new cluster.
+- `default_worker_volume_type` (String, ForceNew) The volume type for default worker node root disks, e.g. `c1-standard`. List available volume types with the `vnpaycloud_volume_types` data source. Changing this creates a new cluster.
+- `default_worker_ssh_key_id` (String, ForceNew) The ID of the SSH key pair to inject into the default worker nodes. Changing this creates a new cluster.
 
 ### Optional
 
@@ -148,13 +150,11 @@ resource "vnpaycloud_kubernetes_cluster" "private" {
 - `purpose` (String, ForceNew) A free-form label describing the intended purpose of the cluster (e.g. `production`, `staging`). Changing this creates a new cluster.
 - `private_gw_id` (String, ForceNew) The ID of a `vnpaycloud_private_gateway`. When set, the cluster is **private** — its API server is reachable only within the VPC (through the private gateway) and `api_endpoint` is empty. Changing this creates a new cluster.
 - `cni_plugin` (String, ForceNew, Computed) The Container Network Interface plugin. Valid values are `calico` and `cilium`. Note that `calico` may not be available for every Kubernetes version; `cilium` is recommended. Changing this creates a new cluster.
-- `pod_cidr` (String, ForceNew, Computed) The CIDR block for pod IP addresses. Must not overlap `service_cidr`, the subnet, or another live cluster's pod CIDR in the same zone. Changing this creates a new cluster.
-- `service_cidr` (String, ForceNew, Computed) The canonical CIDR block for Kubernetes service IP addresses, for example `10.96.0.0/12`. Must not overlap `pod_cidr`. Changing this creates a new cluster.
+- `pod_cidr` (String, ForceNew, Computed) The CIDR block for pod IP addresses. A malformed value is rejected at plan time; overlap checks (against `service_cidr`, the subnet, or another live cluster's pod CIDR in the same zone) are enforced by the backend. Changing this creates a new cluster.
+- `service_cidr` (String, ForceNew, Computed) The canonical CIDR block for Kubernetes service IP addresses, for example `10.96.0.0/12`. A malformed value is rejected at plan time; the non-overlap-with-`pod_cidr` rule is enforced by the backend. Changing this creates a new cluster.
 - `cluster_size` (String, Computed) The control plane size (deployment size). Valid values are `small`, `medium`, `large`, `extra_large` — each raises the supported worker/pod limits. If not specified, a default is assigned based on worker count. **Updatable in place:** changing this resizes the control plane (both up and down) without recreating the cluster.
 - `default_worker_count` (Number, ForceNew) The initial number of worker nodes in the default group. Must be at least `1`. Defaults to `1`. Changing this creates a new cluster.
-- `default_worker_volume_type` (String, ForceNew) The volume type for default worker node root disks, e.g. `c1-standard`. List available volume types with the `vnpaycloud_volume_types` data source. Required. Changing this creates a new cluster.
-- `default_worker_volume_size` (Number, ForceNew) The root disk size in gigabytes for default worker nodes. Must be between `50` and `200`. Changing this creates a new cluster.
-- `default_worker_ssh_key_id` (String, ForceNew) The ID of the SSH key pair to inject into the default worker nodes. Required. Changing this creates a new cluster.
+- `default_worker_volume_size` (Number, ForceNew) The root disk size in gigabytes for default worker nodes. Must be between `50` and `200` (validated at plan time). Changing this creates a new cluster.
 
 ~> **Name length:** The cluster name plus the default worker group name have a combined length limit. Keep both short and use lowercase letters, numbers, and hyphens.
 

@@ -61,7 +61,7 @@ resource "vnpaycloud_kubernetes_worker_group" "auto_scale" {
 - `min_workers` (Number) The minimum number of worker nodes when auto-scaling is enabled. Required when `auto_scaling` is `true`; must be greater than `0` and less than `max_workers`. Can be updated in-place.
 - `max_workers` (Number) The maximum number of worker nodes when auto-scaling is enabled. Required when `auto_scaling` is `true`; must be greater than `min_workers`. Can be updated in-place.
 - `volume_type` (String, ForceNew) The volume type for worker node root disks, e.g. `c1-standard`. List available volume types with the `vnpaycloud_volume_types` data source. Changing this creates a new worker group.
-- `volume_size` (Number, ForceNew) The root disk size in gigabytes for worker nodes. Changing this creates a new worker group.
+- `volume_size` (Number, ForceNew) The root disk size in gigabytes for worker nodes. Must be between `50` and `200` (validated at plan time). Changing this creates a new worker group.
 - `ssh_key_id` (String, ForceNew) The ID of the SSH key pair to inject into the worker nodes for direct SSH access. Changing this creates a new worker group.
 - `labels` (Map of String) A map of Kubernetes node labels to apply to all nodes in this worker group. Useful for node selectors and affinity rules. Can be updated in-place. Label keys and values must be 63 characters or less.
 - `auto_healing` (Boolean) Whether machine health checking (auto-healing) is enabled for this worker group. When enabled, unhealthy nodes are automatically replaced. Can be updated in-place. If omitted, the default applies (read back into state).

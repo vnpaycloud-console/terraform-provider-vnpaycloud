@@ -232,6 +232,14 @@ func resourceCustomerGatewayRead(ctx context.Context, d *schema.ResourceData, me
 }
 
 func resourceCustomerGatewayUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceCustomerGatewayUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceCustomerGatewayRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceCustomerGatewayUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	updateOpts := dto.UpdateCustomerGatewayRequest{

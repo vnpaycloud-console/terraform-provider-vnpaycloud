@@ -24,7 +24,6 @@ func ResourceL7Rule() *schema.Resource {
 		DeleteContext: resourceL7RuleDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-				// Import ID format: <l7policy_id>/<rule_id>
 				parts := strings.Split(d.Id(), "/")
 				if len(parts) != 2 {
 					return nil, fmt.Errorf("import id must be <l7policy_id>/<rule_id>, got: %s", d.Id())
@@ -95,7 +94,10 @@ func resourceL7RuleCreate(ctx context.Context, d *schema.ResourceData, meta inte
 	tflog.Debug(ctx, "vnpaycloud_lb_l7rule create options", map[string]interface{}{"create_opts": createOpts})
 
 	createResp := &dto.L7RuleResponse{}
-	_, err := cfg.Client.Post(ctx, client.ApiPath.L7Rules(cfg.ProjectID, l7policyID), createOpts, createResp, nil)
+	err := util.RetryLBPendingPut(ctx, d.Timeout(schema.TimeoutCreate), func() error {
+		_, e := cfg.Client.Post(ctx, client.ApiPath.L7Rules(cfg.ProjectID, l7policyID), createOpts, createResp, nil)
+		return e
+	})
 	if err != nil {
 		return diag.Errorf("Error creating vnpaycloud_lb_l7rule: %s", err)
 	}
@@ -162,7 +164,8 @@ func resourceL7RuleUpdate(ctx context.Context, d *schema.ResourceData, meta inte
 			return putErr
 		})
 		if err != nil {
-			return diag.Errorf("Error updating vnpaycloud_lb_l7rule %s: %s", d.Id(), err)
+			readDiags := resourceL7RuleRead(ctx, d, meta)
+			return append(readDiags, diag.Errorf("Error updating vnpaycloud_lb_l7rule %s: %s", d.Id(), err)...)
 		}
 
 		stateConf := &retry.StateChangeConf{

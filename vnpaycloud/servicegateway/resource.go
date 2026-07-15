@@ -171,6 +171,14 @@ func resourceServiceGatewayRead(ctx context.Context, d *schema.ResourceData, met
 }
 
 func resourceServiceGatewayUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceServiceGatewayUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceServiceGatewayRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceServiceGatewayUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChanges("name", "description") {

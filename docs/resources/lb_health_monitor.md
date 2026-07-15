@@ -76,7 +76,7 @@ resource "vnpaycloud_lb_health_monitor" "tcp_check" {
   | `UDP` | ✓ |  | ✓ |  |  | ✓ | ✓ |
 
 - `delay` (Number) Interval in seconds between consecutive probes. Must be `>= 1`.
-- `timeout` (Number) Maximum seconds to wait for a probe response. Must be `>= 1` **and** `<= delay` (enforced at plan time).
+- `timeout` (Number) Maximum seconds to wait for a probe response. Must be `>= 1` **and** `<= delay` (enforced by the backend).
 - `max_retries` (Number) **Rise threshold** — consecutive *successful* probes before a previously-unhealthy member is marked healthy again. Range `1`–`10`. The name reads like "retries on failure" but counts successes. See `max_retries_down` (in *Optional* below) for the corresponding **fall threshold** that demotes a healthy member after consecutive failures.
 
 ### Optional

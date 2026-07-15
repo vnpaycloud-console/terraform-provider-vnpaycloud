@@ -230,6 +230,14 @@ func resourceRedisInstanceRead(ctx context.Context, d *schema.ResourceData, meta
 }
 
 func resourceRedisInstanceUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceRedisInstanceUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceRedisInstanceRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceRedisInstanceUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChange("flavor_database_id") {

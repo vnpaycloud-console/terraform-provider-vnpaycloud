@@ -127,6 +127,14 @@ func resourceRegistryProjectRead(ctx context.Context, d *schema.ResourceData, me
 }
 
 func resourceRegistryProjectUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceRegistryProjectUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceRegistryProjectRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceRegistryProjectUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if !d.HasChanges("is_public", "storage_limit") {

@@ -161,6 +161,14 @@ func resourceRobotAccountRead(ctx context.Context, d *schema.ResourceData, meta 
 }
 
 func resourceRobotAccountUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceRobotAccountUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceRobotAccountReadPreserveSecret(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceRobotAccountUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if !d.HasChanges("description", "expires_in_days", "permission") {

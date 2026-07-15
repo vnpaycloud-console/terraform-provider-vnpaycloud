@@ -81,10 +81,10 @@ resource "vnpaycloud_lb_l7rule" "internal_path" {
   - `REJECT` — drop the request (returns 403). `redirect_url` and `redirect_pool_id` must be empty.
   - `REDIRECT_TO_URL` — return a 302 with `Location: <redirect_url>` **exactly as given**; the original request path and query are discarded. Use when every match should land on the same destination URL.
   - `REDIRECT_TO_POOL` — route the request to the specified pool. Requires `redirect_pool_id`. The pool's protocol must be compatible with the listener's protocol.
+- `name` (String) The policy name. Unlike health monitors, an L7 policy name is not auto-generated, so it is required. The server additionally requires length `3`–`250` with no leading/trailing whitespace.
 
 ### Optional
 
-- `name` (String) The policy name. The schema marks it optional, but the server **requires** a name of length `3`–`250` (no leading/trailing whitespace) and rejects an empty value — always set one. Unlike health monitors, an L7 policy name is not auto-generated.
 - `description` (String) A human-readable description. Length `0`–`255`.
 - `position` (Number, Optional, Computed) Evaluation order (lower = higher priority); must be `>= 1`. If omitted, the server assigns the position. To control ordering across multiple policies on a listener, set an explicit value `>= 1`.
 - `redirect_pool_id` (String) Required when `action = REDIRECT_TO_POOL`. Forbidden otherwise.

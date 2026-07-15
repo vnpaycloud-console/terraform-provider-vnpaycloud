@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceVpc() *schema.Resource {
@@ -40,10 +41,11 @@ func ResourceVpc() *schema.Resource {
 				},
 			},
 			"cidr": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.IsCIDR,
 			},
 			"status": {
 				Type:     schema.TypeString,
@@ -135,6 +137,14 @@ func resourceVpcRead(ctx context.Context, d *schema.ResourceData, meta interface
 }
 
 func resourceVpcUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceVpcUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceVpcRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceVpcUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChanges("name", "description") {

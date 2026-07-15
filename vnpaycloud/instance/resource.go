@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceInstance() *schema.Resource {
@@ -63,9 +64,10 @@ func ResourceInstance() *schema.Resource {
 				Optional: true,
 			},
 			"root_disk_gb": {
-				Type:     schema.TypeInt,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeInt,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.IntAtLeast(20),
 			},
 			"root_disk_type": {
 				Type:     schema.TypeString,
@@ -150,6 +152,15 @@ func validateInstanceDiff(ctx context.Context, d *schema.ResourceDiff, meta inte
 	}
 	if d.Get("flavor").(string) == "" {
 		return fmt.Errorf("'flavor' is required: specify a named flavor (custom flavor is not supported)")
+	}
+
+	if d.Id() == "" {
+		if raw := d.GetRawConfig(); raw.IsKnown() && !raw.IsNull() {
+			ni := raw.GetAttr("network_interface_ids")
+			if ni.IsNull() || (ni.IsKnown() && ni.LengthInt() == 0) {
+				return fmt.Errorf("network_interface_ids: at least one network interface is required when creating an instance")
+			}
+		}
 	}
 	return nil
 }
@@ -266,6 +277,14 @@ func resourceInstanceRead(ctx context.Context, d *schema.ResourceData, meta inte
 }
 
 func resourceInstanceUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceInstanceUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceInstanceRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceInstanceUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChange("name") {

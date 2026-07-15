@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceSecurityGroupRule() *schema.Resource {
@@ -54,9 +55,10 @@ func ResourceSecurityGroupRule() *schema.Resource {
 				ForceNew: true,
 			},
 			"remote_ip_prefix": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ValidateFunc: validation.IsCIDR,
 			},
 			"description": {
 				Type:     schema.TypeString,
@@ -117,6 +119,14 @@ func resourceSecurityGroupRuleRead(ctx context.Context, d *schema.ResourceData, 
 }
 
 func resourceSecurityGroupRuleUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if diags := resourceSecurityGroupRuleUpdateInner(ctx, d, meta); diags.HasError() {
+		return append(resourceSecurityGroupRuleRead(ctx, d, meta), diags...)
+	} else {
+		return diags
+	}
+}
+
+func resourceSecurityGroupRuleUpdateInner(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 
 	if d.HasChange("remote_ip_prefix") || d.HasChange("description") {
