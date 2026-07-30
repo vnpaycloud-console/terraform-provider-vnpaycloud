@@ -39,9 +39,6 @@ func TestDataSourcePoolRead_ByID(t *testing.T) {
 	if v := d.Get("name").(string); v != "test-pool" {
 		t.Errorf("expected name test-pool, got %s", v)
 	}
-	if v := d.Get("listener_id").(string); v != "listener-001" {
-		t.Errorf("expected listener_id listener-001, got %s", v)
-	}
 	if v := d.Get("lb_algorithm").(string); v != "ROUND_ROBIN" {
 		t.Errorf("expected lb_algorithm ROUND_ROBIN, got %s", v)
 	}

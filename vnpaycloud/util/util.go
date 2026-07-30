@@ -231,7 +231,7 @@ func RetryLBPendingPut(ctx context.Context, timeout time.Duration, write func() 
 			return nil
 		}
 		msg := err.Error()
-		if strings.Contains(msg, "Please wait") || strings.Contains(msg, "not active") {
+		if strings.Contains(msg, "provisioning status must be ACTIVE") || strings.Contains(msg, "not active") {
 			return retry.RetryableError(err)
 		}
 		return retry.NonRetryableError(err)

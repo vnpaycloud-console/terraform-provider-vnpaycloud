@@ -21,7 +21,6 @@ L7 policies are evaluated in `position` order; the first matching policy wins.
 resource "vnpaycloud_lb_pool" "api_pool" {
   name             = "api-backend"
   load_balancer_id = vnpaycloud_lb_loadbalancer.app.id
-  listener_id      = vnpaycloud_lb_listener.http.id
   protocol         = "HTTP"
   lb_algorithm     = "ROUND_ROBIN"
 }

@@ -7,6 +7,7 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/lbmutex"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
@@ -76,8 +77,21 @@ func ResourceL7Policy() *schema.Resource {
 	}
 }
 
+func lbIDForListener(ctx context.Context, cfg *config.Config, listenerID string) string {
+	if listenerID == "" {
+		return ""
+	}
+	resp := &dto.ListenerResponse{}
+	if _, err := cfg.Client.Get(ctx, client.ApiPath.ListenerWithID(cfg.ProjectID, listenerID), resp, nil); err != nil {
+		tflog.Warn(ctx, "vnpaycloud_lb_l7policy: could not resolve load_balancer_id for locking; proceeding without lock", map[string]interface{}{"listener_id": listenerID, "error": err.Error()})
+		return ""
+	}
+	return resp.Listener.LoadBalancerID
+}
+
 func resourceL7PolicyCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+	defer lbmutex.Lock(cfg.MutexKV, lbIDForListener(ctx, cfg, d.Get("listener_id").(string)))()
 
 	createOpts := dto.CreateL7PolicyRequest{
 		Name:           d.Get("name").(string),
@@ -144,6 +158,7 @@ func resourceL7PolicyRead(ctx context.Context, d *schema.ResourceData, meta inte
 
 func resourceL7PolicyUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+	defer lbmutex.Lock(cfg.MutexKV, lbIDForListener(ctx, cfg, d.Get("listener_id").(string)))()
 
 	if d.HasChanges("name", "description", "action", "position", "redirect_pool_id", "redirect_url") {
 		updateOpts := dto.UpdateL7PolicyRequest{
@@ -184,10 +199,11 @@ func resourceL7PolicyUpdate(ctx context.Context, d *schema.ResourceData, meta in
 
 func resourceL7PolicyDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+	defer lbmutex.Lock(cfg.MutexKV, lbIDForListener(ctx, cfg, d.Get("listener_id").(string)))()
 
 	deleteErr := retry.RetryContext(ctx, d.Timeout(schema.TimeoutDelete), func() *retry.RetryError {
 		_, err := cfg.Client.Delete(ctx, client.ApiPath.L7PolicyWithID(cfg.ProjectID, d.Id()), nil)
-		if err != nil && strings.Contains(err.Error(), "not active") {
+		if err != nil && (strings.Contains(err.Error(), "provisioning status must be ACTIVE") || strings.Contains(err.Error(), "not active")) {
 			return retry.RetryableError(err)
 		}
 		if err != nil {

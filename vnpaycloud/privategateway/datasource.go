@@ -16,14 +16,16 @@ func DataSourcePrivateGateway() *schema.Resource {
 		ReadContext: dataSourcePrivateGatewayRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name"},
 			},
 			"description": {
 				Type:     schema.TypeString,
@@ -61,6 +63,9 @@ func dataSourcePrivateGatewayRead(ctx context.Context, d *schema.ResourceData, m
 		_, err := cfg.Client.Get(ctx, client.ApiPath.PrivateGatewayWithID(cfg.ProjectID, id.(string)), pgwResp, nil)
 		if err != nil {
 			return diag.Errorf("Error fetching vnpaycloud_private_gateway %s: %s", id, err)
+		}
+		if v, ok := d.GetOk("name"); ok && pgwResp.PrivateGateway.Name != v.(string) {
+			return diag.Errorf("vnpaycloud_private_gateway %q does not match name %q", id.(string), v.(string))
 		}
 		return setPrivateGatewayData(d, &pgwResp.PrivateGateway)
 	}

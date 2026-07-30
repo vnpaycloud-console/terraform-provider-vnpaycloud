@@ -16,19 +16,22 @@ func DataSourceSubnet() *schema.Resource {
 		ReadContext: dataSourceSubnetRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name", "vpc_id"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name", "vpc_id"},
 			},
 			"vpc_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name", "vpc_id"},
 			},
 			"cidr": {
 				Type:     schema.TypeString,
@@ -70,6 +73,12 @@ func dataSourceSubnetRead(ctx context.Context, d *schema.ResourceData, meta inte
 		_, err := cfg.Client.Get(ctx, client.ApiPath.SubnetWithID(cfg.ProjectID, id.(string)), subnetResp, nil)
 		if err != nil {
 			return diag.Errorf("Error fetching vnpaycloud_subnet %s: %s", id, err)
+		}
+		if v, ok := d.GetOk("name"); ok && subnetResp.Subnet.Name != v.(string) {
+			return diag.Errorf("vnpaycloud_subnet %q does not match name %q", id.(string), v.(string))
+		}
+		if v, ok := d.GetOk("vpc_id"); ok && subnetResp.Subnet.VpcID != v.(string) {
+			return diag.Errorf("vnpaycloud_subnet %q does not match vpc_id %q", id.(string), v.(string))
 		}
 		return setSubnetData(d, &subnetResp.Subnet)
 	}

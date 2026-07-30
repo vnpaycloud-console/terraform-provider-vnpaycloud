@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get information about an existing VPC.
 
+At least one of `id` or `name` must be specified (enforced at plan time). If both are given, the ID must resolve to a VPC whose name matches. Looking up by name requires a unique match.
+
 ## Example Usage
 
 ```hcl

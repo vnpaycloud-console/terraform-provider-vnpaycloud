@@ -17,14 +17,16 @@ func DataSourceNetworkACLRule() *schema.Resource {
 		ReadContext: dataSourceNetworkACLRuleRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "nacl_id"},
 			},
 			"nacl_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ExactlyOneOf: []string{"id", "nacl_id"},
 			},
 			"name": {
 				Type:     schema.TypeString,

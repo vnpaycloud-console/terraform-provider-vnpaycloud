@@ -16,14 +16,16 @@ func DataSourceNetworkInterface() *schema.Resource {
 		ReadContext: dataSourceNetworkInterfaceRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name"},
 			},
 			"network_id": {
 				Type:     schema.TypeString,
@@ -105,6 +107,9 @@ func dataSourceNetworkInterfaceRead(ctx context.Context, d *schema.ResourceData,
 			return diag.Errorf("Error retrieving vnpaycloud_network_interface %s: %s", id, err)
 		}
 		tflog.Debug(ctx, "Retrieved vnpaycloud_network_interface datasource", map[string]interface{}{"network_interface": niResp.NetworkInterface})
+		if v, ok := d.GetOk("name"); ok && niResp.NetworkInterface.Name != v.(string) {
+			return diag.Errorf("vnpaycloud_network_interface %q does not match name %q", id.(string), v.(string))
+		}
 		setNetworkInterfaceDataSourceAttributes(d, niResp.NetworkInterface)
 		return nil
 	}

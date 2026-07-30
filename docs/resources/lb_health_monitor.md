@@ -19,7 +19,6 @@ Health monitor type must be compatible with the pool's protocol — for example 
 resource "vnpaycloud_lb_pool" "app_pool" {
   name             = "app-backend-pool"
   load_balancer_id = "lb-xyz98765"
-  listener_id      = "listener-abc12345"
   lb_algorithm     = "ROUND_ROBIN"
   protocol         = "HTTP"
 }

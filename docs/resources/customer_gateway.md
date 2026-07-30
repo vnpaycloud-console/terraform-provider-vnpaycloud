@@ -22,10 +22,14 @@ The Terraform schema marks some fields as optional because the valid set depends
 Additional validation:
 
 - `public_ip` must be a public IPv4 address.
+- Policy-based customer gateways must use `routing_mode = "NONE"` or omit `routing_mode`. Other routing modes are rejected for `vpn_type = "POLICY_BASED"`.
+- Route-based customer gateways must use `routing_mode = "STATIC"` or `routing_mode = "DYNAMIC"`. `routing_mode = "NONE"` is rejected for `vpn_type = "ROUTE_BASED"`.
 - `local_tunnel_ip` and `remote_tunnel_ip` are required for all route-based customer gateways, must use valid tunnel CIDR format such as `169.254.0.1/30`, and must be different.
-- `remote_prefixes` must contain at least one valid CIDR. Duplicate prefixes are rejected.
-- For route-based customer gateways, remote prefixes in the same request must not overlap.
-- For policy-based customer gateways, overlapping remote prefixes are allowed.
+- `local_tunnel_ip` and `remote_tunnel_ip` must not be set for policy-based customer gateways.
+- `bgp_config` is required when `vpn_type = "ROUTE_BASED"` and `routing_mode = "DYNAMIC"`, and must not be set for policy-based or route-based static customer gateways.
+- `remote_prefixes` must contain at least one valid CIDR. Duplicate prefixes are rejected for both policy-based and route-based customer gateways.
+- For policy-based customer gateways, remote prefixes in the same request must not overlap.
+- For route-based customer gateways, overlapping remote prefixes are allowed.
 - For route-based BGP, `bgp_config.as_path` is required and each ASN must be valid for the configured VPNaaS ASN range. The default range is `64512`–`65534`, `local_as` and `peer_as` must differ, and `as_path` accepts at most 10 space-separated ASNs.
 - While the customer gateway is in use by a VPN connection, only `name`, `description`, and `remote_prefixes` may be updated. Changing `public_ip`, `local_tunnel_ip`, `remote_tunnel_ip`, `routing_mode`, or any `bgp_config` field is rejected until the connection is deleted. `vpn_type` is immutable in all cases.
 

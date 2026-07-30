@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get information about an existing security group, including all of its inbound and outbound rules.
 
+At least one of `id` or `name` must be specified (enforced at plan time). If both are given, the ID must resolve to a security group whose name matches. Looking up by name requires a unique match.
+
 ## Example Usage
 
 ```hcl

@@ -3,6 +3,7 @@ package networkinterface
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
@@ -65,6 +66,60 @@ func TestDataSourceNetworkInterfaceRead_ByID(t *testing.T) {
 	}
 	if v := d.Get("created_at").(string); v != "2025-01-15T10:00:00Z" {
 		t.Errorf("expected created_at 2025-01-15T10:00:00Z, got %s", v)
+	}
+}
+
+func TestDataSourceNetworkInterfaceRead_ByIDNameMatches(t *testing.T) {
+	ni := testNetworkInterface()
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/network-interfaces/nic-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.NetworkInterfaceResponse{NetworkInterface: ni}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	ds := DataSourceNetworkInterface()
+	d := schema.TestResourceDataRaw(t, ds.Schema, map[string]interface{}{
+		"id":   "nic-001",
+		"name": "test-nic",
+	})
+
+	diags := ds.ReadContext(context.Background(), d, cfg)
+	if diags.HasError() {
+		t.Fatalf("unexpected error when id+name match: %v", diags)
+	}
+	if d.Id() != "nic-001" {
+		t.Errorf("expected ID nic-001, got %s", d.Id())
+	}
+}
+
+func TestDataSourceNetworkInterfaceRead_ByIDNameMismatch(t *testing.T) {
+	ni := testNetworkInterface()
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/network-interfaces/nic-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.NetworkInterfaceResponse{NetworkInterface: ni}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	ds := DataSourceNetworkInterface()
+	d := schema.TestResourceDataRaw(t, ds.Schema, map[string]interface{}{
+		"id":   "nic-001",
+		"name": "definitely-not-the-real-nic-name",
+	})
+
+	diags := ds.ReadContext(context.Background(), d, cfg)
+	if !diags.HasError() {
+		t.Fatal("expected error when id is fetched but name does not match, got none")
+	}
+	if !strings.Contains(diags[0].Summary, "does not match name") {
+		t.Errorf("expected mismatch error, got: %s", diags[0].Summary)
 	}
 }
 

@@ -3,6 +3,7 @@ package vpc
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
@@ -53,6 +54,60 @@ func TestDataSourceVpcRead_ByID(t *testing.T) {
 	}
 	if v := d.Get("created_at").(string); v != "2025-01-15T10:00:00Z" {
 		t.Errorf("expected created_at 2025-01-15T10:00:00Z, got %s", v)
+	}
+}
+
+func TestDataSourceVpcRead_ByIDNameMatches(t *testing.T) {
+	vpc := testVPC()
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/vpcs/vpc-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.VPCResponse{VPC: vpc}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	ds := DataSourceVpc()
+	d := schema.TestResourceDataRaw(t, ds.Schema, map[string]interface{}{
+		"id":   "vpc-001",
+		"name": "test-vpc",
+	})
+
+	diags := ds.ReadContext(context.Background(), d, cfg)
+	if diags.HasError() {
+		t.Fatalf("unexpected error when id+name match: %v", diags)
+	}
+	if d.Id() != "vpc-001" {
+		t.Errorf("expected ID vpc-001, got %s", d.Id())
+	}
+}
+
+func TestDataSourceVpcRead_ByIDNameMismatch(t *testing.T) {
+	vpc := testVPC()
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/vpcs/vpc-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.VPCResponse{VPC: vpc}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	ds := DataSourceVpc()
+	d := schema.TestResourceDataRaw(t, ds.Schema, map[string]interface{}{
+		"id":   "vpc-001",
+		"name": "definitely-not-the-real-vpc-name",
+	})
+
+	diags := ds.ReadContext(context.Background(), d, cfg)
+	if !diags.HasError() {
+		t.Fatal("expected error when id is fetched but name does not match, got none")
+	}
+	if !strings.Contains(diags[0].Summary, "does not match name") {
+		t.Errorf("expected mismatch error, got: %s", diags[0].Summary)
 	}
 }
 

@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get information about an existing subnet.
 
+At least one of `id`, `name`, or `vpc_id` must be specified (enforced at plan time). `name` and `vpc_id` filter the subnet list and must together resolve to a single subnet; use `id` for a direct lookup.
+
 ## Example Usage
 
 ```hcl

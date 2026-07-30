@@ -16,14 +16,16 @@ func DataSourceFloatingIP() *schema.Resource {
 		ReadContext: dataSourceFloatingIPRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "address"},
 			},
 			"address": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "address"},
 			},
 			"status": {
 				Type:     schema.TypeString,
@@ -57,6 +59,9 @@ func dataSourceFloatingIPRead(ctx context.Context, d *schema.ResourceData, meta 
 		_, err := cfg.Client.Get(ctx, client.ApiPath.FloatingIPWithID(cfg.ProjectID, id.(string)), fipResp, nil)
 		if err != nil {
 			return diag.Errorf("Error fetching vnpaycloud_floating_ip %s: %s", id, err)
+		}
+		if v, ok := d.GetOk("address"); ok && fipResp.FloatingIP.Address != v.(string) {
+			return diag.Errorf("vnpaycloud_floating_ip %q does not match address %q", id.(string), v.(string))
 		}
 		return setFloatingIPData(d, &fipResp.FloatingIP)
 	}

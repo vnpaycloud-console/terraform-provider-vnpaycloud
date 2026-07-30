@@ -17,7 +17,7 @@ func testPool() dto.Pool {
 		ID:                 "pool-001",
 		Name:               "test-pool",
 		Description:        "Test pool description",
-		ListenerID:         "listener-001",
+		LoadBalancerID:     "lb-001",
 		LBAlgorithm:        "ROUND_ROBIN",
 		Protocol:           "HTTP",
 		SessionPersistence: &dto.SessionPersistence{Type: "SOURCE_IP"},
@@ -37,33 +37,19 @@ func testPool() dto.Pool {
 	}
 }
 
-func testListener() dto.Listener {
-	return dto.Listener{
-		ID:             "listener-001",
-		Name:           "test-listener",
-		Description:    "Test listener description",
-		LoadBalancerID: "lb-001",
-		Protocol:       "HTTP",
-		ProtocolPort:   80,
-		Status:         "active",
-		CreatedAt:      "2025-01-15T10:00:00Z",
-	}
-}
-
 func TestResourcePoolCreate(t *testing.T) {
 	p := testPool()
-	l := testListener()
 	// The create response returns pool without members (API creates pool first,
 	// then members are added via PUT update).
 	createPool := dto.Pool{
-		ID:          "pool-001",
-		Name:        "test-pool",
-		ListenerID:  "listener-001",
-		LBAlgorithm: "ROUND_ROBIN",
-		Protocol:    "HTTP",
-		Members:     nil,
-		Status:      "active",
-		CreatedAt:   "2025-01-15T10:00:00Z",
+		ID:             "pool-001",
+		Name:           "test-pool",
+		LoadBalancerID: "lb-001",
+		LBAlgorithm:    "ROUND_ROBIN",
+		Protocol:       "HTTP",
+		Members:        nil,
+		Status:         "active",
+		CreatedAt:      "2025-01-15T10:00:00Z",
 	}
 
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
@@ -86,19 +72,6 @@ func TestResourcePoolCreate(t *testing.T) {
 				}
 			},
 		},
-		{
-			Pattern: "/v2/iac/projects/test-project-id/listeners/listener-001",
-			Handler: func(w http.ResponseWriter, r *http.Request) {
-				switch r.Method {
-				case "GET":
-					testhelpers.JSONHandler(t, http.StatusOK, dto.ListenerResponse{Listener: l})(w, r)
-				case "PUT":
-					w.WriteHeader(http.StatusOK)
-				default:
-					http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-				}
-			},
-		},
 	})
 	cfg := testhelpers.NewMockConfig(t, srv.URL)
 
@@ -106,7 +79,7 @@ func TestResourcePoolCreate(t *testing.T) {
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
 		"name":                "test-pool",
 		"description":         "Test pool description",
-		"listener_id":         "listener-001",
+		"load_balancer_id":    "lb-001",
 		"lb_algorithm":        "ROUND_ROBIN",
 		"protocol":            "HTTP",
 		"session_persistence": []interface{}{map[string]interface{}{"type": "SOURCE_IP", "cookie_name": ""}},
@@ -140,16 +113,15 @@ func TestResourcePoolCreate(t *testing.T) {
 }
 
 func TestResourcePoolCreate_NoMembers(t *testing.T) {
-	l := testListener()
 	p := dto.Pool{
-		ID:          "pool-002",
-		Name:        "test-pool-empty",
-		ListenerID:  "listener-001",
-		LBAlgorithm: "ROUND_ROBIN",
-		Protocol:    "TCP",
-		Members:     nil,
-		Status:      "active",
-		CreatedAt:   "2025-01-15T10:00:00Z",
+		ID:             "pool-002",
+		Name:           "test-pool-empty",
+		LoadBalancerID: "lb-001",
+		LBAlgorithm:    "ROUND_ROBIN",
+		Protocol:       "TCP",
+		Members:        nil,
+		Status:         "active",
+		CreatedAt:      "2025-01-15T10:00:00Z",
 	}
 
 	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
@@ -163,19 +135,6 @@ func TestResourcePoolCreate_NoMembers(t *testing.T) {
 			Pattern: "/v2/iac/projects/test-project-id/pools/pool-002",
 			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.PoolResponse{Pool: p}),
 		},
-		{
-			Pattern: "/v2/iac/projects/test-project-id/listeners/listener-001",
-			Handler: func(w http.ResponseWriter, r *http.Request) {
-				switch r.Method {
-				case "GET":
-					testhelpers.JSONHandler(t, http.StatusOK, dto.ListenerResponse{Listener: l})(w, r)
-				case "PUT":
-					w.WriteHeader(http.StatusOK)
-				default:
-					http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-				}
-			},
-		},
 	})
 	cfg := testhelpers.NewMockConfig(t, srv.URL)
 
@@ -183,7 +142,7 @@ func TestResourcePoolCreate_NoMembers(t *testing.T) {
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
 		"name":                "test-pool-empty",
 		"description":         "",
-		"listener_id":         "listener-001",
+		"load_balancer_id":    "lb-001",
 		"lb_algorithm":        "ROUND_ROBIN",
 		"protocol":            "TCP",
 		"session_persistence": []interface{}{},
@@ -217,7 +176,7 @@ func TestResourcePoolRead(t *testing.T) {
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
 		"name":                "",
 		"description":         "",
-		"listener_id":         "",
+		"load_balancer_id":    "",
 		"lb_algorithm":        "ROUND_ROBIN",
 		"protocol":            "HTTP",
 		"session_persistence": []interface{}{},
@@ -234,8 +193,8 @@ func TestResourcePoolRead(t *testing.T) {
 	if v := d.Get("name").(string); v != "test-pool" {
 		t.Errorf("expected name test-pool, got %s", v)
 	}
-	if v := d.Get("listener_id").(string); v != "listener-001" {
-		t.Errorf("expected listener_id listener-001, got %s", v)
+	if v := d.Get("load_balancer_id").(string); v != "lb-001" {
+		t.Errorf("expected load_balancer_id lb-001, got %s", v)
 	}
 	if v := d.Get("lb_algorithm").(string); v != "ROUND_ROBIN" {
 		t.Errorf("expected lb_algorithm ROUND_ROBIN, got %s", v)
@@ -280,7 +239,7 @@ func TestResourcePoolRead_NotFound(t *testing.T) {
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
 		"name":                "",
 		"description":         "",
-		"listener_id":         "",
+		"load_balancer_id":    "",
 		"lb_algorithm":        "ROUND_ROBIN",
 		"protocol":            "HTTP",
 		"session_persistence": []interface{}{},
@@ -327,11 +286,11 @@ func TestResourcePoolDelete(t *testing.T) {
 
 	res := ResourcePool()
 	d := schema.TestResourceDataRaw(t, res.Schema, map[string]interface{}{
-		"name":         "test-pool",
-		"listener_id":  "listener-001",
-		"lb_algorithm": "ROUND_ROBIN",
-		"protocol":     "HTTP",
-		"member":       []interface{}{},
+		"name":             "test-pool",
+		"load_balancer_id": "lb-001",
+		"lb_algorithm":     "ROUND_ROBIN",
+		"protocol":         "HTTP",
+		"member":           []interface{}{},
 	})
 	d.SetId("pool-001")
 

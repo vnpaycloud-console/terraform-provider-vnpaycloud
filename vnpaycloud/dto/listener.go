@@ -49,7 +49,7 @@ type CreateListenerRequest struct {
 type UpdateListenerRequest struct {
 	Name                   string   `json:"name,omitempty"`
 	Description            string   `json:"description"`
-	DefaultPoolID          string   `json:"defaultPoolId,omitempty"`
+	DefaultPoolID          string   `json:"defaultPoolId"`
 	InsertHeaders          []string `json:"insertHeaders,omitempty"`
 	AllowedCidrs           []string `json:"allowedCidrs"`
 	ConnectionLimit        int      `json:"connectionLimit"`

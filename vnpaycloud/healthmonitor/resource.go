@@ -7,6 +7,7 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/lbmutex"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
@@ -96,8 +97,21 @@ func ResourceHealthMonitor() *schema.Resource {
 	}
 }
 
+func lbIDForPool(ctx context.Context, cfg *config.Config, poolID string) string {
+	if poolID == "" {
+		return ""
+	}
+	resp := &dto.PoolResponse{}
+	if _, err := cfg.Client.Get(ctx, client.ApiPath.PoolWithID(cfg.ProjectID, poolID), resp, nil); err != nil {
+		tflog.Warn(ctx, "vnpaycloud_lb_health_monitor: could not resolve load_balancer_id for locking; proceeding without lock", map[string]interface{}{"pool_id": poolID, "error": err.Error()})
+		return ""
+	}
+	return resp.Pool.LoadBalancerID
+}
+
 func resourceHealthMonitorCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+	defer lbmutex.Lock(cfg.MutexKV, lbIDForPool(ctx, cfg, d.Get("pool_id").(string)))()
 
 	createOpts := dto.CreateHealthMonitorRequest{
 		Name:           d.Get("name").(string),
@@ -177,6 +191,7 @@ func resourceHealthMonitorRead(ctx context.Context, d *schema.ResourceData, meta
 
 func resourceHealthMonitorUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+	defer lbmutex.Lock(cfg.MutexKV, lbIDForPool(ctx, cfg, d.Get("pool_id").(string)))()
 
 	if d.HasChanges("name", "delay", "timeout", "max_retries", "max_retries_down", "http_method", "url_path", "expected_codes") {
 		waitBefore := &retry.StateChangeConf{
@@ -232,10 +247,11 @@ func resourceHealthMonitorUpdate(ctx context.Context, d *schema.ResourceData, me
 
 func resourceHealthMonitorDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+	defer lbmutex.Lock(cfg.MutexKV, lbIDForPool(ctx, cfg, d.Get("pool_id").(string)))()
 
 	deleteErr := retry.RetryContext(ctx, d.Timeout(schema.TimeoutDelete), func() *retry.RetryError {
 		_, err := cfg.Client.Delete(ctx, client.ApiPath.HealthMonitorWithID(cfg.ProjectID, d.Id()), nil)
-		if err != nil && strings.Contains(err.Error(), "not active") {
+		if err != nil && (strings.Contains(err.Error(), "provisioning status must be ACTIVE") || strings.Contains(err.Error(), "not active")) {
 			return retry.RetryableError(err)
 		}
 		if err != nil {

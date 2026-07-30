@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get information about an existing internet gateway. Internet gateways provide connectivity between a VPC and the public internet.
 
+At least one of `id` or `name` must be specified (enforced at plan time). If both are given, the ID must resolve to an internet gateway whose name matches. Looking up by name requires a unique match.
+
 ## Example Usage
 
 ```hcl

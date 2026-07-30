@@ -8,6 +8,7 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/hashcode"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/lbmutex"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
@@ -52,15 +53,7 @@ func ResourcePool() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "ID of the parent load balancer. Pools belong to a load balancer (1 LB → many pools); attaching to a listener is a separate, optional step via `listener_id` below.",
-			},
-			"listener_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
-				ForceNew: true,
-				Description: "Optional — set only when you want this pool to become the listener's `default_pool_id` at create time. The listener must currently have no default pool (a listener accepts at most one default; swap an existing default via `vnpaycloud_lb_listener.default_pool_id` instead). " +
-					"`Computed`: if the listener attaches this pool as its default out-of-band (e.g. you set `vnpaycloud_lb_listener.default_pool_id`), the backend writes this back-pointer and Terraform keeps it in state instead of forcing a spurious recreate.",
+				Description: "ID of the parent load balancer. Pools belong to a load balancer (1 LB → many pools). A pool is standalone; attach it to a listener from the listener side via `vnpaycloud_lb_listener.default_pool_id` (one pool can be the default of many listeners).",
 			},
 			"lb_algorithm": {
 				Type:     schema.TypeString,
@@ -199,14 +192,12 @@ func flattenPoolMembers(members []dto.PoolMember) []map[string]interface{} {
 
 func resourcePoolCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
-
-	listenerID := d.Get("listener_id").(string)
+	defer lbmutex.Lock(cfg.MutexKV, d.Get("load_balancer_id").(string))()
 
 	createOpts := dto.CreatePoolRequest{
 		Name:               d.Get("name").(string),
 		Description:        d.Get("description").(string),
 		LoadBalancerID:     d.Get("load_balancer_id").(string),
-		ListenerID:         listenerID,
 		LBAlgorithm:        d.Get("lb_algorithm").(string),
 		Protocol:           d.Get("protocol").(string),
 		TlsEnabled:         d.Get("tls_enabled").(bool),
@@ -238,34 +229,6 @@ func resourcePoolCreate(ctx context.Context, d *schema.ResourceData, meta interf
 	_, err = stateConf.WaitForStateContext(ctx)
 	if err != nil {
 		return diag.Errorf("Error waiting for vnpaycloud_lb_pool %s to become ready: %s", createResp.Pool.ID, err)
-	}
-
-	if listenerID != "" {
-		listenerResp := &dto.ListenerResponse{}
-		if _, err := cfg.Client.Get(ctx, client.ApiPath.ListenerWithID(cfg.ProjectID, listenerID), listenerResp, nil); err != nil {
-			return diag.Errorf("Error fetching listener %s for default_pool_id sync: %s", listenerID, err)
-		}
-		listenerUpdate := dto.UpdateListenerRequest{
-			Name:                   listenerResp.Listener.Name,
-			Description:            listenerResp.Listener.Description,
-			DefaultPoolID:          d.Id(),
-			InsertHeaders:          listenerResp.Listener.InsertHeaders,
-			AllowedCidrs:           listenerResp.Listener.AllowedCidrs,
-			ConnectionLimit:        listenerResp.Listener.ConnectionLimit,
-			TimeoutClientData:      listenerResp.Listener.TimeoutClientData,
-			TimeoutMemberConnect:   listenerResp.Listener.TimeoutMemberConnect,
-			TimeoutMemberData:      listenerResp.Listener.TimeoutMemberData,
-			CertificateID:          listenerResp.Listener.CertificateID,
-			CertificateAuthorityID: listenerResp.Listener.CertificateAuthorityID,
-			SniCertificateIDs:      listenerResp.Listener.SniCertificateIDs,
-		}
-		err := util.RetryLBPendingPut(ctx, d.Timeout(schema.TimeoutCreate), func() error {
-			_, putErr := cfg.Client.Put(ctx, client.ApiPath.ListenerWithID(cfg.ProjectID, listenerID), listenerUpdate, nil, nil)
-			return putErr
-		})
-		if err != nil {
-			return diag.Errorf("Error setting default_pool_id=%s on listener %s: %s", d.Id(), listenerID, err)
-		}
 	}
 
 	if v, ok := d.GetOk("member"); ok {
@@ -306,9 +269,6 @@ func resourcePoolRead(ctx context.Context, d *schema.ResourceData, meta interfac
 	d.Set("name", resp.Pool.Name)
 	d.Set("description", resp.Pool.Description)
 	d.Set("load_balancer_id", resp.Pool.LoadBalancerID)
-	if resp.Pool.ListenerID != "" {
-		d.Set("listener_id", resp.Pool.ListenerID)
-	}
 	d.Set("lb_algorithm", resp.Pool.LBAlgorithm)
 	d.Set("protocol", resp.Pool.Protocol)
 	d.Set("session_persistence", flattenSessionPersistence(resp.Pool.SessionPersistence))
@@ -322,6 +282,7 @@ func resourcePoolRead(ctx context.Context, d *schema.ResourceData, meta interfac
 
 func resourcePoolUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+	defer lbmutex.Lock(cfg.MutexKV, d.Get("load_balancer_id").(string))()
 
 	if d.HasChanges("name", "description", "lb_algorithm", "session_persistence", "tls_enabled", "member") {
 		waitBefore := &retry.StateChangeConf{
@@ -378,10 +339,11 @@ func resourcePoolUpdate(ctx context.Context, d *schema.ResourceData, meta interf
 
 func resourcePoolDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+	defer lbmutex.Lock(cfg.MutexKV, d.Get("load_balancer_id").(string))()
 
 	deleteErr := retry.RetryContext(ctx, d.Timeout(schema.TimeoutDelete), func() *retry.RetryError {
 		_, err := cfg.Client.Delete(ctx, client.ApiPath.PoolWithID(cfg.ProjectID, d.Id()), nil)
-		if err != nil && strings.Contains(err.Error(), "not active") {
+		if err != nil && (strings.Contains(err.Error(), "provisioning status must be ACTIVE") || strings.Contains(err.Error(), "not active")) {
 			return retry.RetryableError(err)
 		}
 		if err != nil {

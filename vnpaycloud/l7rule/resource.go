@@ -7,6 +7,7 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/lbmutex"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
@@ -79,9 +80,27 @@ func ResourceL7Rule() *schema.Resource {
 	}
 }
 
+func lbIDForL7Policy(ctx context.Context, cfg *config.Config, l7policyID string) string {
+	if l7policyID == "" {
+		return ""
+	}
+	policyResp := &dto.L7PolicyResponse{}
+	if _, err := cfg.Client.Get(ctx, client.ApiPath.L7PolicyWithID(cfg.ProjectID, l7policyID), policyResp, nil); err != nil {
+		tflog.Warn(ctx, "vnpaycloud_lb_l7rule: could not resolve listener for locking; proceeding without lock", map[string]interface{}{"l7policy_id": l7policyID, "error": err.Error()})
+		return ""
+	}
+	listenerResp := &dto.ListenerResponse{}
+	if _, err := cfg.Client.Get(ctx, client.ApiPath.ListenerWithID(cfg.ProjectID, policyResp.L7Policy.ListenerID), listenerResp, nil); err != nil {
+		tflog.Warn(ctx, "vnpaycloud_lb_l7rule: could not resolve load_balancer_id for locking; proceeding without lock", map[string]interface{}{"listener_id": policyResp.L7Policy.ListenerID, "error": err.Error()})
+		return ""
+	}
+	return listenerResp.Listener.LoadBalancerID
+}
+
 func resourceL7RuleCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 	l7policyID := d.Get("l7policy_id").(string)
+	defer lbmutex.Lock(cfg.MutexKV, lbIDForL7Policy(ctx, cfg, l7policyID))()
 
 	createOpts := dto.CreateL7RuleRequest{
 		RuleType:    d.Get("rule_type").(string),
@@ -147,6 +166,7 @@ func resourceL7RuleRead(ctx context.Context, d *schema.ResourceData, meta interf
 func resourceL7RuleUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 	l7policyID := d.Get("l7policy_id").(string)
+	defer lbmutex.Lock(cfg.MutexKV, lbIDForL7Policy(ctx, cfg, l7policyID))()
 
 	if d.HasChanges("rule_type", "compare_type", "value", "key", "invert") {
 		updateOpts := dto.UpdateL7RuleRequest{
@@ -187,10 +207,11 @@ func resourceL7RuleUpdate(ctx context.Context, d *schema.ResourceData, meta inte
 func resourceL7RuleDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
 	l7policyID := d.Get("l7policy_id").(string)
+	defer lbmutex.Lock(cfg.MutexKV, lbIDForL7Policy(ctx, cfg, l7policyID))()
 
 	deleteErr := retry.RetryContext(ctx, d.Timeout(schema.TimeoutDelete), func() *retry.RetryError {
 		_, err := cfg.Client.Delete(ctx, client.ApiPath.L7RuleWithID(cfg.ProjectID, l7policyID, d.Id()), nil)
-		if err != nil && strings.Contains(err.Error(), "not active") {
+		if err != nil && (strings.Contains(err.Error(), "provisioning status must be ACTIVE") || strings.Contains(err.Error(), "not active")) {
 			return retry.RetryableError(err)
 		}
 		if err != nil {

@@ -3,6 +3,7 @@ package floatingip
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
@@ -56,6 +57,60 @@ func TestDataSourceFloatingIPRead_ByID(t *testing.T) {
 	}
 	if v := d.Get("created_at").(string); v != "2025-01-15T10:00:00Z" {
 		t.Errorf("expected created_at 2025-01-15T10:00:00Z, got %s", v)
+	}
+}
+
+func TestDataSourceFloatingIPRead_ByIDAddressMatches(t *testing.T) {
+	fip := testFloatingIP()
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/floating-ips/fip-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.FloatingIPResponse{FloatingIP: fip}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	ds := DataSourceFloatingIP()
+	d := schema.TestResourceDataRaw(t, ds.Schema, map[string]interface{}{
+		"id":      "fip-001",
+		"address": "203.0.113.10",
+	})
+
+	diags := ds.ReadContext(context.Background(), d, cfg)
+	if diags.HasError() {
+		t.Fatalf("unexpected error when id+address match: %v", diags)
+	}
+	if d.Id() != "fip-001" {
+		t.Errorf("expected ID fip-001, got %s", d.Id())
+	}
+}
+
+func TestDataSourceFloatingIPRead_ByIDAddressMismatch(t *testing.T) {
+	fip := testFloatingIP()
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/floating-ips/fip-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.FloatingIPResponse{FloatingIP: fip}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	ds := DataSourceFloatingIP()
+	d := schema.TestResourceDataRaw(t, ds.Schema, map[string]interface{}{
+		"id":      "fip-001",
+		"address": "198.51.100.99",
+	})
+
+	diags := ds.ReadContext(context.Background(), d, cfg)
+	if !diags.HasError() {
+		t.Fatal("expected error when id is fetched but address does not match, got none")
+	}
+	if !strings.Contains(diags[0].Summary, "does not match address") {
+		t.Errorf("expected mismatch error, got: %s", diags[0].Summary)
 	}
 }
 

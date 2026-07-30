@@ -3,6 +3,7 @@ package subnet
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
@@ -59,6 +60,88 @@ func TestDataSourceSubnetRead_ByID(t *testing.T) {
 	}
 	if v := d.Get("created_at").(string); v != "2025-01-15T10:00:00Z" {
 		t.Errorf("expected created_at 2025-01-15T10:00:00Z, got %s", v)
+	}
+}
+
+func TestDataSourceSubnetRead_ByIDSelectorsMatch(t *testing.T) {
+	sub := testSubnet()
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/subnets/subnet-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.SubnetResponse{Subnet: sub}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	ds := DataSourceSubnet()
+	d := schema.TestResourceDataRaw(t, ds.Schema, map[string]interface{}{
+		"id":     "subnet-001",
+		"name":   "test-subnet",
+		"vpc_id": "vpc-001",
+	})
+
+	diags := ds.ReadContext(context.Background(), d, cfg)
+	if diags.HasError() {
+		t.Fatalf("unexpected error when id+name+vpc_id all match: %v", diags)
+	}
+	if d.Id() != "subnet-001" {
+		t.Errorf("expected ID subnet-001, got %s", d.Id())
+	}
+}
+
+func TestDataSourceSubnetRead_ByIDNameMismatch(t *testing.T) {
+	sub := testSubnet()
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/subnets/subnet-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.SubnetResponse{Subnet: sub}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	ds := DataSourceSubnet()
+	d := schema.TestResourceDataRaw(t, ds.Schema, map[string]interface{}{
+		"id":   "subnet-001",
+		"name": "definitely-not-the-real-subnet-name",
+	})
+
+	diags := ds.ReadContext(context.Background(), d, cfg)
+	if !diags.HasError() {
+		t.Fatal("expected error when id is fetched but name does not match, got none")
+	}
+	if !strings.Contains(diags[0].Summary, "does not match name") {
+		t.Errorf("expected mismatch error, got: %s", diags[0].Summary)
+	}
+}
+
+func TestDataSourceSubnetRead_ByIDVPCIDMismatch(t *testing.T) {
+	sub := testSubnet()
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/subnets/subnet-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.SubnetResponse{Subnet: sub}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	ds := DataSourceSubnet()
+	d := schema.TestResourceDataRaw(t, ds.Schema, map[string]interface{}{
+		"id":     "subnet-001",
+		"vpc_id": "vpc-999-wrong",
+	})
+
+	diags := ds.ReadContext(context.Background(), d, cfg)
+	if !diags.HasError() {
+		t.Fatal("expected error when id is fetched but vpc_id does not match, got none")
+	}
+	if !strings.Contains(diags[0].Summary, "does not match vpc_id") {
+		t.Errorf("expected mismatch error, got: %s", diags[0].Summary)
 	}
 }
 
