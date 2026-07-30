@@ -136,7 +136,7 @@ resource "vnpaycloud_lb_listener" "ok_tls" {
   - `TCP` — raw TCP passthrough.
   - `UDP` — raw UDP.
 
-  **Listener ↔ Pool protocol compatibility** — a pool attached to this listener (via `default_pool_id` or the pool's `listener_id`) must use a compatible `protocol`. Incompatible combinations are rejected by the backend:
+  **Listener ↔ Pool protocol compatibility** — a pool attached to this listener (via `default_pool_id`) must use a compatible `protocol`. Incompatible combinations are rejected by the backend:
 
   | Listener `protocol` \ Pool `protocol` | `HTTP` | `HTTPS` | `TCP` | `UDP` | `PROXY` |
   |---|:---:|:---:|:---:|:---:|:---:|
@@ -149,13 +149,12 @@ resource "vnpaycloud_lb_listener" "ok_tls" {
 ### Optional
 
 - `description` (String) A human-readable description. Length `0`–`255`.
-- `default_pool_id` (String, Optional, Computed) The ID of the default pool to route traffic to.
+- `default_pool_id` (String, Optional, Computed) The ID of the default pool to route traffic to. This is the **only** way to attach a pool to a listener — pools are created standalone (see [`vnpaycloud_lb_pool`](lb_pool.md)) and attached from the listener side here.
 
-  **TL;DR:** at most one default per listener; once set, removing the value will not detach it — destroy and recreate the listener instead.
+  A listener has **at most one** default pool, but one pool can be the default of **many** listeners — set the same pool ID on several listeners to share it. Because the listener references the pool, `terraform destroy` removes the listener before the pool, so the pool frees cleanly (no ordering deadlock).
 
-  Attach via `listener_id` on the pool or `default_pool_id` here — both converge and neither recreates. Via the pool's `listener_id` the first `plan` after create is clean (no drift); setting `default_pool_id` here instead shows one benign in-place sync that settles after a second `apply` (no recreate).
-
-  A listener accepts **at most one** default pool. Creating a second pool with `listener_id` pointing at a listener that already has a default is rejected server-side with a clear error; swap by updating this field on the listener instead. The platform does not support detaching a default once attached — clearing this field from config will not clear the attachment server-side (drift is suppressed). To remove entirely, destroy and recreate the listener.
+  - **Attach / change:** set to a pool ID. Applied as an in-place update; changing the pool is not a recreate.
+  - **Detach:** set to `""` (empty string). Because the field is `Computed`, an explicit `""` is required — merely removing the attribute from config leaves the current attachment in place (so an attachment made out-of-band, e.g. from the console, is not clobbered).
 - `insert_headers` (List of String, Computed) HTTP headers to insert into the request before forwarding. Server-default applies when omitted (no drift on import). Protocol rules enforced server-side:
   - `HTTP` listener: only `X-Forwarded-*` headers (`X-Forwarded-For`, `X-Forwarded-Port`, `X-Forwarded-Proto`).
   - `HTTPS` listener: `X-Forwarded-*` plus `X-SSL-Client-Verify`, `X-SSL-Client-Has-Cert`, `X-SSL-Client-DN`, `X-SSL-Client-CN`, `X-SSL-Issuer`, `X-SSL-Client-SHA1`, `X-SSL-Client-Not-Before`, `X-SSL-Client-Not-After`.

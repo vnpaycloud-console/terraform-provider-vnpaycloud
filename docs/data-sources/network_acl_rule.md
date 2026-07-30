@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get an existing Network ACL rule by ID, or by `name` within a specific ACL.
 
+Specify exactly one of `id` or `nacl_id` (enforced at plan time): `id` looks the rule up directly, while `nacl_id` lists the rules in that ACL — optionally narrowed by `name` — and must resolve to a single rule.
+
 ## Example Usage
 
 ```hcl

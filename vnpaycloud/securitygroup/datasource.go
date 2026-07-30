@@ -16,14 +16,16 @@ func DataSourceSecurityGroup() *schema.Resource {
 		ReadContext: dataSourceSecurityGroupRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name"},
 			},
 			"description": {
 				Type:     schema.TypeString,
@@ -73,6 +75,9 @@ func dataSourceSecurityGroupRead(ctx context.Context, d *schema.ResourceData, me
 		_, err := cfg.Client.Get(ctx, client.ApiPath.SecurityGroupWithID(cfg.ProjectID, id.(string)), sgResp, nil)
 		if err != nil {
 			return diag.Errorf("Error fetching vnpaycloud_security_group %s: %s", id, err)
+		}
+		if v, ok := d.GetOk("name"); ok && sgResp.SecurityGroup.Name != v.(string) {
+			return diag.Errorf("vnpaycloud_security_group %q does not match name %q", id.(string), v.(string))
 		}
 		return setSecurityGroupData(d, &sgResp.SecurityGroup)
 	}

@@ -35,7 +35,6 @@ output "round_robin_pool_ids" {
   - `name` (String) The name of the pool.
   - `description` (String) A human-readable description for the pool.
   - `load_balancer_id` (String) The ID of the parent load balancer.
-  - `listener_id` (String) The ID of the listener this pool is the default of. Empty when the pool is standalone (not any listener's default).
   - `lb_algorithm` (String) The load balancing algorithm used by the pool (e.g., `ROUND_ROBIN`, `LEAST_CONNECTIONS`, `SOURCE_IP`).
   - `protocol` (String) The protocol used by the pool's members (e.g., `HTTP`, `HTTPS`, `TCP`, `UDP`, `PROXY`).
   - `session_persistence` (List of Object) Session persistence configuration. Each object contains:

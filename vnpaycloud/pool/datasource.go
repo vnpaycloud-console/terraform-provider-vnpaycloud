@@ -30,10 +30,6 @@ func DataSourcePool() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"listener_id": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
 			"lb_algorithm": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -121,7 +117,6 @@ func dataSourcePoolRead(ctx context.Context, d *schema.ResourceData, meta interf
 	d.Set("name", resp.Pool.Name)
 	d.Set("description", resp.Pool.Description)
 	d.Set("load_balancer_id", resp.Pool.LoadBalancerID)
-	d.Set("listener_id", resp.Pool.ListenerID)
 	d.Set("lb_algorithm", resp.Pool.LBAlgorithm)
 	d.Set("protocol", resp.Pool.Protocol)
 	d.Set("session_persistence", flattenSessionPersistence(resp.Pool.SessionPersistence))
@@ -162,7 +157,6 @@ func DataSourcePools() *schema.Resource {
 						"name":                {Type: schema.TypeString, Computed: true},
 						"description":         {Type: schema.TypeString, Computed: true},
 						"load_balancer_id":    {Type: schema.TypeString, Computed: true},
-						"listener_id":         {Type: schema.TypeString, Computed: true},
 						"lb_algorithm":        {Type: schema.TypeString, Computed: true},
 						"protocol":            {Type: schema.TypeString, Computed: true},
 						"session_persistence": {Type: schema.TypeList, Computed: true, Elem: spElem},
@@ -193,7 +187,6 @@ func dataSourcePoolsRead(ctx context.Context, d *schema.ResourceData, meta inter
 			"name":                p.Name,
 			"description":         p.Description,
 			"load_balancer_id":    p.LoadBalancerID,
-			"listener_id":         p.ListenerID,
 			"lb_algorithm":        p.LBAlgorithm,
 			"protocol":            p.Protocol,
 			"session_persistence": flattenSessionPersistence(p.SessionPersistence),

@@ -12,7 +12,6 @@ type Pool struct {
 	Name               string              `json:"name"`
 	Description        string              `json:"description"`
 	LoadBalancerID     string              `json:"loadBalancerId"`
-	ListenerID         string              `json:"listenerId"`
 	LBAlgorithm        string              `json:"lbAlgorithm"`
 	Protocol           string              `json:"protocol"`
 	SessionPersistence *SessionPersistence `json:"sessionPersistence,omitempty"`
@@ -42,7 +41,6 @@ type CreatePoolRequest struct {
 	Name               string              `json:"name"`
 	Description        string              `json:"description,omitempty"`
 	LoadBalancerID     string              `json:"loadBalancerId"`
-	ListenerID         string              `json:"listenerId,omitempty"`
 	LBAlgorithm        string              `json:"lbAlgorithm"`
 	Protocol           string              `json:"protocol"`
 	SessionPersistence *SessionPersistence `json:"sessionPersistence,omitempty"`

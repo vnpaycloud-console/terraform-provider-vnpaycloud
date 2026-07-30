@@ -17,14 +17,16 @@ func DataSourceVpc() *schema.Resource {
 		ReadContext: dataSourceVpcRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name"},
 			},
 			"description": {
 				Type:     schema.TypeString,
@@ -68,6 +70,9 @@ func dataSourceVpcRead(ctx context.Context, d *schema.ResourceData, meta interfa
 		_, err := cfg.Client.Get(ctx, client.ApiPath.VPCWithID(cfg.ProjectID, id.(string)), vpcResp, nil)
 		if err != nil {
 			return diag.Errorf("Error retrieving vnpaycloud_vpc %s: %s", id, err)
+		}
+		if v, ok := d.GetOk("name"); ok && vpcResp.VPC.Name != v.(string) {
+			return diag.Errorf("vnpaycloud_vpc %q does not match name %q", id.(string), v.(string))
 		}
 		setVPCDataSourceAttributes(d, vpcResp.VPC)
 		return nil

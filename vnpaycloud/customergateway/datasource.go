@@ -18,14 +18,16 @@ func DataSourceCustomerGateway() *schema.Resource {
 		Description: "Use this data source to retrieve a VNPAY Cloud customer gateway by ID or name.",
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name"},
 			},
 			"description": {
 				Type:     schema.TypeString,

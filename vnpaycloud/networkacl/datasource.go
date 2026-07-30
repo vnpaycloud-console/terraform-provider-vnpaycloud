@@ -17,23 +17,26 @@ func DataSourceNetworkACL() *schema.Resource {
 		ReadContext: dataSourceNetworkACLRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name", "vpc_id"},
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name", "vpc_id"},
 			},
 			"description": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
 			"vpc_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				AtLeastOneOf: []string{"id", "name", "vpc_id"},
 			},
 			"subnet_ids": {
 				Type:     schema.TypeSet,
@@ -64,6 +67,12 @@ func dataSourceNetworkACLRead(ctx context.Context, d *schema.ResourceData, meta 
 		_, err := cfg.Client.Get(ctx, client.ApiPath.NetworkACLWithID(cfg.ProjectID, id.(string)), resp, nil)
 		if err != nil {
 			return diag.Errorf("Error retrieving vnpaycloud_network_acl %s: %s", id, err)
+		}
+		if v, ok := d.GetOk("name"); ok && resp.NetworkACL.Name != v.(string) {
+			return diag.Errorf("vnpaycloud_network_acl %q does not match name %q", id.(string), v.(string))
+		}
+		if v, ok := d.GetOk("vpc_id"); ok && resp.NetworkACL.VpcID != v.(string) {
+			return diag.Errorf("vnpaycloud_network_acl %q does not match vpc_id %q", id.(string), v.(string))
 		}
 		setNetworkACLAttributes(d, resp.NetworkACL)
 		return nil

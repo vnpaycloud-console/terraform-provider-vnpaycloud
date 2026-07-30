@@ -7,9 +7,11 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/config"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"terraform-provider-vnpaycloud/vnpaycloud/helper/lbmutex"
 	"terraform-provider-vnpaycloud/vnpaycloud/util"
 	"time"
 
+	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -23,6 +25,7 @@ func ResourceListener() *schema.Resource {
 		ReadContext:   resourceListenerRead,
 		UpdateContext: resourceListenerUpdate,
 		DeleteContext: resourceListenerDelete,
+		CustomizeDiff: customizeListenerDiff,
 		Importer: &schema.ResourceImporter{
 			StateContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 				cfg := meta.(*config.Config)
@@ -66,12 +69,10 @@ func ResourceListener() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
-				Description: "ID of the default pool. The platform does not support detaching a default_pool " +
-					"once attached — removing this field from config will NOT clear the attachment (drift is " +
-					"suppressed). To change: swap to another pool's ID. To remove entirely: destroy and recreate the listener.",
-				DiffSuppressFunc: func(_, old, new string, _ *schema.ResourceData) bool {
-					return new == "" && old != ""
-				},
+				Description: "ID of the listener's default pool — the only way to attach a pool to a listener " +
+					"(pools are standalone). Set to a pool ID to attach; set to \"\" (empty string) to detach. " +
+					"Omitting the attribute keeps the current attachment (e.g. one set out-of-band from the console) " +
+					"instead of clearing it. One pool can be the default of many listeners.",
 			},
 			"insert_headers": {
 				Type:     schema.TypeList,
@@ -136,8 +137,30 @@ func ResourceListener() *schema.Resource {
 	}
 }
 
+func defaultPoolExplicitlyEmpty(raw cty.Value) bool {
+	if raw.IsNull() || !raw.IsKnown() || !raw.Type().IsObjectType() || !raw.Type().HasAttribute("default_pool_id") {
+		return false
+	}
+	v := raw.GetAttr("default_pool_id")
+	return !v.IsNull() && v.IsKnown() && v.AsString() == ""
+}
+
+func customizeListenerDiff(_ context.Context, d *schema.ResourceDiff, _ interface{}) error {
+	if d.Id() == "" {
+		return nil
+	}
+	if !defaultPoolExplicitlyEmpty(d.GetRawConfig()) {
+		return nil
+	}
+	if old, _ := d.GetChange("default_pool_id"); old.(string) != "" {
+		return d.SetNew("default_pool_id", "")
+	}
+	return nil
+}
+
 func resourceListenerCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+	defer lbmutex.Lock(cfg.MutexKV, d.Get("load_balancer_id").(string))()
 
 	createOpts := dto.CreateListenerRequest{
 		Name:                 d.Get("name").(string),
@@ -243,8 +266,13 @@ func resourceListenerRead(ctx context.Context, d *schema.ResourceData, meta inte
 
 func resourceListenerUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+	defer lbmutex.Lock(cfg.MutexKV, d.Get("load_balancer_id").(string))()
 
-	if d.HasChanges("name", "description", "default_pool_id", "insert_headers", "allowed_cidrs", "connection_limit", "timeout_client_data", "timeout_member_connect", "timeout_member_data", "certificate_id", "certificate_authority_id", "sni_certificate_ids") {
+	detachDefaultPool := defaultPoolExplicitlyEmpty(d.GetRawConfig())
+	oldPool, _ := d.GetChange("default_pool_id")
+	wantDetach := detachDefaultPool && oldPool.(string) != ""
+
+	if wantDetach || d.HasChanges("name", "description", "default_pool_id", "insert_headers", "allowed_cidrs", "connection_limit", "timeout_client_data", "timeout_member_connect", "timeout_member_data", "certificate_id", "certificate_authority_id", "sni_certificate_ids") {
 		waitBefore := &retry.StateChangeConf{
 			Pending:    []string{"initiating", "creating", "pending_create", "pending_update"},
 			Target:     []string{"active", "created"},
@@ -258,10 +286,15 @@ func resourceListenerUpdate(ctx context.Context, d *schema.ResourceData, meta in
 			return append(readDiags, diag.Errorf("Error waiting for vnpaycloud_lb_listener %s to become ready before update: %s", d.Id(), err)...)
 		}
 
+		defaultPoolID := d.Get("default_pool_id").(string)
+		if detachDefaultPool {
+			defaultPoolID = ""
+		}
+
 		updateOpts := dto.UpdateListenerRequest{
 			Name:                   d.Get("name").(string),
 			Description:            d.Get("description").(string),
-			DefaultPoolID:          d.Get("default_pool_id").(string),
+			DefaultPoolID:          defaultPoolID,
 			CertificateID:          d.Get("certificate_id").(string),
 			CertificateAuthorityID: d.Get("certificate_authority_id").(string),
 			ConnectionLimit:        d.Get("connection_limit").(int),
@@ -270,8 +303,6 @@ func resourceListenerUpdate(ctx context.Context, d *schema.ResourceData, meta in
 			TimeoutMemberData:      d.Get("timeout_member_data").(int),
 		}
 
-		// allowed_cidrs and sni_certificate_ids are set unconditionally (no GetOk
-		// guard) so that removing them from the config clears them on the backend.
 		for _, c := range d.Get("sni_certificate_ids").([]interface{}) {
 			updateOpts.SniCertificateIDs = append(updateOpts.SniCertificateIDs, c.(string))
 		}
@@ -315,10 +346,11 @@ func resourceListenerUpdate(ctx context.Context, d *schema.ResourceData, meta in
 
 func resourceListenerDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	cfg := meta.(*config.Config)
+	defer lbmutex.Lock(cfg.MutexKV, d.Get("load_balancer_id").(string))()
 
 	deleteErr := retry.RetryContext(ctx, d.Timeout(schema.TimeoutDelete), func() *retry.RetryError {
 		_, err := cfg.Client.Delete(ctx, client.ApiPath.ListenerWithID(cfg.ProjectID, d.Id()), nil)
-		if err != nil && strings.Contains(err.Error(), "not active") {
+		if err != nil && (strings.Contains(err.Error(), "provisioning status must be ACTIVE") || strings.Contains(err.Error(), "not active")) {
 			return retry.RetryableError(err)
 		}
 		if err != nil {

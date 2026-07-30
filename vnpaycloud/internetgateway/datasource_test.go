@@ -3,6 +3,7 @@ package internetgateway
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
@@ -54,6 +55,60 @@ func TestDataSourceInternetGatewayRead_ByID(t *testing.T) {
 	}
 	if v := d.Get("zone_id").(string); v != testhelpers.TestZoneID {
 		t.Errorf("expected zone_id %s, got %s", testhelpers.TestZoneID, v)
+	}
+}
+
+func TestDataSourceInternetGatewayRead_ByIDNameMatches(t *testing.T) {
+	igw := testInternetGateway()
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/internet-gateways/igw-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.InternetGatewayResponse{InternetGateway: igw}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	ds := DataSourceInternetGateway()
+	d := schema.TestResourceDataRaw(t, ds.Schema, map[string]interface{}{
+		"id":   "igw-001",
+		"name": "test-igw",
+	})
+
+	diags := ds.ReadContext(context.Background(), d, cfg)
+	if diags.HasError() {
+		t.Fatalf("unexpected error when id+name match: %v", diags)
+	}
+	if d.Id() != "igw-001" {
+		t.Errorf("expected ID igw-001, got %s", d.Id())
+	}
+}
+
+func TestDataSourceInternetGatewayRead_ByIDNameMismatch(t *testing.T) {
+	igw := testInternetGateway()
+
+	srv := testhelpers.NewMockServer(t, []testhelpers.Route{
+		{
+			Method:  "GET",
+			Pattern: "/v2/iac/projects/test-project-id/internet-gateways/igw-001",
+			Handler: testhelpers.JSONHandler(t, http.StatusOK, dto.InternetGatewayResponse{InternetGateway: igw}),
+		},
+	})
+	cfg := testhelpers.NewMockConfig(t, srv.URL)
+
+	ds := DataSourceInternetGateway()
+	d := schema.TestResourceDataRaw(t, ds.Schema, map[string]interface{}{
+		"id":   "igw-001",
+		"name": "definitely-not-the-real-igw-name",
+	})
+
+	diags := ds.ReadContext(context.Background(), d, cfg)
+	if !diags.HasError() {
+		t.Fatal("expected error when id is fetched but name does not match, got none")
+	}
+	if !strings.Contains(diags[0].Summary, "does not match name") {
+		t.Errorf("expected mismatch error, got: %s", diags[0].Summary)
 	}
 }
 

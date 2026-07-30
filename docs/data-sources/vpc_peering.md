@@ -9,6 +9,8 @@ description: |-
 
 Use this data source to get information about an existing VPC peering connection. VPC peering enables private network connectivity between two VPCs without routing traffic through the public internet.
 
+At least one of `id` or `name` must be specified (enforced at plan time). If both are given, the ID must resolve to a peering connection whose name matches. Looking up by name requires a unique match.
+
 ## Example Usage
 
 ```hcl
