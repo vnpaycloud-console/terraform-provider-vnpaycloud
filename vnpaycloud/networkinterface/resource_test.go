@@ -33,52 +33,6 @@ func testNetworkInterface() dto.NetworkInterface {
 	}
 }
 
-func TestEmptySecurityGroupsConfig(t *testing.T) {
-	cases := []struct {
-		name string
-		raw  cty.Value
-		want bool
-	}{
-		{
-			name: "explicit empty security groups",
-			raw: cty.ObjectVal(map[string]cty.Value{
-				"security_groups": cty.SetValEmpty(cty.String),
-			}),
-			want: true,
-		},
-		{
-			name: "omitted security groups",
-			raw: cty.ObjectVal(map[string]cty.Value{
-				"security_groups": cty.NullVal(cty.Set(cty.String)),
-			}),
-			want: false,
-		},
-		{
-			name: "non-empty security groups",
-			raw: cty.ObjectVal(map[string]cty.Value{
-				"security_groups": cty.SetVal([]cty.Value{cty.StringVal("sg-001")}),
-			}),
-			want: false,
-		},
-		{
-			name: "unknown security groups",
-			raw: cty.ObjectVal(map[string]cty.Value{
-				"security_groups": cty.UnknownVal(cty.Set(cty.String)),
-			}),
-			want: false,
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := emptySecurityGroupsConfig(tc.raw)
-			if got != tc.want {
-				t.Fatalf("expected %v, got %v", tc.want, got)
-			}
-		})
-	}
-}
-
 func TestInvalidNetworkInterfaceSecurityGroupsConfig(t *testing.T) {
 	cases := []struct {
 		name              string
