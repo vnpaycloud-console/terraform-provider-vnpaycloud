@@ -115,32 +115,12 @@ func ResourceNetworkInterface() *schema.Resource {
 func validateNetworkInterfaceDiff(_ context.Context, d *schema.ResourceDiff, _ interface{}) error {
 	raw := d.GetRawConfig()
 
-	if emptySecurityGroupsConfig(raw) {
-		return errors.New("security_groups cannot be empty; omit it to use default/system security groups")
-	}
-
 	sgs := d.Get("security_groups").(*schema.Set)
 	if invalidNetworkInterfaceSecurityGroupsConfig(raw, sgs.Len()) {
 		return errors.New("security_groups requires port_security_enabled to be true")
 	}
 
 	return nil
-}
-
-func emptySecurityGroupsConfig(raw cty.Value) bool {
-	if raw.IsNull() || !raw.IsKnown() || !raw.Type().IsObjectType() {
-		return false
-	}
-	if !raw.Type().HasAttribute("security_groups") {
-		return false
-	}
-
-	securityGroups := raw.GetAttr("security_groups")
-	if securityGroups.IsNull() || !securityGroups.IsKnown() {
-		return false
-	}
-
-	return securityGroups.LengthInt() == 0
 }
 
 func invalidNetworkInterfaceSecurityGroupsConfig(raw cty.Value, securityGroupsLen int) bool {

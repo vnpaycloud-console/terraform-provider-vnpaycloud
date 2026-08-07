@@ -37,7 +37,7 @@ resource "vnpaycloud_network_interface" "example" {
 
 ~> **Note:** A reserved interface (`reserved = true`) cannot be deleted by the backend. Before running `terraform destroy` (or otherwise removing the resource), set `reserved = false` and `terraform apply` first; attempting to delete a reserved interface fails with `This is a reserved port. You cannot delete.`
 
-~> **Note:** On create, when `port_security_enabled` is left enabled (its default) and `security_groups` is omitted, the interface is automatically assigned — and keeps — the project's **default security group** and the **system security group**; Terraform does not manage the list in this case. Do not set `security_groups = []`; an explicit empty set is not supported and is rejected at plan time. If `security_groups` is set, `port_security_enabled` must be enabled and the system security group must remain in the list. Setting `port_security_enabled = false` clears the security groups, so it cannot be combined with `security_groups`.
+~> **Note:** On create, the interface is always assigned the project's **default security group** and the **Cloud Managed Security Group** (when `port_security_enabled` is left enabled, its default) — an explicit `security_groups` list is not applied at create time. To change the list, manage `security_groups` on an existing interface: the value you set fully replaces the current list. An explicit empty set (`security_groups = []`) detaches **all** security groups, including the default and Cloud Managed security groups. If `security_groups` is set, `port_security_enabled` must be enabled. Setting `port_security_enabled = false` clears the security groups, so it cannot be combined with a non-empty `security_groups`.
 
 ### With Dynamic IP Assignment
 
@@ -86,13 +86,14 @@ resource "vnpaycloud_network_interface" "ha" {
 
 ### With Security Groups
 
-When `security_groups` is set, the system security group must stay in the list.
-Look it up with the `vnpaycloud_security_group` data source and include its ID
-alongside your own groups:
+The list you set fully replaces the current one. To keep the Cloud Managed
+Security Group, look it up with the `vnpaycloud_security_group` data source and include
+its ID alongside your own groups; to drop it, simply leave it out (or set
+`security_groups = []` to detach everything):
 
 ```hcl
-data "vnpaycloud_security_group" "system" {
-  name = "System Security Group"
+data "vnpaycloud_security_group" "cloud_managed" {
+  name = "Cloud Managed Security Group"
 }
 
 resource "vnpaycloud_security_group" "web" {
@@ -104,7 +105,7 @@ resource "vnpaycloud_network_interface" "with_sg" {
   subnet_id = vnpaycloud_subnet.app.id
 
   security_groups = [
-    data.vnpaycloud_security_group.system.id,
+    data.vnpaycloud_security_group.cloud_managed.id,
     vnpaycloud_security_group.web.id,
   ]
 }
@@ -126,7 +127,7 @@ resource "vnpaycloud_network_interface" "with_sg" {
 - `allowed_address_pairs` (Block List, Computed) Additional IP address (or CIDR) / MAC pairs allowed past the interface's anti-spoof filtering — used for VIP/HA setups. Pairs only take effect while `port_security_enabled` is `true`. On **create** you may set pairs together with `port_security_enabled = false`; the backend stores them but they stay inert until port security is enabled. On **update**, adding pairs to an interface whose port security is currently disabled is rejected by the backend (`Port security must be enabled`) — enable `port_security_enabled` in the same apply, and the provider enables it before applying the pairs. Can be set at create and updated in place. Each block supports:
   - `ip_address` (String, Required) An IP address or CIDR allowed on the interface.
   - `mac_address` (String, Optional, Computed) The MAC address for the pair. Defaults to the interface's own MAC if omitted.
-- `security_groups` (Set of String, Computed) The set of security group IDs associated with the interface. If omitted, the platform assigns and keeps the default and system security groups. An explicit empty set (`security_groups = []`) is not supported. If set, Terraform manages the list and the system security group must remain attached. Requires `port_security_enabled` to be enabled; cannot be set together with `port_security_enabled = false`. Can be set at create and updated in place.
+- `security_groups` (Set of String, Computed) The set of security group IDs associated with the interface. On create the platform always assigns the default and Cloud Managed security groups; an explicit list is only applied when updating an existing interface, where it fully replaces the current one. An explicit empty set (`security_groups = []`) detaches all security groups, including the default and Cloud Managed security groups. Requires `port_security_enabled` to be enabled; cannot be set together with `port_security_enabled = false`. Updated in place.
 - `port_security_enabled` (Boolean, Computed) Whether port security (anti-spoof) is enabled on the interface. When set to `false`, `security_groups` must be omitted. Can be set at create and updated in place.
 
 ### Read-Only
