@@ -29,5 +29,6 @@ output "public_key" {
 
 ### Read-Only
 
+- `id` (String) The ID of the key pair.
 - `public_key` (String) The OpenSSH-formatted public key of the key pair.
 - `created_at` (String) The timestamp when the key pair was created, in ISO 8601 format.

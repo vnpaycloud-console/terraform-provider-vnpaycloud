@@ -46,7 +46,7 @@ func dataSourceKeyPairRead(ctx context.Context, d *schema.ResourceData, meta int
 }
 
 func setKeyPairData(d *schema.ResourceData, kp *dto.KeyPair) diag.Diagnostics {
-	d.SetId(kp.Name)
+	d.SetId(kp.ID)
 	d.Set("name", kp.Name)
 	d.Set("public_key", kp.PublicKey)
 	d.Set("created_at", kp.CreatedAt)
