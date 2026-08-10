@@ -41,9 +41,9 @@ func TestDataSourceKeyPairRead(t *testing.T) {
 		t.Fatalf("unexpected error: %v", diags)
 	}
 
-	// DataSource sets ID to the keypair name
-	if d.Id() != "my-keypair" {
-		t.Errorf("expected ID 'my-keypair', got '%s'", d.Id())
+	// DataSource sets ID to the keypair resource ID (not the name)
+	if d.Id() != "kp-ds-1" {
+		t.Errorf("expected ID 'kp-ds-1', got '%s'", d.Id())
 	}
 	if got := d.Get("name").(string); got != "my-keypair" {
 		t.Errorf("expected name 'my-keypair', got '%s'", got)
