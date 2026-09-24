@@ -165,6 +165,7 @@ resource "vnpaycloud_kubernetes_cluster" "private" {
 - `api_endpoint` (String) The IP/URL of the Kubernetes API server endpoint. Empty for private clusters (see `private_gw_id`).
 - `private_ip` (String) The private IP address of the Kubernetes API server.
 - `status` (String) The current status of the cluster, lowercase (e.g. `active`, `creating`, `error`, `failed`).
+- `restore_status` (String) The cluster's Kubernetes restore state: `none`, `restoring`, `success`, or `failed`.
 - `created_at` (String) The creation timestamp of the cluster in ISO 8601 format.
 - `kubeconfig` (String, Sensitive) The kubeconfig file content for authenticating with the cluster using `kubectl`.
 

@@ -62,6 +62,7 @@ func DataSourceKeyPairs() *schema.Resource {
 				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
+						"id":         {Type: schema.TypeString, Computed: true},
 						"name":       {Type: schema.TypeString, Computed: true},
 						"public_key": {Type: schema.TypeString, Computed: true},
 						"created_at": {Type: schema.TypeString, Computed: true},
@@ -84,6 +85,7 @@ func dataSourceKeyPairsRead(ctx context.Context, d *schema.ResourceData, meta in
 	var keyPairs []map[string]interface{}
 	for _, kp := range listResp.KeyPairs {
 		keyPairs = append(keyPairs, map[string]interface{}{
+			"id":         kp.ID,
 			"name":       kp.Name,
 			"public_key": kp.PublicKey,
 			"created_at": kp.CreatedAt,

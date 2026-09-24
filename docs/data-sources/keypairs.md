@@ -31,6 +31,7 @@ output "keypair_public_keys" {
 ### Read-Only
 
 - `key_pairs` (List of Object) List of key pairs. Each element contains:
+  - `id` (String) The ID of the key pair.
   - `name` (String) The name of the key pair.
   - `public_key` (String) The OpenSSH-formatted public key of the key pair.
   - `created_at` (String) The timestamp when the key pair was created, in ISO 8601 format.

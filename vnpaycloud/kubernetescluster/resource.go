@@ -150,6 +150,10 @@ func ResourceKubernetesCluster() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"restore_status": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"created_at": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -268,6 +272,7 @@ func resourceClusterRead(ctx context.Context, d *schema.ResourceData, meta inter
 	d.Set("api_endpoint", resp.Cluster.ApiEndpoint)
 	d.Set("private_ip", resp.Cluster.PrivateIP)
 	d.Set("status", resp.Cluster.Status)
+	d.Set("restore_status", resp.Cluster.RestoreStatus)
 	d.Set("created_at", resp.Cluster.CreatedAt)
 
 	// Fetch kubeconfig if cluster is active.
