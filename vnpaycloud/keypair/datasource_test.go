@@ -102,11 +102,17 @@ func TestDataSourceKeyPairsRead(t *testing.T) {
 	}
 
 	first := keyPairs[0].(map[string]interface{})
+	if first["id"] != "kp-1" {
+		t.Errorf("expected first key_pair id 'kp-1', got '%s'", first["id"])
+	}
 	if first["name"] != "keypair-one" {
 		t.Errorf("expected first key_pair name 'keypair-one', got '%s'", first["name"])
 	}
 
 	second := keyPairs[1].(map[string]interface{})
+	if second["id"] != "kp-2" {
+		t.Errorf("expected second key_pair id 'kp-2', got '%s'", second["id"])
+	}
 	if second["name"] != "keypair-two" {
 		t.Errorf("expected second key_pair name 'keypair-two', got '%s'", second["name"])
 	}

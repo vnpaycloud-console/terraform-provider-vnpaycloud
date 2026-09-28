@@ -7,7 +7,7 @@ description: |-
 
 # vnpaycloud_instance (Resource)
 
-Manages a compute instance (virtual machine) within VNPayCloud. Instances can be booted from an image and can be resized between named flavors.
+Manages a compute instance (virtual machine) within VNPayCloud. An instance can be created from an image, a snapshot, or a backup restore point, and can be resized between named flavors.
 
 ## Example Usage
 
@@ -35,20 +35,20 @@ resource "vnpaycloud_instance" "web" {
 
 ~> **Note:** `network_interface_ids` defines the interfaces attached **at launch** and is immutable — changing it forces the instance to be recreated. To attach or detach a network interface on an existing instance without recreating it, use the separate [`vnpaycloud_network_interface_attachment`](network_interface_attachment.md) resource. The provider does not refresh `network_interface_ids` from the live instance, so interfaces added later via `vnpaycloud_network_interface_attachment` do not cause drift here.
 
-!> **Warning:** Booting an instance from `snapshot_id` is not supported yet. Use `image` when creating `vnpaycloud_instance`. If `snapshot_id` is set, the API rejects the create request with `booting an instance from a snapshot is not supported yet; use image`.
-
 ## Schema
 
 ### Required
 
 - `name` (String) The name of the instance. Allowed characters are letters, numbers, hyphen (`-`), underscore (`_`), dot (`.`), and space.
-- `root_disk_gb` (Number, ForceNew) The size of the root disk in gigabytes. Minimum `20` (validated at plan time). Changing this creates a new instance.
-- `root_disk_type` (String, ForceNew) The root disk volume type name (e.g., `c1-standard`). Use the `vnpaycloud_volume_types` data source to list available values. Changing this creates a new instance.
 
 ### Optional
 
-- `image` (String, ForceNew) The image name to boot the instance from. Use this field when creating an instance. Changing this creates a new instance.
-- `snapshot_id` (String, ForceNew) Reserved for future support. Booting from a snapshot is not supported yet; setting this field causes create to fail. Use `image` instead.
+- `root_disk_gb` (Number, ForceNew) The size of the root disk in gigabytes. Minimum `20` (validated at plan time). Required when booting from `image`; ignored for `snapshot_id` / `restore_point_id`, which carry their own disk. Changing this creates a new instance.
+- `root_disk_type` (String, ForceNew) The root disk volume type name (e.g., `c1-standard`). Use the `vnpaycloud_volume_types` data source to list available values. Required when booting from `image`; ignored for `snapshot_id` / `restore_point_id`. Changing this creates a new instance.
+
+- `image` (String, ForceNew) The image name to boot the instance from. Exactly one of `image`, `snapshot_id`, or `restore_point_id` must be set. Changing this creates a new instance.
+- `snapshot_id` (String, ForceNew) The ID of a snapshot to boot the instance from. Exactly one of `image`, `snapshot_id`, or `restore_point_id` must be set. Changing this creates a new instance.
+- `restore_point_id` (String, ForceNew) The ID of a backup restore point to create the instance from (restore a backed-up server into a new instance). Accepts both on-demand points, listed by [`vnpaycloud_backup_server_restore_points`](../data-sources/backup_server_restore_points.md), and disaster points, listed by [`vnpaycloud_backup_server_disaster_restore_points`](../data-sources/backup_server_disaster_restore_points.md). Exactly one of `image`, `snapshot_id`, or `restore_point_id` must be set. Changing this creates a new instance.
 - `flavor` (String) The flavor name defining the vCPU and RAM resources for the instance (e.g., `a-pro-small.2x2`). Mutually exclusive with `is_custom_flavor`. Changing this resizes the instance in place. A resize attempted immediately after create may be gated by the backend (`Server is in provisioning, please try again after N minutes`); the operation succeeds once the instance finishes provisioning, so re-run `apply` after the indicated cooldown.
 - `is_custom_flavor` (Boolean) Reserved for future use. Custom flavor create/resize is not currently supported by the Terraform provider; use `flavor` with a named flavor.
 - `custom_vcpus` (Number) Reserved for future use.

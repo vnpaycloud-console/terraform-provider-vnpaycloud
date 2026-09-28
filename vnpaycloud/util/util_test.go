@@ -598,3 +598,51 @@ func TestResponseCodeIs(t *testing.T) {
 		})
 	}
 }
+
+func TestSortNewestFirst(t *testing.T) {
+	items := []map[string]any{
+		{"id": "a", "created_at": "2026-09-23T08:09:08Z"},
+		{"id": "b", "created_at": "2026-09-23T08:50:09Z"},
+		{"id": "c", "created_at": "2026-09-22T23:00:00Z"},
+	}
+
+	SortNewestFirst(items, "created_at", "backup_point")
+
+	got := []string{items[0]["id"].(string), items[1]["id"].(string), items[2]["id"].(string)}
+	want := []string{"b", "a", "c"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("order = %v, want %v", got, want)
+		}
+	}
+}
+
+func TestSortNewestFirstFallsBackToSecondKey(t *testing.T) {
+	items := []map[string]any{
+		{"id": "a", "backup_point": "2026-09-23T01:00:00Z"},
+		{"id": "b", "backup_point": "2026-09-23T02:00:00Z"},
+	}
+
+	SortNewestFirst(items, "created_at", "backup_point")
+
+	if items[0]["id"] != "b" {
+		t.Fatalf("first = %v, want b", items[0]["id"])
+	}
+}
+
+func TestSortNewestFirstKeepsUnparsableLast(t *testing.T) {
+	items := []map[string]any{
+		{"id": "a", "created_at": ""},
+		{"id": "b", "created_at": "not-a-time"},
+		{"id": "c", "created_at": "2026-09-23T08:00:00Z"},
+	}
+
+	SortNewestFirst(items, "created_at", "backup_point")
+
+	if items[0]["id"] != "c" {
+		t.Fatalf("first = %v, want c", items[0]["id"])
+	}
+	if items[1]["id"] != "b" || items[2]["id"] != "a" {
+		t.Fatalf("tail order = %v %v, want b a", items[1]["id"], items[2]["id"])
+	}
+}

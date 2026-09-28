@@ -39,13 +39,19 @@ func ResourceInstance() *schema.Resource {
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ExactlyOneOf: []string{"image", "snapshot_id"},
+				ExactlyOneOf: []string{"image", "snapshot_id", "restore_point_id"},
 			},
 			"snapshot_id": {
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ExactlyOneOf: []string{"image", "snapshot_id"},
+				ExactlyOneOf: []string{"image", "snapshot_id", "restore_point_id"},
+			},
+			"restore_point_id": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				ExactlyOneOf: []string{"image", "snapshot_id", "restore_point_id"},
 			},
 			"flavor": {
 				Type:     schema.TypeString,
@@ -65,13 +71,13 @@ func ResourceInstance() *schema.Resource {
 			},
 			"root_disk_gb": {
 				Type:         schema.TypeInt,
-				Required:     true,
+				Optional:     true,
 				ForceNew:     true,
 				ValidateFunc: validation.IntAtLeast(20),
 			},
 			"root_disk_type": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
 				ForceNew: true,
 			},
 			"key_pair": {
@@ -154,6 +160,15 @@ func validateInstanceDiff(ctx context.Context, d *schema.ResourceDiff, meta inte
 		return fmt.Errorf("'flavor' is required: specify a named flavor (custom flavor is not supported)")
 	}
 
+	if d.Get("image").(string) != "" {
+		if d.Get("root_disk_gb").(int) < 20 {
+			return fmt.Errorf("'root_disk_gb' is required and must be at least 20 when creating from 'image'")
+		}
+		if d.Get("root_disk_type").(string) == "" {
+			return fmt.Errorf("'root_disk_type' is required when creating from 'image'")
+		}
+	}
+
 	if d.Id() == "" {
 		if raw := d.GetRawConfig(); raw.IsKnown() && !raw.IsNull() {
 			ni := raw.GetAttr("network_interface_ids")
@@ -179,6 +194,7 @@ func resourceInstanceCreate(ctx context.Context, d *schema.ResourceData, meta in
 		Name:               d.Get("name").(string),
 		Image:              d.Get("image").(string),
 		SnapshotID:         d.Get("snapshot_id").(string),
+		RestorePointID:     d.Get("restore_point_id").(string),
 		Flavor:             d.Get("flavor").(string),
 		RootDiskGB:         int32(d.Get("root_disk_gb").(int)),
 		RootDiskVolumeType: d.Get("root_disk_type").(string),
@@ -247,24 +263,27 @@ func resourceInstanceRead(ctx context.Context, d *schema.ResourceData, meta inte
 	d.Set("zone_id", inst.ZoneID)
 	d.Set("created_at", inst.CreatedAt)
 
-	if v, ok := d.GetOk("image"); !ok || v.(string) == "" {
-		if inst.ImageName != "" {
-			d.Set("image", inst.ImageName)
+	if d.Get("snapshot_id").(string) == "" && d.Get("restore_point_id").(string) == "" {
+		if v, ok := d.GetOk("image"); !ok || v.(string) == "" {
+			if inst.ImageName != "" {
+				d.Set("image", inst.ImageName)
+			}
+		}
+		if v, ok := d.GetOk("root_disk_gb"); !ok || v.(int) == 0 {
+			if inst.RootDiskGB > 0 {
+				d.Set("root_disk_gb", int(inst.RootDiskGB))
+			}
+		}
+		if v, ok := d.GetOk("root_disk_type"); !ok || v.(string) == "" {
+			if inst.RootDiskVolumeType != "" {
+				d.Set("root_disk_type", inst.RootDiskVolumeType)
+			}
 		}
 	}
+
 	if v, ok := d.GetOk("flavor"); !ok || v.(string) == "" {
 		if inst.FlavorName != "" {
 			d.Set("flavor", inst.FlavorName)
-		}
-	}
-	if v, ok := d.GetOk("root_disk_gb"); !ok || v.(int) == 0 {
-		if inst.RootDiskGB > 0 {
-			d.Set("root_disk_gb", int(inst.RootDiskGB))
-		}
-	}
-	if v, ok := d.GetOk("root_disk_type"); !ok || v.(string) == "" {
-		if inst.RootDiskVolumeType != "" {
-			d.Set("root_disk_type", inst.RootDiskVolumeType)
 		}
 	}
 	if v, ok := d.GetOk("network_interface_ids"); !ok || len(v.([]interface{})) == 0 {

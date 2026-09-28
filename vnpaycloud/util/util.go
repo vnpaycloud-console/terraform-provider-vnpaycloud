@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -244,4 +245,36 @@ func NormalizeStatus(status string) string {
 	}
 
 	return status
+}
+
+// SortNewestFirst orders list-data-source elements newest first, trying each of
+// timeKeys in turn. The backend returns restore points oldest first.
+func SortNewestFirst(items []map[string]any, timeKeys ...string) {
+	sort.SliceStable(items, func(i, j int) bool {
+		a, aOK := itemTime(items[i], timeKeys)
+		b, bOK := itemTime(items[j], timeKeys)
+		if aOK && bOK && !a.Equal(b) {
+			return a.After(b)
+		}
+		if aOK != bOK {
+			return aOK
+		}
+		return stringField(items[i], "id") > stringField(items[j], "id")
+	})
+}
+
+func itemTime(item map[string]any, timeKeys []string) (time.Time, bool) {
+	for _, key := range timeKeys {
+		if v := stringField(item, key); v != "" {
+			if parsed, err := time.Parse(time.RFC3339, v); err == nil {
+				return parsed, true
+			}
+		}
+	}
+	return time.Time{}, false
+}
+
+func stringField(item map[string]any, key string) string {
+	v, _ := item[key].(string)
+	return v
 }

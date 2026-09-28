@@ -557,7 +557,13 @@ func TestNoRetryOnOtherErrors(t *testing.T) {
 	}
 }
 
-func TestMaxRetriesExhausted(t *testing.T) {
+// 429 uses the rate-limit budget, which is deliberately larger than the
+// transient one and backs off for 30s, 60s, 90s and 120s between attempts.
+func TestRateLimitRetriesExhausted(t *testing.T) {
+	if testing.Short() {
+		t.Skip("takes ~5 minutes: the rate-limit backoff is not stubbed")
+	}
+
 	var attempts int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&attempts, 1)
@@ -571,9 +577,56 @@ func TestMaxRetriesExhausted(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error after max retries")
 	}
+	// Initial attempt + 4 retries = 5 total
+	if got := atomic.LoadInt32(&attempts); got != 5 {
+		t.Errorf("expected 5 attempts (1 + 4 retries), got %d", got)
+	}
+}
+
+// 503 without a rate-limit marker is treated as a network blip and gets the
+// smaller transient budget.
+func TestTransientRetriesExhausted(t *testing.T) {
+	var attempts int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("service unavailable"))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	_, err := c.Get(context.Background(), "/transient-retry", nil, nil)
+	if err == nil {
+		t.Fatal("expected error after max retries")
+	}
 	// Initial attempt + 3 retries = 4 total
 	if got := atomic.LoadInt32(&attempts); got != 4 {
 		t.Errorf("expected 4 attempts (1 + 3 retries), got %d", got)
+	}
+}
+
+// NoRateLimitRetry is for endpoints whose quota window outlasts any backoff:
+// the request must fail on the first 429 instead of burning minutes.
+func TestNoRateLimitRetryFailsImmediately(t *testing.T) {
+	var attempts int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte("rate limited"))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	start := time.Now()
+	_, err := c.Get(context.Background(), "/no-retry", nil, &RequestOpts{NoRateLimitRetry: true})
+	if err == nil {
+		t.Fatal("expected the rate-limit error to surface")
+	}
+	if got := atomic.LoadInt32(&attempts); got != 1 {
+		t.Errorf("expected exactly 1 attempt, got %d", got)
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("expected no backoff, took %s", elapsed)
 	}
 }
 
