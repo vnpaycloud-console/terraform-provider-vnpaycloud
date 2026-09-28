@@ -75,6 +75,10 @@ func DataSourceKubernetesCluster() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"restore_status": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"created_at": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -135,6 +139,7 @@ func setClusterData(d *schema.ResourceData, c *dto.K8sCluster) diag.Diagnostics 
 	d.Set("api_endpoint", c.ApiEndpoint)
 	d.Set("private_ip", c.PrivateIP)
 	d.Set("status", c.Status)
+	d.Set("restore_status", c.RestoreStatus)
 	d.Set("created_at", c.CreatedAt)
 	return nil
 }

@@ -27,9 +27,10 @@ type CreateInstanceRequest struct {
 	Name                string   `json:"name"`
 	Image               string   `json:"image,omitempty"`
 	SnapshotID          string   `json:"snapshotId,omitempty"`
+	RestorePointID      string   `json:"restorePointId,omitempty"`
 	Flavor              string   `json:"flavor,omitempty"`
-	RootDiskGB          int32    `json:"rootDiskGb"`
-	RootDiskVolumeType  string   `json:"rootDiskVolumeType"`
+	RootDiskGB          int32    `json:"rootDiskGb,omitempty"`
+	RootDiskVolumeType  string   `json:"rootDiskVolumeType,omitempty"`
 	KeyPair             string   `json:"keyPair,omitempty"`
 	NetworkInterfaceIDs []string `json:"networkInterfaceIds,omitempty"`
 	ServerGroupID       string   `json:"serverGroupId,omitempty"`

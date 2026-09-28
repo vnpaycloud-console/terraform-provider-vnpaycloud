@@ -288,6 +288,45 @@ var ApiPath = struct {
 	DatabasePostgresVersions func(projectID string) string
 	DatabaseRedisVersions    func(projectID string) string
 
+	// Backup Vault
+	BackupVaults      func(projectID string) string
+	BackupVaultWithID func(projectID, id string) string
+
+	// Backup Policy Server
+	BackupPolicyServers      func(projectID string) string
+	BackupPolicyServerWithID func(projectID, id string) string
+
+	// Backup Server
+	BackupServers                     func(projectID string) string
+	BackupServerWithID                func(projectID, id string) string
+	BackupServerRestorePoints         func(projectID string) string
+	BackupServerRestorePointWithID    func(projectID, id string) string
+	BackupServerDisasterRestorePoints func(projectID string) string
+
+	// Backup Policy Kubernetes
+	BackupPolicyKuberneteses     func(projectID string) string
+	BackupPolicyKubernetesWithID func(projectID, id string) string
+
+	// Backup Kubernetes (cluster backup)
+	BackupKuberneteses     func(projectID string) string
+	BackupKubernetesWithID func(projectID, id string) string
+
+	// Backup Kubernetes Restore
+	BackupKubernetesRestores           func(projectID string) string
+	BackupKubernetesRestorePoints      func(projectID string) string
+	BackupKubernetesRestorePointWithID func(projectID, id string) string
+
+	// MaaS (Monitoring as a Service)
+	MaasPipelines              func(projectID string) string
+	MaasPipelineWithID         func(projectID, id string) string
+	MaasPipelineExecutors      func(projectID string) string
+	MaasPipelineExecutorWithID func(projectID, id string) string
+	MaasAccessKeys             func(projectID string) string
+	MaasAccessKeyWithID        func(projectID, id string) string
+	MaasAccessKeyStatus        func(projectID, id string) string
+	MaasRoleBindings           func(projectID string) string
+	MaasRoleBindingWithID      func(projectID, id string) string
+
 	// Zone → Project Resolution (not project-scoped)
 	ResolveProjectByZone func(zoneID string) string
 }{
@@ -834,6 +873,91 @@ var ApiPath = struct {
 	},
 	DatabaseRedisVersions: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/database/redis-versions", projectID)
+	},
+
+	BackupVaults: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-vaults", projectID)
+	},
+	BackupVaultWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-vaults/%s", projectID, id)
+	},
+
+	BackupPolicyServers: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-policy-servers", projectID)
+	},
+	BackupPolicyServerWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-policy-servers/%s", projectID, id)
+	},
+
+	BackupServers: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-servers", projectID)
+	},
+	BackupServerWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-servers/%s", projectID, id)
+	},
+	BackupServerRestorePoints: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-server-restore-points", projectID)
+	},
+	BackupServerRestorePointWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-server-restore-points/%s", projectID, id)
+	},
+	BackupServerDisasterRestorePoints: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-server-disaster-restore-points", projectID)
+	},
+
+	BackupPolicyKuberneteses: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-policy-kubernetes", projectID)
+	},
+	BackupPolicyKubernetesWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-policy-kubernetes/%s", projectID, id)
+	},
+
+	BackupKuberneteses: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-kubernetes", projectID)
+	},
+	BackupKubernetesWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-kubernetes/%s", projectID, id)
+	},
+
+	BackupKubernetesRestores: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-kubernetes-restores", projectID)
+	},
+	BackupKubernetesRestorePoints: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-kubernetes-restore-points", projectID)
+	},
+	BackupKubernetesRestorePointWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/backup-kubernetes-restore-points/%s", projectID, id)
+	},
+
+	MaasPipelines: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/maas-pipelines", projectID)
+	},
+	MaasPipelineWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/maas-pipelines/%s", projectID, id)
+	},
+
+	MaasPipelineExecutors: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/maas-pipeline-executors", projectID)
+	},
+	MaasPipelineExecutorWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/maas-pipeline-executors/%s", projectID, id)
+	},
+
+	MaasAccessKeys: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/maas-access-keys", projectID)
+	},
+	MaasAccessKeyWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/maas-access-keys/%s", projectID, id)
+	},
+	MaasAccessKeyStatus: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/maas-access-keys/%s/status", projectID, id)
+	},
+
+	MaasRoleBindings: func(projectID string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/maas-role-bindings", projectID)
+	},
+	MaasRoleBindingWithID: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/maas-role-bindings/%s", projectID, id)
 	},
 
 	ResolveProjectByZone: func(zoneID string) string {

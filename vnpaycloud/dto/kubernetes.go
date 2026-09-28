@@ -2,22 +2,23 @@ package dto
 
 // K8sCluster matches the backend K8sCluster proto message.
 type K8sCluster struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Zone        string `json:"zone"`
-	K8sVersion  string `json:"k8sVersion"`
-	Purpose     string `json:"purpose"`
-	SubnetID    string `json:"subnetId"`
-	CniPlugin   string `json:"cniPlugin"`
-	PodCidr     string `json:"podCidr"`
-	ServiceCidr string `json:"serviceCidr"`
-	PrivateGwID string `json:"privateGwId"`
-	ClusterSize string `json:"clusterSize"`
-	ApiEndpoint string `json:"apiEndpoint"`
-	PrivateIP   string `json:"privateIp"`
-	Status      string `json:"status"`
-	CreatedAt   string `json:"createdAt"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	Zone          string `json:"zone"`
+	K8sVersion    string `json:"k8sVersion"`
+	Purpose       string `json:"purpose"`
+	SubnetID      string `json:"subnetId"`
+	CniPlugin     string `json:"cniPlugin"`
+	PodCidr       string `json:"podCidr"`
+	ServiceCidr   string `json:"serviceCidr"`
+	PrivateGwID   string `json:"privateGwId"`
+	ClusterSize   string `json:"clusterSize"`
+	ApiEndpoint   string `json:"apiEndpoint"`
+	PrivateIP     string `json:"privateIp"`
+	Status        string `json:"status"`
+	RestoreStatus string `json:"restoreStatus"`
+	CreatedAt     string `json:"createdAt"`
 }
 
 // CreateK8sClusterRequest matches the backend CreateK8sClusterRequest proto message.

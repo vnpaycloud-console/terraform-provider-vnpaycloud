@@ -67,6 +67,7 @@ type RequestOpts struct {
 	MoreHeaders      map[string]string
 	OmitHeaders      []string
 	KeepResponseBody bool
+	NoRateLimitRetry bool
 }
 
 func (client *Client) Get(ctx context.Context, path string, JSONResponse any, opts *RequestOpts) (*http.Response, error) {
@@ -136,7 +137,7 @@ func (client *Client) doRequest(ctx context.Context, method, url string, options
 		var backoff time.Duration
 		switch {
 		case isRateLimited:
-			if rateLimitAttempts >= maxRateLimitRetries {
+			if options.NoRateLimitRetry || rateLimitAttempts >= maxRateLimitRetries {
 				return resp, err
 			}
 
