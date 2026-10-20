@@ -42,5 +42,6 @@ output "gateways_by_vpc" {
   - `name` (String) The name of the internet gateway.
   - `description` (String) A human-readable description of the internet gateway.
   - `vpc_id` (String) The ID of the VPC this internet gateway is attached to.
+  - `blacklist` (Set of String) The CIDR blocks currently blocked at this internet gateway.
   - `status` (String) The current status of the internet gateway (e.g., `ACTIVE`, `BUILD`, `ERROR`).
   - `created_at` (String) The timestamp when the internet gateway was created, in ISO 8601 format.

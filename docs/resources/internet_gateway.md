@@ -64,6 +64,7 @@ resource "vnpaycloud_internet_gateway" "standalone" {
 ### Read-Only
 
 - `id` (String) The ID of the internet gateway.
+- `blacklist` (Set of String) The CIDR blocks currently blocked at this internet gateway. Manage them with the `vnpaycloud_internet_gateway_acl` resource.
 - `status` (String) The current status of the internet gateway.
 - `zone_id` (String) The availability zone ID where the internet gateway is deployed.
 - `created_at` (String) The creation timestamp of the internet gateway.

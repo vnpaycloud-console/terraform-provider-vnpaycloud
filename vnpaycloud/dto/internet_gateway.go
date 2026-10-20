@@ -2,14 +2,15 @@ package dto
 
 // InternetGateway matches the backend InternetGateway proto message.
 type InternetGateway struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	VPCID       string `json:"vpcId"`
-	Status      string `json:"status"`
-	CreatedAt   string `json:"createdAt"`
-	ProjectID   string `json:"projectId"`
-	ZoneID      string `json:"zoneId"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	VPCID       string   `json:"vpcId"`
+	Status      string   `json:"status"`
+	CreatedAt   string   `json:"createdAt"`
+	Blacklist   []string `json:"blacklist"`
+	ProjectID   string   `json:"projectId"`
+	ZoneID      string   `json:"zoneId"`
 }
 
 // CreateInternetGatewayRequest matches the backend CreateInternetGatewayRequest proto message.
@@ -39,4 +40,23 @@ type InternetGatewayResponse struct {
 // ListInternetGatewaysResponse matches the backend ListInternetGatewaysResponse proto message.
 type ListInternetGatewaysResponse struct {
 	InternetGateways []InternetGateway `json:"internetGateways"`
+}
+
+// InternetGatewayBlacklist matches the backend InternetGatewayBlacklist proto message.
+type InternetGatewayBlacklist struct {
+	InternetGatewayID string   `json:"internetGatewayId"`
+	Match             []string `json:"match"`
+	ProjectID         string   `json:"projectId"`
+	ZoneID            string   `json:"zoneId"`
+}
+
+// UpdateInternetGatewayBlacklistRequest matches the backend UpdateInternetGatewayBlacklistRequest proto message.
+// project_id and id are passed via URL path. The list is replaced as a whole.
+type UpdateInternetGatewayBlacklistRequest struct {
+	Match []string `json:"match"`
+}
+
+// InternetGatewayBlacklistResponse matches the backend InternetGatewayBlacklistResponse proto message.
+type InternetGatewayBlacklistResponse struct {
+	Blacklist InternetGatewayBlacklist `json:"blacklist"`
 }

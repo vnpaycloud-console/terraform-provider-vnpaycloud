@@ -42,6 +42,11 @@ func ResourceInternetGateway() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
+			"blacklist": {
+				Type:     schema.TypeSet,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
 			"status": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -118,6 +123,7 @@ func resourceInternetGatewayRead(ctx context.Context, d *schema.ResourceData, me
 	d.Set("name", igwResp.InternetGateway.Name)
 	d.Set("description", igwResp.InternetGateway.Description)
 	d.Set("vpc_id", igwResp.InternetGateway.VPCID)
+	d.Set("blacklist", igwResp.InternetGateway.Blacklist)
 	d.Set("status", igwResp.InternetGateway.Status)
 	d.Set("created_at", igwResp.InternetGateway.CreatedAt)
 	d.Set("zone_id", igwResp.InternetGateway.ZoneID)

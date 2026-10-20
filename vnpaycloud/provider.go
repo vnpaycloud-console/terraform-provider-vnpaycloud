@@ -33,6 +33,7 @@ import (
 	"terraform-provider-vnpaycloud/vnpaycloud/image"
 	"terraform-provider-vnpaycloud/vnpaycloud/instance"
 	"terraform-provider-vnpaycloud/vnpaycloud/internetgateway"
+	"terraform-provider-vnpaycloud/vnpaycloud/internetgatewayacl"
 	"terraform-provider-vnpaycloud/vnpaycloud/keypair"
 	"terraform-provider-vnpaycloud/vnpaycloud/kubernetescluster"
 	"terraform-provider-vnpaycloud/vnpaycloud/kubernetesrbac"
@@ -125,6 +126,7 @@ func Provider() *schema.Provider {
 			"vnpaycloud_snapshots":                             snapshot.DataSourceSnapshots(),
 			"vnpaycloud_internet_gateway":                      internetgateway.DataSourceInternetGateway(),
 			"vnpaycloud_internet_gateways":                     internetgateway.DataSourceInternetGateways(),
+			"vnpaycloud_internet_gateway_acl":                  internetgatewayacl.DataSourceInternetGatewayACL(),
 			"vnpaycloud_service_gateway":                       servicegateway.DataSourceServiceGateway(),
 			"vnpaycloud_service_gateways":                      servicegateway.DataSourceServiceGateways(),
 			"vnpaycloud_service_gateway_flavors":               servicegateway.DataSourceServiceGatewayFlavors(),
@@ -241,6 +243,7 @@ func Provider() *schema.Provider {
 			"vnpaycloud_snapshot":                         snapshot.ResourceSnapshot(),
 			"vnpaycloud_certificate":                      certificate.ResourceCertificate(),
 			"vnpaycloud_internet_gateway":                 internetgateway.ResourceInternetGateway(),
+			"vnpaycloud_internet_gateway_acl":             internetgatewayacl.ResourceInternetGatewayACL(),
 			"vnpaycloud_service_gateway":                  servicegateway.ResourceServiceGateway(),
 			"vnpaycloud_service_endpoint":                 serviceendpoint.ResourceServiceEndpoint(),
 			"vnpaycloud_lb_loadbalancer":                  loadbalancer.ResourceLoadBalancer(),
