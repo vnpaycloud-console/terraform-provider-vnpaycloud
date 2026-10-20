@@ -85,6 +85,7 @@ var ApiPath = struct {
 	InternetGatewayWithID    func(projectID, id string) string
 	InternetGatewayAttachVPC func(projectID, id string) string
 	InternetGatewayDetachVPC func(projectID, id string) string
+	InternetGatewayBlacklist func(projectID, id string) string
 
 	// Service Gateway
 	ServiceGateways            func(projectID string) string
@@ -482,6 +483,9 @@ var ApiPath = struct {
 	},
 	InternetGatewayDetachVPC: func(projectID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/internet-gateways/%s/detach-vpc", projectID, id)
+	},
+	InternetGatewayBlacklist: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/internet-gateways/%s/blacklist", projectID, id)
 	},
 	ServiceGateways: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/service-gateways", projectID)

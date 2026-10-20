@@ -35,6 +35,11 @@ func DataSourceInternetGateway() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"blacklist": {
+				Type:     schema.TypeSet,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
 			"status": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -90,6 +95,7 @@ func setInternetGatewayData(d *schema.ResourceData, igw *dto.InternetGateway) di
 	d.Set("name", igw.Name)
 	d.Set("description", igw.Description)
 	d.Set("vpc_id", igw.VPCID)
+	d.Set("blacklist", igw.Blacklist)
 	d.Set("status", igw.Status)
 	d.Set("created_at", igw.CreatedAt)
 	d.Set("zone_id", igw.ZoneID)
@@ -109,9 +115,14 @@ func DataSourceInternetGateways() *schema.Resource {
 						"name":        {Type: schema.TypeString, Computed: true},
 						"description": {Type: schema.TypeString, Computed: true},
 						"vpc_id":      {Type: schema.TypeString, Computed: true},
-						"status":      {Type: schema.TypeString, Computed: true},
-						"created_at":  {Type: schema.TypeString, Computed: true},
-						"zone_id":     {Type: schema.TypeString, Computed: true},
+						"blacklist": {
+							Type:     schema.TypeSet,
+							Computed: true,
+							Elem:     &schema.Schema{Type: schema.TypeString},
+						},
+						"status":     {Type: schema.TypeString, Computed: true},
+						"created_at": {Type: schema.TypeString, Computed: true},
+						"zone_id":    {Type: schema.TypeString, Computed: true},
 					},
 				},
 			},
@@ -135,6 +146,7 @@ func dataSourceInternetGatewaysRead(ctx context.Context, d *schema.ResourceData,
 			"name":        igw.Name,
 			"description": igw.Description,
 			"vpc_id":      igw.VPCID,
+			"blacklist":   igw.Blacklist,
 			"status":      igw.Status,
 			"created_at":  igw.CreatedAt,
 			"zone_id":     igw.ZoneID,

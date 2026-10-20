@@ -40,6 +40,7 @@ data "vnpaycloud_internet_gateway" "by_id" {
 
 - `description` (String) A human-readable description of the internet gateway.
 - `vpc_id` (String) The ID of the VPC this internet gateway is attached to.
+- `blacklist` (Set of String) The CIDR blocks currently blocked at this internet gateway.
 - `status` (String) The current status of the internet gateway (e.g., `ACTIVE`, `BUILD`, `ERROR`).
 - `zone_id` (String) The availability zone ID where the internet gateway is deployed.
 - `created_at` (String) The timestamp when the internet gateway was created, in ISO 8601 format.
