@@ -4,6 +4,7 @@ import (
 	"context"
 	"terraform-provider-vnpaycloud/vnpaycloud/dto"
 	"terraform-provider-vnpaycloud/vnpaycloud/helper/client"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 )
@@ -34,4 +35,20 @@ func clusterStateRefreshFunc(ctx context.Context, c *client.Client, projectID, i
 		}
 		return resp, status, nil
 	}
+}
+
+// WaitClusterActive blocks until the cluster leaves an updating state. Day-2
+// cluster actions (whitelist, rotate credentials, rolling update, audit log)
+// all move the cluster to "updating" and back to "active" when done.
+func WaitClusterActive(ctx context.Context, c *client.Client, projectID, id string, timeout time.Duration) error {
+	stateConf := &retry.StateChangeConf{
+		Pending:    []string{"updating", "creating", "initiating", "pending_update", "unknown"},
+		Target:     []string{"active"},
+		Refresh:    clusterStateRefreshFunc(ctx, c, projectID, id),
+		Timeout:    timeout,
+		Delay:      15 * time.Second,
+		MinTimeout: 10 * time.Second,
+	}
+	_, err := stateConf.WaitForStateContext(ctx)
+	return err
 }

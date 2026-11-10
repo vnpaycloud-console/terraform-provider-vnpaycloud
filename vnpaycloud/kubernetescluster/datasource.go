@@ -79,6 +79,19 @@ func DataSourceKubernetesCluster() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"access_mode": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"api_server_fixed_ip": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"control_plane_fixed_ips": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
 			"created_at": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -140,6 +153,9 @@ func setClusterData(d *schema.ResourceData, c *dto.K8sCluster) diag.Diagnostics 
 	d.Set("private_ip", c.PrivateIP)
 	d.Set("status", c.Status)
 	d.Set("restore_status", c.RestoreStatus)
+	d.Set("access_mode", c.AccessMode)
+	d.Set("api_server_fixed_ip", c.ApiServerFixedIP)
+	d.Set("control_plane_fixed_ips", c.ControlPlaneFixedIPs)
 	d.Set("created_at", c.CreatedAt)
 	return nil
 }

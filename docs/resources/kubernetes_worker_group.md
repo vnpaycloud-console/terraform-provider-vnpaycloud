@@ -30,6 +30,22 @@ resource "vnpaycloud_kubernetes_worker_group" "extra" {
 }
 ```
 
+### Worker group with fixed IPs
+
+On a cluster created with fixed IPs every worker group needs its own pool. List at least `num_workers` addresses (or `max_workers` when autoscaling), up to 60, following the same rules as the cluster (inside the subnet, outside the DHCP pool, last octet 100–250, unused). Later you can append addresses to grow the pool; removing one is not supported.
+
+```hcl
+resource "vnpaycloud_kubernetes_worker_group" "fixed" {
+  cluster_id  = vnpaycloud_kubernetes_cluster.fixed.id
+  name        = "fixed-workers"
+  flavor      = "a-pro-small.2x2"
+  num_workers = 2
+  fixed_ips   = ["10.10.1.120", "10.10.1.121", "10.10.1.122"]
+  volume_type = "c1-standard"
+  volume_size = 50
+}
+```
+
 ### Auto-scaling worker group
 
 ```hcl
@@ -65,6 +81,7 @@ resource "vnpaycloud_kubernetes_worker_group" "auto_scale" {
 - `ssh_key_id` (String, ForceNew) The ID of the SSH key pair to inject into the worker nodes for direct SSH access. Changing this creates a new worker group.
 - `labels` (Map of String) A map of Kubernetes node labels to apply to all nodes in this worker group. Useful for node selectors and affinity rules. Can be updated in-place. Label keys and values must be 63 characters or less.
 - `auto_healing` (Boolean) Whether machine health checking (auto-healing) is enabled for this worker group. When enabled, unhealthy nodes are automatically replaced. Can be updated in-place. If omitted, the default applies (read back into state).
+- `fixed_ips` (Set of String, Computed) Fixed addresses reserved for this group's nodes; order in the configuration does not matter, addresses are assigned to slots in ascending order. Required on clusters that use fixed IPs, optional otherwise. Can be updated in-place by **appending** addresses (for example before raising `num_workers` or `max_workers`); removing an address is rejected at plan time, recreate the group instead.
 
 ### Read-Only
 

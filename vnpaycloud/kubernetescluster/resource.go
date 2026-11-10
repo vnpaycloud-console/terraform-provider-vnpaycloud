@@ -83,6 +83,13 @@ func ResourceKubernetesCluster() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validation.IsCIDR,
 			},
+			"api_server_fixed_ip": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.IsIPv4Address,
+			},
 
 			// Master Information
 			"cluster_size": {
@@ -90,6 +97,13 @@ func ResourceKubernetesCluster() *schema.Resource {
 				Optional:     true,
 				Computed:     true,
 				ValidateFunc: validation.StringInSlice([]string{"small", "medium", "large", "extra_large"}, false),
+			},
+			"control_plane_fixed_ips": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				Computed: true,
+				ForceNew: true,
+				Elem:     &schema.Schema{Type: schema.TypeString, ValidateFunc: validation.IsIPv4Address},
 			},
 
 			// Initial Worker Group (required for cluster creation)
@@ -132,6 +146,13 @@ func ResourceKubernetesCluster() *schema.Resource {
 				ForceNew:         true,
 				DiffSuppressFunc: suppressForceNewOnImport,
 			},
+			"default_worker_fixed_ips": {
+				Type:             schema.TypeList,
+				Optional:         true,
+				ForceNew:         true,
+				Elem:             &schema.Schema{Type: schema.TypeString, ValidateFunc: validation.IsIPv4Address},
+				DiffSuppressFunc: suppressForceNewOnImport,
+			},
 
 			// Computed attributes
 			"zone": {
@@ -151,6 +172,10 @@ func ResourceKubernetesCluster() *schema.Resource {
 				Computed: true,
 			},
 			"restore_status": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"access_mode": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -202,6 +227,15 @@ func resourceClusterCreate(ctx context.Context, d *schema.ResourceData, meta int
 	}
 	if v, ok := d.GetOk("cluster_size"); ok {
 		createOpts.MasterInformation.ClusterSize = v.(string)
+	}
+	if v, ok := d.GetOk("api_server_fixed_ip"); ok {
+		createOpts.NetworkInformation.ApiServerFixedIP = v.(string)
+	}
+	if v, ok := d.GetOk("control_plane_fixed_ips"); ok {
+		createOpts.MasterInformation.ControlPlaneFixedIPs = util.ExpandIPSet(v)
+	}
+	if v, ok := d.GetOk("default_worker_fixed_ips"); ok {
+		createOpts.WorkerGroupInformation.FixedIPs = util.ExpandStringList(v)
 	}
 	if v, ok := d.GetOk("default_worker_name"); ok {
 		createOpts.WorkerGroupInformation.Name = v.(string)
@@ -268,11 +302,14 @@ func resourceClusterRead(ctx context.Context, d *schema.ResourceData, meta inter
 	d.Set("pod_cidr", resp.Cluster.PodCidr)
 	d.Set("service_cidr", resp.Cluster.ServiceCidr)
 	d.Set("cluster_size", resp.Cluster.ClusterSize)
+	d.Set("api_server_fixed_ip", resp.Cluster.ApiServerFixedIP)
+	d.Set("control_plane_fixed_ips", resp.Cluster.ControlPlaneFixedIPs)
 	d.Set("zone", resp.Cluster.Zone)
 	d.Set("api_endpoint", resp.Cluster.ApiEndpoint)
 	d.Set("private_ip", resp.Cluster.PrivateIP)
 	d.Set("status", resp.Cluster.Status)
 	d.Set("restore_status", resp.Cluster.RestoreStatus)
+	d.Set("access_mode", resp.Cluster.AccessMode)
 	d.Set("created_at", resp.Cluster.CreatedAt)
 
 	// Fetch kubeconfig if cluster is active.
@@ -332,16 +369,7 @@ func resourceClusterUpdateInner(ctx context.Context, d *schema.ResourceData, met
 }
 
 func waitClusterActive(ctx context.Context, cfg *config.Config, d *schema.ResourceData) error {
-	stateConf := &retry.StateChangeConf{
-		Pending:    []string{"updating", "creating", "initiating", "pending_update", "unknown"},
-		Target:     []string{"active"},
-		Refresh:    clusterStateRefreshFunc(ctx, cfg.Client, cfg.ProjectID, d.Id()),
-		Timeout:    d.Timeout(schema.TimeoutUpdate),
-		Delay:      15 * time.Second,
-		MinTimeout: 10 * time.Second,
-	}
-	_, err := stateConf.WaitForStateContext(ctx)
-	return err
+	return WaitClusterActive(ctx, cfg.Client, cfg.ProjectID, d.Id(), d.Timeout(schema.TimeoutUpdate))
 }
 
 func resourceClusterDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

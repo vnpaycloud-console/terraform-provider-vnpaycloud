@@ -151,16 +151,23 @@ var ApiPath = struct {
 	RegistryPermissions func(projectID string) string
 
 	// Kubernetes Cluster
-	Clusters              func(projectID string) string
-	ClusterWithID         func(projectID, id string) string
-	ClusterKubeconfig     func(projectID, id string) string
-	ClusterUpgradeVersion func(projectID, id string) string
-	ClusterChangeSize     func(projectID, id string) string
-	KubernetesVersions    func(projectID string) string
+	Clusters                         func(projectID string) string
+	ClusterWithID                    func(projectID, id string) string
+	ClusterKubeconfig                func(projectID, id string) string
+	ClusterUpgradeVersion            func(projectID, id string) string
+	ClusterChangeSize                func(projectID, id string) string
+	KubernetesVersions               func(projectID string) string
+	ClusterRotateCredentials         func(projectID, id string) string
+	ClusterApiWhitelist              func(projectID, id string) string
+	ClusterControlPlaneBaseline      func(projectID, id string) string
+	ClusterControlPlaneRollingUpdate func(projectID, id string) string
+	ClusterAuditLogEnable            func(projectID, id string) string
+	ClusterFixedIPPool               func(projectID, id string) string
 
 	// Worker Group
-	WorkerGroups      func(projectID, clusterID string) string
-	WorkerGroupWithID func(projectID, clusterID, id string) string
+	WorkerGroups           func(projectID, clusterID string) string
+	WorkerGroupWithID      func(projectID, clusterID, id string) string
+	WorkerGroupFixedIPPool func(projectID, clusterID, id string) string
 
 	// Kubernetes RBAC
 	KubernetesRoles      func(projectID, clusterID string) string
@@ -610,11 +617,32 @@ var ApiPath = struct {
 	KubernetesVersions: func(projectID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/kubernetes-versions", projectID)
 	},
+	ClusterRotateCredentials: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/rotate-credentials", projectID, id)
+	},
+	ClusterApiWhitelist: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/api-whitelist", projectID, id)
+	},
+	ClusterControlPlaneBaseline: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/control-plane/baseline", projectID, id)
+	},
+	ClusterControlPlaneRollingUpdate: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/control-plane/rolling-update", projectID, id)
+	},
+	ClusterAuditLogEnable: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/audit-log/enable", projectID, id)
+	},
+	ClusterFixedIPPool: func(projectID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/fixed-ip-pool", projectID, id)
+	},
 	WorkerGroups: func(projectID, clusterID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/worker-groups", projectID, clusterID)
 	},
 	WorkerGroupWithID: func(projectID, clusterID, id string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/worker-groups/%s", projectID, clusterID, id)
+	},
+	WorkerGroupFixedIPPool: func(projectID, clusterID, id string) string {
+		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/worker-groups/%s/fixed-ip-pool", projectID, clusterID, id)
 	},
 	KubernetesRoles: func(projectID, clusterID string) string {
 		return fmt.Sprintf("/v2/iac/projects/%s/clusters/%s/kubernetes-roles", projectID, clusterID)
