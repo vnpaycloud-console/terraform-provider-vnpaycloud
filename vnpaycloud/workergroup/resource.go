@@ -39,6 +39,22 @@ func ResourceWorkerGroup() *schema.Resource {
 			Update: schema.DefaultTimeout(30 * time.Minute),
 			Delete: schema.DefaultTimeout(15 * time.Minute),
 		},
+		CustomizeDiff: func(ctx context.Context, d *schema.ResourceDiff, meta interface{}) error {
+			if d.Id() == "" || !d.HasChange("fixed_ips") {
+				return nil
+			}
+			oldRaw, newRaw := d.GetChange("fixed_ips")
+			desired := make(map[string]struct{})
+			for _, ip := range util.ExpandStringList(newRaw) {
+				desired[ip] = struct{}{}
+			}
+			for _, ip := range util.ExpandStringList(oldRaw) {
+				if _, ok := desired[ip]; !ok {
+					return fmt.Errorf("fixed_ips only supports appending IPs; %s cannot be removed from the pool (recreate the worker group instead)", ip)
+				}
+			}
+			return nil
+		},
 		Schema: map[string]*schema.Schema{
 			"cluster_id": {
 				Type:     schema.TypeString,
@@ -54,6 +70,12 @@ func ResourceWorkerGroup() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
+			},
+			"fixed_ips": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString, ValidateFunc: validation.IsIPv4Address},
 			},
 			"num_workers": {
 				Type:         schema.TypeInt,
@@ -153,6 +175,9 @@ func resourceWorkerGroupCreate(ctx context.Context, d *schema.ResourceData, meta
 		}
 		createOpts.Labels = labels
 	}
+	if v, ok := d.GetOk("fixed_ips"); ok {
+		createOpts.FixedIPs = util.ExpandIPSet(v)
+	}
 
 	tflog.Debug(ctx, "vnpaycloud_kubernetes_worker_group create options", map[string]interface{}{"create_opts": createOpts})
 
@@ -205,6 +230,7 @@ func resourceWorkerGroupRead(ctx context.Context, d *schema.ResourceData, meta i
 	d.Set("ssh_key_id", resp.WorkerGroup.SshKeyID)
 	d.Set("labels", resp.WorkerGroup.Labels)
 	d.Set("auto_healing", resp.WorkerGroup.AutoHealing)
+	d.Set("fixed_ips", resp.WorkerGroup.FixedIPs)
 	d.Set("status", resp.WorkerGroup.Status)
 	d.Set("created_at", resp.WorkerGroup.CreatedAt)
 
@@ -223,13 +249,14 @@ func resourceWorkerGroupUpdateInner(ctx context.Context, d *schema.ResourceData,
 	cfg := meta.(*config.Config)
 	clusterID := d.Get("cluster_id").(string)
 
-	if d.HasChanges("num_workers", "auto_scaling", "min_workers", "max_workers", "labels", "auto_healing") {
+	if d.HasChanges("num_workers", "auto_scaling", "min_workers", "max_workers", "labels", "auto_healing", "fixed_ips") {
 		updateOpts := dto.UpdateWorkerGroupRequest{
 			NumWorkers:  d.Get("num_workers").(int),
 			AutoScaling: d.Get("auto_scaling").(bool),
 			MinWorkers:  d.Get("min_workers").(int),
 			MaxWorkers:  d.Get("max_workers").(int),
 			AutoHealing: d.Get("auto_healing").(bool),
+			FixedIPs:    util.ExpandIPSet(d.Get("fixed_ips")),
 		}
 		if v, ok := d.GetOk("labels"); ok {
 			labels := make(map[string]string)

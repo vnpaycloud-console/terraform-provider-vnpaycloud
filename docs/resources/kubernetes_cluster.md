@@ -25,6 +25,16 @@ Every cluster is one of two types, chosen at creation via the `private_gw_id` at
 
 The type is **fixed at creation**: `private_gw_id` is ForceNew, so switching a public cluster to private (or back) recreates the cluster. Both types share the same [prerequisites](#prerequisites) below.
 
+## Fixed IPs for nodes
+
+By default nodes get their addresses from the subnet's DHCP range, so a replaced node (rolling upgrade, auto-healing, scale out) comes back with a different IP and firewall rules referencing node IPs break. Set `api_server_fixed_ip`, `control_plane_fixed_ips` and `default_worker_fixed_ips` together to reserve addresses instead:
+
+- `api_server_fixed_ip` is the in-VPC address of the Kubernetes API (the `.100` host of the subnet by convention).
+- `control_plane_fixed_ips` is one more address than the control plane has nodes (4 for the default 3-node control plane), forming a contiguous range, so a node can be replaced while the others stay up.
+- `default_worker_fixed_ips` has at least as many addresses as the group has workers (or `max_workers` when it autoscales), up to 60.
+
+All of them must be IPv4 addresses inside `subnet_id`, outside the subnet's DHCP allocation pool, with the last octet between 100 and 250, not used by any port or by another cluster on the subnet. The three attributes must be set together or not at all. The pool cannot be changed after creation; additional worker groups manage their own pool through `fixed_ips` on `vnpaycloud_kubernetes_worker_group`. Inspect a pool with the `vnpaycloud_kubernetes_fixed_ip_pool` data source.
+
 ## Prerequisites
 
 A cluster can only be created on a subnet that is prepared for Kubernetes. Before creating a cluster, ensure:
@@ -107,6 +117,26 @@ output "kubeconfig" {
 }
 ```
 
+### Cluster with fixed IPs
+
+```hcl
+resource "vnpaycloud_kubernetes_cluster" "fixed" {
+  name                       = "fixed-ip-cluster"
+  subnet_id                  = vnpaycloud_subnet.subnet.id   # 10.10.1.0/24, DHCP pool .8-.99
+  api_server_fixed_ip        = "10.10.1.100"
+  control_plane_fixed_ips    = ["10.10.1.101", "10.10.1.102", "10.10.1.103", "10.10.1.104"]
+  default_worker_flavor      = "a-pro-small.2x2"
+  default_worker_name        = "default-workers"
+  default_worker_count       = 2
+  default_worker_fixed_ips   = ["10.10.1.110", "10.10.1.111", "10.10.1.112"]
+  default_worker_volume_type = "c1-standard"
+  default_worker_volume_size = 50
+  default_worker_ssh_key_id  = vnpaycloud_keypair.k8s.id
+
+  depends_on = [vnpaycloud_subnet_snat.snat]
+}
+```
+
 ### Private cluster
 
 Set `private_gw_id` to a `vnpaycloud_private_gateway` to make the cluster **private**: the Kubernetes API is reachable only within the VPC (through the private gateway) and `api_endpoint` will be empty. Retrieve access via the kubeconfig data source with `is_private_access = true`. The SNAT/network prerequisites above still apply.
@@ -155,6 +185,9 @@ resource "vnpaycloud_kubernetes_cluster" "private" {
 - `cluster_size` (String, Computed) The control plane size (deployment size). Valid values are `small`, `medium`, `large`, `extra_large` — each raises the supported worker/pod limits. If not specified, a default is assigned based on worker count. **Updatable in place:** changing this resizes the control plane (both up and down) without recreating the cluster.
 - `default_worker_count` (Number, ForceNew) The initial number of worker nodes in the default group. Must be at least `1`. Defaults to `1`. Changing this creates a new cluster.
 - `default_worker_volume_size` (Number, ForceNew) The root disk size in gigabytes for default worker nodes. Must be between `50` and `200` (validated at plan time). Changing this creates a new cluster.
+- `api_server_fixed_ip` (String, ForceNew, Computed) Fixed in-VPC address of the Kubernetes API. Must be set together with `control_plane_fixed_ips` and `default_worker_fixed_ips`. See [Fixed IPs for nodes](#fixed-ips-for-nodes). Changing this creates a new cluster.
+- `control_plane_fixed_ips` (Set of String, ForceNew, Computed) Fixed addresses reserved for control-plane nodes: one more than the number of control-plane nodes, forming a contiguous range. Order in the configuration does not matter. Changing this creates a new cluster.
+- `default_worker_fixed_ips` (List of String, ForceNew) Fixed addresses reserved for the default worker group, in slot order. At least `default_worker_count` entries, at most 60. Not read back from the API; like the other `default_worker_*` attributes it is ignored on import. Changing this creates a new cluster.
 
 ~> **Name length:** The cluster name plus the default worker group name have a combined length limit. Keep both short and use lowercase letters, numbers, and hyphens.
 
@@ -166,6 +199,7 @@ resource "vnpaycloud_kubernetes_cluster" "private" {
 - `private_ip` (String) The private IP address of the Kubernetes API server.
 - `status` (String) The current status of the cluster, lowercase (e.g. `active`, `creating`, `error`, `failed`).
 - `restore_status` (String) The cluster's Kubernetes restore state: `none`, `restoring`, `success`, or `failed`.
+- `access_mode` (String) `public` or `private`. Only public clusters accept a `vnpaycloud_kubernetes_api_whitelist`.
 - `created_at` (String) The creation timestamp of the cluster in ISO 8601 format.
 - `kubeconfig` (String, Sensitive) The kubeconfig file content for authenticating with the cluster using `kubectl`.
 
@@ -183,4 +217,13 @@ Kubernetes clusters can be imported using the `id`:
 terraform import vnpaycloud_kubernetes_cluster.example <cluster-id>
 ```
 
-~> **Note:** `k8s_version`, `cluster_size`, and the network settings are read back from the API on import. The `default_worker_*` attributes are not read back, so set them in configuration to match (they are ignored on import to avoid spurious diffs).
+~> **Note:** `k8s_version`, `cluster_size`, the network settings and the fixed IPs of the API server and control plane are read back from the API on import. The `default_worker_*` attributes are not read back, so set them in configuration to match (they are ignored on import to avoid spurious diffs).
+
+## Day-2 operations
+
+Operations that act on an existing cluster live in their own resources so they can be applied independently of the cluster definition:
+
+- [`vnpaycloud_kubernetes_api_whitelist`](kubernetes_api_whitelist.md) limits which IPs reach the public API.
+- [`vnpaycloud_kubernetes_credentials_rotation`](kubernetes_credentials_rotation.md) rotates the cluster's OpenStack application credentials.
+- [`vnpaycloud_kubernetes_control_plane_rolling_update`](kubernetes_control_plane_rolling_update.md) brings the control plane up to the platform baseline.
+- [`vnpaycloud_kubernetes_audit_log`](kubernetes_audit_log.md) enables kube-apiserver audit logging.

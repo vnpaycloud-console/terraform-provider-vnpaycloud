@@ -2,9 +2,11 @@ package util
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"reflect"
 	"sort"
@@ -277,4 +279,33 @@ func itemTime(item map[string]any, timeKeys []string) (time.Time, bool) {
 func stringField(item map[string]any, key string) string {
 	v, _ := item[key].(string)
 	return v
+}
+
+func ExpandStringList(v interface{}) []string {
+	if set, ok := v.(*schema.Set); ok {
+		v = set.List()
+	}
+	l, ok := v.([]interface{})
+	if !ok {
+		return nil
+	}
+	result := make([]string, 0, len(l))
+	for _, item := range l {
+		if s, ok := item.(string); ok {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+func ExpandIPSet(v interface{}) []string {
+	ips := ExpandStringList(v)
+	sort.Slice(ips, func(i, j int) bool {
+		a, b := net.ParseIP(ips[i]).To4(), net.ParseIP(ips[j]).To4()
+		if a == nil || b == nil {
+			return ips[i] < ips[j]
+		}
+		return binary.BigEndian.Uint32(a) < binary.BigEndian.Uint32(b)
+	})
+	return ips
 }

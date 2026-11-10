@@ -54,4 +54,7 @@ data "vnpaycloud_kubernetes_cluster" "by_id" {
 - `api_endpoint` (String) The IP/URL of the Kubernetes API server. Empty for private clusters.
 - `private_ip` (String) The private IP address of the cluster's API server, accessible within the VPC.
 - `status` (String) The current status of the cluster, lowercase (e.g., `active`, `creating`, `deleting`, `error`, `failed`).
+- `access_mode` (String) `public` or `private`.
+- `api_server_fixed_ip` (String) Fixed in-VPC address of the Kubernetes API, empty when the cluster does not use fixed IPs.
+- `control_plane_fixed_ips` (List of String) Fixed addresses reserved for control-plane nodes, empty when the cluster does not use fixed IPs.
 - `created_at` (String) The timestamp when the cluster was created, in ISO 8601 format.

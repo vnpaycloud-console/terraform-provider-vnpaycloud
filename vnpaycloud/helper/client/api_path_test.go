@@ -104,6 +104,13 @@ func TestApiPathBuilders(t *testing.T) {
 		{"ClusterKubeconfig", ApiPath.ClusterKubeconfig(projectID, resourceID), "", "/kubeconfig", ""},
 		{"WorkerGroups", ApiPath.WorkerGroups(projectID, resourceID), "", "/worker-groups", ""},
 		{"WorkerGroupWithID", ApiPath.WorkerGroupWithID(projectID, resourceID, "wg-1"), "", "wg-1", ""},
+		{"WorkerGroupFixedIPPool", ApiPath.WorkerGroupFixedIPPool(projectID, resourceID, "wg-1"), "", "wg-1/fixed-ip-pool", ""},
+		{"ClusterRotateCredentials", ApiPath.ClusterRotateCredentials(projectID, resourceID), "", "/rotate-credentials", ""},
+		{"ClusterApiWhitelist", ApiPath.ClusterApiWhitelist(projectID, resourceID), "", "/api-whitelist", ""},
+		{"ClusterControlPlaneBaseline", ApiPath.ClusterControlPlaneBaseline(projectID, resourceID), "", "/control-plane/baseline", ""},
+		{"ClusterControlPlaneRollingUpdate", ApiPath.ClusterControlPlaneRollingUpdate(projectID, resourceID), "", "/control-plane/rolling-update", ""},
+		{"ClusterAuditLogEnable", ApiPath.ClusterAuditLogEnable(projectID, resourceID), "", "/audit-log/enable", ""},
+		{"ClusterFixedIPPool", ApiPath.ClusterFixedIPPool(projectID, resourceID), "", "/fixed-ip-pool", ""},
 
 		// Registry
 		{"RegistryProjects", ApiPath.RegistryProjects(projectID), "/v2/iac/projects/proj-123/registries", "", ""},

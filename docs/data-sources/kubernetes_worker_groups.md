@@ -60,5 +60,6 @@ output "total_worker_count" {
   - `ssh_key_id` (String) The ID of the SSH key pair injected into the worker nodes.
   - `labels` (Map of String) Kubernetes node labels applied to all nodes in this worker group.
   - `auto_healing` (Boolean) Whether machine health checking (auto-healing) is enabled for this worker group.
+  - `fixed_ips` (List of String) Fixed addresses reserved for this group's nodes, empty when the group does not use fixed IPs.
   - `status` (String) The current status of the worker group, lowercase (e.g., `active`, `creating`, `error`).
   - `created_at` (String) The timestamp when the worker group was created, in ISO 8601 format.

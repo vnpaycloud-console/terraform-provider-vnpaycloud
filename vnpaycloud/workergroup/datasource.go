@@ -68,6 +68,11 @@ func DataSourceWorkerGroup() *schema.Resource {
 				Type:     schema.TypeBool,
 				Computed: true,
 			},
+			"fixed_ips": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
 			"status": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -105,6 +110,7 @@ func dataSourceWorkerGroupRead(ctx context.Context, d *schema.ResourceData, meta
 	d.Set("ssh_key_id", resp.WorkerGroup.SshKeyID)
 	d.Set("labels", resp.WorkerGroup.Labels)
 	d.Set("auto_healing", resp.WorkerGroup.AutoHealing)
+	d.Set("fixed_ips", resp.WorkerGroup.FixedIPs)
 	d.Set("status", resp.WorkerGroup.Status)
 	d.Set("created_at", resp.WorkerGroup.CreatedAt)
 
@@ -136,6 +142,7 @@ func DataSourceWorkerGroups() *schema.Resource {
 						"ssh_key_id":   {Type: schema.TypeString, Computed: true},
 						"labels":       {Type: schema.TypeMap, Computed: true, Elem: &schema.Schema{Type: schema.TypeString}},
 						"auto_healing": {Type: schema.TypeBool, Computed: true},
+						"fixed_ips":    {Type: schema.TypeList, Computed: true, Elem: &schema.Schema{Type: schema.TypeString}},
 						"status":       {Type: schema.TypeString, Computed: true},
 						"created_at":   {Type: schema.TypeString, Computed: true},
 					},
@@ -175,6 +182,7 @@ func dataSourceWorkerGroupsRead(ctx context.Context, d *schema.ResourceData, met
 			"ssh_key_id":   wg.SshKeyID,
 			"labels":       wg.Labels,
 			"auto_healing": wg.AutoHealing,
+			"fixed_ips":    wg.FixedIPs,
 			"status":       wg.Status,
 			"created_at":   wg.CreatedAt,
 		})

@@ -19,6 +19,10 @@ type K8sCluster struct {
 	Status        string `json:"status"`
 	RestoreStatus string `json:"restoreStatus"`
 	CreatedAt     string `json:"createdAt"`
+	AccessMode    string `json:"accessMode"`
+
+	ApiServerFixedIP     string   `json:"apiServerFixedIp"`
+	ControlPlaneFixedIPs []string `json:"controlPlaneFixedIps"`
 }
 
 // CreateK8sClusterRequest matches the backend CreateK8sClusterRequest proto message.
@@ -42,10 +46,14 @@ type K8sNetworkInformation struct {
 	CniPlugin   string `json:"cniPlugin,omitempty"`
 	PodCidr     string `json:"podCidr,omitempty"`
 	ServiceCidr string `json:"serviceCidr,omitempty"`
+
+	ApiServerFixedIP string `json:"apiServerFixedIp,omitempty"`
 }
 
 type K8sMasterInformation struct {
 	ClusterSize string `json:"clusterSize,omitempty"`
+
+	ControlPlaneFixedIPs []string `json:"controlPlaneFixedIps,omitempty"`
 }
 
 type K8sWorkerGroupInformation struct {
@@ -59,6 +67,8 @@ type K8sWorkerGroupInformation struct {
 	VolumeSize  int    `json:"volumeSize,omitempty"`
 	SshKeyID    string `json:"sshKeyId,omitempty"`
 	Labels      string `json:"labels,omitempty"`
+
+	FixedIPs []string `json:"fixedIps,omitempty"`
 }
 
 // K8sClusterResponse matches the backend K8sClusterResponse proto message.
@@ -76,6 +86,52 @@ type UpgradeClusterVersionRequest struct {
 // project_id and cluster id are passed via the URL path.
 type ChangeClusterSizeRequest struct {
 	ClusterSize string `json:"clusterSize"`
+}
+
+// ApiWhitelistEntry is one allowed CIDR on the public kube-apiserver of a cluster.
+type ApiWhitelistEntry struct {
+	Cidr string `json:"cidr"`
+	Note string `json:"note,omitempty"`
+}
+
+// UpdateClusterApiWhitelistRequest replaces the whole whitelist; an empty list allows every IP.
+type UpdateClusterApiWhitelistRequest struct {
+	Entries []ApiWhitelistEntry `json:"entries"`
+}
+
+// ClusterApiWhitelistResponse matches the backend ClusterApiWhitelistResponse proto message.
+type ClusterApiWhitelistResponse struct {
+	Entries           []ApiWhitelistEntry `json:"entries"`
+	Endpoint          string              `json:"endpoint"`
+	PrivateAccess     bool                `json:"privateAccess"`
+	MaxEntries        int                 `json:"maxEntries"`
+	Supported         bool                `json:"supported"`
+	UnsupportedReason string              `json:"unsupportedReason"`
+}
+
+// ClusterControlPlaneBaselineResponse matches the backend ClusterControlPlaneBaselineResponse proto message.
+type ClusterControlPlaneBaselineResponse struct {
+	Supported           bool     `json:"supported"`
+	UnsupportedReason   string   `json:"unsupportedReason"`
+	RollingUpdateNeeded bool     `json:"rollingUpdateNeeded"`
+	OutdatedItems       []string `json:"outdatedItems"`
+	ControlPlaneRolling bool     `json:"controlPlaneRolling"`
+	AuditLogEnabled     bool     `json:"auditLogEnabled"`
+	AuditLogReady       bool     `json:"auditLogReady"`
+}
+
+// FixedIPSlot matches the backend FixedIPSlot proto message.
+type FixedIPSlot struct {
+	Name        string `json:"name"`
+	IPAddress   string `json:"ipAddress"`
+	Claimed     bool   `json:"claimed"`
+	MachineName string `json:"machineName"`
+}
+
+// FixedIPPoolResponse matches the backend FixedIPPoolResponse proto message.
+type FixedIPPoolResponse struct {
+	Name  string        `json:"name"`
+	Slots []FixedIPSlot `json:"slots"`
 }
 
 // ListK8sClustersResponse matches the backend ListK8sClustersResponse proto message.
@@ -116,6 +172,7 @@ type WorkerGroup struct {
 	AutoHealing bool              `json:"autoHealing"`
 	Status      string            `json:"status"`
 	CreatedAt   string            `json:"createdAt"`
+	FixedIPs    []string          `json:"fixedIps"`
 }
 
 // CreateWorkerGroupRequest matches the backend CreateWorkerGroupRequest proto message.
@@ -131,6 +188,7 @@ type CreateWorkerGroupRequest struct {
 	VolumeSize  int               `json:"volumeSize,omitempty"`
 	SshKeyID    string            `json:"sshKeyId,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
+	FixedIPs    []string          `json:"fixedIps,omitempty"`
 }
 
 // UpdateWorkerGroupRequest matches the backend UpdateWorkerGroupRequest proto message.
@@ -141,6 +199,7 @@ type UpdateWorkerGroupRequest struct {
 	MaxWorkers  int               `json:"maxWorkers"`
 	Labels      map[string]string `json:"labels,omitempty"`
 	AutoHealing bool              `json:"autoHealing"`
+	FixedIPs    []string          `json:"fixedIps,omitempty"`
 }
 
 // WorkerGroupResponse matches the backend WorkerGroupResponse proto message.
